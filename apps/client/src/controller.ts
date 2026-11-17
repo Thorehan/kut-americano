@@ -59,13 +59,21 @@ export class Controller {
     if (s.phase === 'claim') seat = s.claim!.queue[0];
     else if (s.phase === 'draw' || s.phase === 'action') seat = s.current;
     if (seat === null || !s.players[seat].isBot) return;
-    const base = s.phase === 'claim' ? 380 : s.phase === 'draw' ? 700 : 520;
+    const base = s.phase === 'claim' ? 420 : s.phase === 'draw' ? 650 : 560;
+    const hold = Math.max(0, this.holdUntil - Date.now());
     const who = seat;
     this.timer = setTimeout(() => {
       this.timer = null;
       this.botStep(who);
-    }, base / this.speed);
+    }, hold + base / this.speed);
   }
+
+  /** Botları kısa süre bekletir (ör. el başı duyurusu ve dağıtım animasyonu sırasında). */
+  hold(ms: number) {
+    this.holdUntil = Math.max(this.holdUntil, Date.now() + ms);
+  }
+
+  private holdUntil = 0;
 
   private botStep(seat: number) {
     if (this.destroyed) return;

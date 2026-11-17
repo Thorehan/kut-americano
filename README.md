@@ -23,7 +23,9 @@ Deneme parametreleri: `?el=10` → 10. elden (Elden Bitme) başlar · `?seed=42`
 ## Nasıl oynanır
 
 - **Taş seç:** taşa dokun (yukarı kalkar). **Taşı taşı:** ıstakada sürükle-bırak.
-- **Çek:** sıran gelince ortadaki desteye ya da soldaki yan taşa dokun.
+- **Çek:** sıran gelince masanın ortasındaki desteye (parlar) ya da sol alt köşedeki yan taşa dokun.
+- **Masa:** herkesin açtığı perler kendi önünde durur; atılan taşlar sıradaki oyuncuya bakan köşededir. Hazırladığın perler kendi alanında yeşil (geçerli) / kırmızı (geçersiz) çerçeveyle önizlenir; ıstakadan kendi alanına sürüklediğin taş da hazırlığa eklenir.
+- **Ses:** sağ üstteki **Ses** butonuyla açılıp kapanır.
 - **Kural aç:** taşları seç → **Per Ekle** → (kural iki perse ikincisi de) → **Kuralı Aç**. **Öner** butonu kuralı otomatik hazırlar. Açtığın sırada **sadece kural iner**, fazlalıklar inemez.
 - **Diz ve işle:** sonraki sıralarında perlerini **Per Ekle → Yere Koy** ile diz; tek taş seçip parlayan pere dokunarak (ya da sürükleyerek) işle.
 - **At:** bir taş seç → **Taş At** (ya da taşı "Taş at" alanına sürükle).
