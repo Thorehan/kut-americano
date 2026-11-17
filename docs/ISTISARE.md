@@ -170,3 +170,29 @@ Cevaplanmayanlar için parantez içindeki **varsayım** ile başlanır.
 - **S9 — Deste biterse:** Ortada taş kalmazsa el nasıl biter? *(Varsayım: el berabere biter, herkes elindeki cezayı yazar, kimse eksi almaz.)*
 - **S10 — Takım modunda kural açma:** Takım arkadaşının açtığı kural diğerinin kilidini de açar mı? *(Varsayım: hayır, herkes kendi kuralını açar; takım biri bitince biter.)*
 - **S11 — "Elden bitmek −50":** Bunu "eli bitirmek" (normal bitiş) olarak yorumladık. Doğru mu?
+
+## 10. İsim ve gelir modeli (öneri — karar bekliyor)
+
+### İsim adayları
+
+| İsim | Neden |
+|---|---|
+| **Küt: Kural Okey** *(önerilen)* | Halkın bildiği ad + oyunun farkı (her elin kuralı) tek bakışta anlaşılır. |
+| Kontrat Okey | Oyunun mekaniğini anlatır; "kontrat" kelimesi oyuncuya yabancı gelebilir. |
+| Kilit Okey | "Kural kilidi" fikrinden; kısa ve akılda kalır. |
+| On Bir El | 11 elli yapıya vurgu; okey kelimesi olmadığı için aramada zayıf. |
+
+"Amerikano" adı tek başına kullanılmamalı: App Store'da *Amerikano Card Game* adlı bir uygulama var. Kesinleşmeden önce TÜRKPATENT marka araması ve Google Play / App Store isim kontrolü yapılmalı.
+
+### Gelir modeli: hibrit, oynanışı satmayan
+
+Okey uygulamaları çoğunlukla ücretsiz + uygulama içi satın alma + reklam kullanıyor; kullanıcı şikâyetlerinin başında **sık reklam** ve **ödeme sorunları** geliyor. Öneri:
+
+1. **Ödüllü reklam (isteğe bağlı):** oyuncu kendisi seçerse izler (ör. günlük bonus ×2, el sonu ekranında ekstra ödül). Zorunlu geçiş reklamı yok; en fazla birkaç elde bir, el arasında.
+2. **"Reklamsız" tek seferlik satın alma.**
+3. **Kozmetik satış:** taş temaları, masa çuhası, ıstaka, avatar çerçevesi, kural çarkı efektleri. Oyun avantajı vermez.
+4. **Abonelik (Faz 3 ile):** özel oda kurma, arkadaş istatistikleri, kozmetik paketleri.
+
+**Çip / para birimi:** oyun içi çip sadece oynayarak ve ödüllü reklamla kazanılsın, **satılmasın ve hiçbir şeye bozdurulmasın**. Satılan çiple masaya girilen yapı mağazalarda "kumar simülasyonu" (yaş sınırı yükselir) sayılır ve Türkiye mevzuatı açısından risklidir; böyle bir şey düşünülürse önce hukuki görüş alınmalı.
+
+**Teknik:** mobil uygulama (Faz 4, Capacitor) ile Google Play Billing / App Store IAP ve AdMob eklenir; web sürümünde reklam/satın alma yok.

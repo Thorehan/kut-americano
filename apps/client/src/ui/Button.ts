@@ -83,6 +83,19 @@ export class Button extends Phaser.GameObjects.Container {
     return this;
   }
 
+  /** Açık renkli zeminlerde (altın) koyu yazı için. */
+  setLabelColor(css: string): this {
+    this.label.setColor(css);
+    this.label.setShadow(0, css === '#ffffff' ? 2 : 0, 'rgba(0,0,0,0.35)', css === '#ffffff' ? 2 : 0);
+    return this;
+  }
+
+  /** Seçili / seçili değil görünümü (segmentli düğmeler, sekmeler). */
+  setSelected(on: boolean, offColor: number): this {
+    this.setColor(on ? 0xf5c451 : offColor);
+    return this.setLabelColor(on ? '#2a1d02' : '#ffffff');
+  }
+
   /** Önerilen hamle butonunu hafifçe nabız gibi atar. */
   setPulse(on: boolean): this {
     if (on && !this.pulseTween) {
