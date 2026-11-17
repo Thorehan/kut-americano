@@ -41,6 +41,28 @@ Her el sıradaki kural geçerlidir. UI'da sabit bir **Kural Paneli** o elin kura
 - İşlemek zorunlu değildir; oyuncu işleği elinde bekletebilir. Ama **işlek taşı yere atarsa:** attığı taşı **geri alır, ortadan 1 taş daha çeker, kendisine +50 ceza** yazılır ve **sıra sonraki oyuncuya geçer** (o sırada taş atılmamış sayılır, işlek taşla bitilemez).
 - *Varsayımlar (onay bekliyor):* okey almak için kuralın açılmış olması gerekir ve kuralın açıldığı sırada okey alınmaz (işleme ile aynı). Kendi ya da takım arkadaşının perindeki okeyi almak serbesttir, ceza yazılmaz. +50 cezalar el sonunda puana çarpansız eklenir.
 
+### Rastgele mod
+
+Menüden **🎲 Rastgele Mod** seçilirse 11 elin kuralı sırayla değil, aşağıdaki oranlarla rastgele çekilir. İlk el dahil her el her kural olabilir (ilk el 5'li seri bile gelebilir). El başında kural bir çark gibi döner, sonra gerçek kurala oturur.
+
+| Kural | Oran |
+|---|---|
+| 3'lü Küt | %12 |
+| 3'lü Seri | %12 |
+| 3'lü Küt + 3'lü Seri | %11 |
+| 4'lü Küt | %10 |
+| 4'lü Seri | %10 |
+| İki 4'lü Küt | %8 |
+| İki 4'lü Seri | %8 |
+| 4'lü Küt + 4'lü Seri | %8 |
+| 5'li Seri | %9 |
+| Elden Bitme | %6 |
+| Çift Eli | %6 |
+
+- Aynı kural **art arda gelmez** ve bir oyunda **en fazla 2 kez** gelir; bu sınırlar yüzünden gerçekleşen oranlar tabloya çok yakın ama birebir değildir.
+- Kolay kurallar biraz daha sık, özel eller (Elden Bitme, Çift Eli) daha seyrek gelir. Oranlar `packages/core/src/contracts.ts` içindeki `RANDOM_WEIGHTS` ile tek yerden değiştirilir.
+- Online (Faz 3) geldiğinde bu, ayrı bir "rastgele mod odası" olur.
+
 ## 3. Dağıtım ve tur akışı
 
 - 4 oyuncu. Her oyuncuya **14 taş**, başlayan oyuncuya **15 taş**.

@@ -51,3 +51,44 @@ export const CONTRACTS: readonly Contract[] = [
     description: 'En az 7 çifti tek seferde açıp bit. Puanlar 2 kat.',
   },
 ];
+
+// ------------------------------------------------------------ rastgele mod
+
+/** classic: 11 el sırayla · random: her elin kuralı aşağıdaki oranlarla rastgele seçilir */
+export type RuleOrder = 'classic' | 'random';
+
+/**
+ * Rastgele modda her kuralın seçilme ağırlığı (toplam 100 → doğrudan yüzde).
+ * Kolay kurallar biraz daha sık, özel eller (Elden Bitme, Çift Eli) daha seyrek gelir.
+ */
+export const RANDOM_WEIGHTS: readonly number[] = [12, 12, 11, 10, 10, 8, 8, 8, 9, 6, 6];
+
+/** Aynı kural en fazla bu kadar kez gelebilir. */
+export const RANDOM_MAX_REPEAT = 2;
+
+/**
+ * Rastgele mod için el sırası üretir: ağırlıklı seçim, aynı kural art arda gelmez
+ * ve bir oyunda en fazla RANDOM_MAX_REPEAT kez gelir. İlk el dahil her el her kural olabilir.
+ */
+export function randomContractOrder(rand: () => number, rounds = CONTRACTS.length): number[] {
+  const order: number[] = [];
+  const count = CONTRACTS.map(() => 0);
+  for (let r = 0; r < rounds; r++) {
+    const prev = order[order.length - 1];
+    let pool = CONTRACTS.map((_, i) => i).filter((i) => i !== prev && count[i] < RANDOM_MAX_REPEAT);
+    if (!pool.length) pool = CONTRACTS.map((_, i) => i).filter((i) => i !== prev);
+    const total = pool.reduce((a, i) => a + RANDOM_WEIGHTS[i], 0);
+    let x = rand() * total;
+    let pick = pool[pool.length - 1];
+    for (const i of pool) {
+      x -= RANDOM_WEIGHTS[i];
+      if (x < 0) {
+        pick = i;
+        break;
+      }
+    }
+    order.push(pick);
+    count[pick]++;
+  }
+  return order;
+}

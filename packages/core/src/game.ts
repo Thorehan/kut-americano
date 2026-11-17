@@ -1,4 +1,4 @@
-import { CONTRACTS, Contract, Requirement } from './contracts';
+import { CONTRACTS, Contract, Requirement, RuleOrder, randomContractOrder } from './contracts';
 import { Meld, MeldShape, addPosition, asCift, asKut, asSeri, jokerSwapIndex, withJokerSwapped, withTile, MELD_NAMES } from './melds';
 import { mulberry32, shuffle } from './rng';
 import { Tile, createTileSet, tileName, tilePenalty } from './tiles';
@@ -66,6 +66,10 @@ export interface GameState {
   mode: GameMode;
   seed: number;
   jokerCount: number;
+  /** Kural sırası: klasik (1→11) ya da rastgele. */
+  ruleOrder: RuleOrder;
+  /** Her elin kuralı (CONTRACTS indeksleri), roundIndex ile okunur. */
+  contractOrder: number[];
   firstRound: number;
   lastRound: number;
   roundIndex: number;
@@ -136,6 +140,8 @@ export interface GameOptions {
   startRound?: number;
   /** Son oynanacak el (0 tabanlı, dahil). */
   endRound?: number;
+  /** 'random': her elin kuralı oranlarla rastgele seçilir. */
+  ruleOrder?: RuleOrder;
 }
 
 export function teamOf(seat: number): number {
@@ -180,6 +186,8 @@ export class Game {
       mode: opts.mode ?? 'solo',
       seed,
       jokerCount: opts.jokerCount ?? 2,
+      ruleOrder: opts.ruleOrder ?? 'classic',
+      contractOrder: opts.ruleOrder === 'random' ? randomContractOrder(this.rand) : CONTRACTS.map((_, i) => i),
       firstRound,
       lastRound,
       roundIndex: firstRound,
@@ -210,7 +218,7 @@ export class Game {
   }
 
   get contract(): Contract {
-    return CONTRACTS[this.state.roundIndex];
+    return CONTRACTS[this.state.contractOrder[this.state.roundIndex]];
   }
 
   get roundNumber(): number {

@@ -1,4 +1,4 @@
-import { Action, Game, GameEvent, GameMode, decideBotAction } from '@kut/core';
+import { Action, Game, GameEvent, GameMode, RuleOrder, decideBotAction } from '@kut/core';
 
 export type ChangeListener = (events: GameEvent[]) => void;
 
@@ -6,6 +6,7 @@ export interface ControllerOptions {
   mode: GameMode;
   seed?: number;
   startRound?: number;
+  ruleOrder?: RuleOrder;
   /** Bot hızı çarpanı (1 = normal). */
   speed?: number;
 }
@@ -21,7 +22,7 @@ export class Controller {
 
   constructor(opts: ControllerOptions) {
     const names = opts.mode === 'team' ? ['Sen', 'Bot 1', 'Ortak', 'Bot 3'] : ['Sen', 'Bot 1', 'Bot 2', 'Bot 3'];
-    this.game = new Game({ mode: opts.mode, names, seed: opts.seed, startRound: opts.startRound });
+    this.game = new Game({ mode: opts.mode, names, seed: opts.seed, startRound: opts.startRound, ruleOrder: opts.ruleOrder });
     this.speed = opts.speed ?? 1;
   }
 

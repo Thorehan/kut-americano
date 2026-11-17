@@ -18,7 +18,9 @@ npm test         # kural motoru testleri
 npm run build    # apps/client/dist içine yayın çıktısı
 ```
 
-Deneme parametreleri: `?el=10` → 10. elden (Elden Bitme) başlar · `?seed=42` → aynı dağıtım tekrar gelir.
+**Modlar:** Tekli (1 + 3 bot) ya da Takım (2'ye 2). Menüdeki **Kurallar** seçimiyle **Sıralı** (1 → 11) ya da **🎲 Rastgele Mod** (her elin kuralı oranlarla çekilir; oranlar menüde ve [docs/ISTISARE.md](docs/ISTISARE.md) içinde).
+
+Deneme parametreleri: `?mod=rastgele` → rastgele mod seçili açılır · `?el=10` → 10. elden (Elden Bitme) başlar · `?seed=42` → aynı dağıtım tekrar gelir.
 
 ## Nasıl oynanır
 

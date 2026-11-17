@@ -4,6 +4,7 @@ import {
   FINISH_NAMES,
   GameEvent,
   Tile,
+  CONTRACTS,
   ISLEK_PENALTY,
   OKEY_SWAP_PENALTY,
   addPosition,
@@ -86,6 +87,8 @@ export class TableScene extends Phaser.Scene {
   private dragging = false;
   private wasMyTurn = false;
   private islekConfirm = -1;
+  /** Rastgele modda kural çarkı dönerken kural gizli kalır. */
+  private spinning = false;
 
   private overlay: Phaser.GameObjects.Container | null = null;
   private overlayKind: OverlayKind = 'none';
@@ -110,6 +113,7 @@ export class TableScene extends Phaser.Scene {
     this.dealing = false;
     this.dragging = false;
     this.wasMyTurn = false;
+    this.spinning = false;
     this.islekConfirm = -1;
     this.overlay = null;
     this.overlayKind = 'none';
@@ -139,7 +143,7 @@ export class TableScene extends Phaser.Scene {
     this.add.image(0, 0, 'table-bg').setOrigin(0).setScale(1 / RENDER_SCALE).setDepth(-20);
     this.add.image(RACK.board.x, RACK.board.y, 'rack').setOrigin(0).setScale(1 / RENDER_SCALE).setDepth(-10);
 
-    this.ctrl = new Controller({ mode: this.mode.mode, seed: this.mode.seed, startRound: this.mode.startRound });
+    this.ctrl = new Controller({ mode: this.mode.mode, seed: this.mode.seed, startRound: this.mode.startRound, ruleOrder: this.mode.ruleOrder });
     this.ctrl.onChange((ev) => this.onEvents(ev));
     this.events.once('shutdown', () => this.ctrl.destroy());
 
@@ -185,7 +189,7 @@ export class TableScene extends Phaser.Scene {
     this.sync();
     this.dealing = false;
     sfx.shuffle();
-    this.ctrl.hold(2600);
+    this.ctrl.hold(this.bannerMs + 100);
     this.ctrl.start();
   }
 
@@ -281,7 +285,7 @@ export class TableScene extends Phaser.Scene {
           this.showRoundBanner();
           this.dealBacks();
           sfx.shuffle();
-          this.ctrl.hold(2600);
+          this.ctrl.hold(this.bannerMs + 100);
           break;
         case 'drawDeck':
           if (e.seat !== 0) this.tiles.flyBack(DECK, this.anchor(e.seat));
@@ -833,9 +837,9 @@ export class TableScene extends Phaser.Scene {
     const me = this.me;
 
     // kural paneli
-    this.ruleChip.setText(`EL ${g.roundNumber}/${g.totalRounds}`);
-    this.ruleName.setText(c.name);
-    this.ruleDesc.setText(c.description);
+    this.ruleChip.setText(`${s.ruleOrder === 'random' ? '🎲 ' : 'EL '}${g.roundNumber}/${g.totalRounds}`);
+    this.ruleName.setText(this.spinning ? 'Kural seçiliyor…' : c.name);
+    this.ruleDesc.setText(this.spinning ? 'Rastgele mod: çark dönüyor' : c.description);
     if (s.extraTile) this.ruleExtra.setTexture(tileKey(s.extraTile));
 
     // rakipler
@@ -905,6 +909,10 @@ export class TableScene extends Phaser.Scene {
 
   private updateStatus() {
     if (this.time.now < this.errorUntil) return;
+    if (this.spinning) {
+      this.setStatus('🎲 Bu elin kuralı seçiliyor…', 'info');
+      return;
+    }
     const s = this.s;
     const me = this.me;
     const c = this.ctrl.game.contract;
@@ -1026,10 +1034,16 @@ export class TableScene extends Phaser.Scene {
     );
   }
 
+  /** El başı şeridinin ekranda kalma süresi (rastgele modda çark döndüğü için daha uzun). */
+  private get bannerMs() {
+    return this.s.ruleOrder === 'random' ? 3300 : 2500;
+  }
+
   private showRoundBanner() {
     const s = this.s;
     const g = this.ctrl.game;
     const cy = DECK.y;
+    const random = s.ruleOrder === 'random';
     const c = this.add.container(-GAME_W, 0).setDepth(3500);
     const bg = this.add.graphics();
     bg.fillStyle(0x000000, 0.35);
@@ -1040,9 +1054,11 @@ export class TableScene extends Phaser.Scene {
     bg.lineBetween(0, cy - 84, GAME_W, cy - 84);
     bg.lineBetween(0, cy + 82, GAME_W, cy + 82);
     c.add(bg);
-    c.add(txt(this, 300, cy - 68, `EL ${g.roundNumber} / ${g.totalRounds}`, 16, UI.goldHex, 900));
-    c.add(txt(this, 300, cy - 46, g.contract.name, 40, '#fff', 900));
-    c.add(txt(this, 300, cy + 6, g.contract.description, 16, UI.muted, 700, { wordWrap: { width: 520 } }));
+    c.add(txt(this, 300, cy - 68, `EL ${g.roundNumber} / ${g.totalRounds}${random ? '  ·  RASTGELE MOD' : ''}`, 16, UI.goldHex, 900));
+    const nameT = txt(this, 300, cy - 46, g.contract.name, 40, '#fff', 900);
+    const descT = txt(this, 300, cy + 6, g.contract.description, 16, UI.muted, 700, { wordWrap: { width: 520 } });
+    c.add([nameT, descT]);
+    if (random) this.spinContract(nameT, descT, g.contract.name);
     const note = g.contract.mode === 'normal' ? 'Açarken sadece kural iner · fazlalıklar sonraki sırada' : '';
     c.add(txt(this, 300, cy + 52, `Başlayan: ${s.players[s.starter].name}${note ? '   ·   ' + note : ''}`, 14, UI.cream, 800));
     if (s.extraTile) {
@@ -1050,7 +1066,43 @@ export class TableScene extends Phaser.Scene {
       c.add(this.add.image(950, cy + 12, tileKey(s.extraTile)).setScale(0.75));
     }
     this.tweens.add({ targets: c, x: 0, duration: 420, ease: 'Cubic.easeOut' });
-    this.tweens.add({ targets: c, x: GAME_W, delay: 2500, duration: 380, ease: 'Cubic.easeIn', onComplete: () => c.destroy() });
+    this.tweens.add({ targets: c, x: GAME_W, delay: this.bannerMs, duration: 380, ease: 'Cubic.easeIn', onComplete: () => c.destroy() });
+  }
+
+  /** Rastgele modda kural adı çark gibi döner, yavaşlayıp gerçek kurala oturur. */
+  private spinContract(nameT: Phaser.GameObjects.Text, descT: Phaser.GameObjects.Text, finalName: string) {
+    descT.setAlpha(0);
+    nameT.setText('🎲 Kural seçiliyor…');
+    this.spinning = true;
+    this.updateHud();
+    const names = CONTRACTS.map((c) => c.name);
+    const steps = [70, 70, 75, 80, 90, 100, 115, 135, 160, 195, 240];
+    let t = 420;
+    let prev = '';
+    steps.forEach((d, i) => {
+      t += d;
+      const last = i === steps.length - 1;
+      this.time.delayedCall(t, () => {
+        if (!nameT.active) {
+          this.spinning = false;
+          return;
+        }
+        if (last) {
+          nameT.setText(finalName).setColor(UI.goldHex);
+          this.spinning = false;
+          this.updateHud();
+          this.tweens.add({ targets: nameT, scale: { from: 1.25, to: 1 }, duration: 260, ease: 'Back.easeOut' });
+          this.tweens.add({ targets: descT, alpha: 1, duration: 250 });
+          sfx.pop();
+          return;
+        }
+        let n = names[Math.floor(Math.random() * names.length)];
+        if (n === prev) n = names[(names.indexOf(n) + 1) % names.length];
+        prev = n;
+        nameT.setText(n);
+        sfx.select();
+      });
+    });
   }
 
   private showRoundResult() {
@@ -1130,7 +1182,7 @@ export class TableScene extends Phaser.Scene {
       c.add(txt(this, cx - 250, y, `${i + 1}.  ${e.name}`, 22, e.mine ? UI.goldHex : '#fff', 900));
       c.add(txt(this, cx + 250, y, `${e.score}`, 22, '#fff', 900).setOrigin(1, 0));
     });
-    c.add(new Button(this, cx - 120, cy + 160, 210, 56, 'Yeni Oyun', () => this.scene.restart({ mode: this.mode.mode }), UI.green, 20));
+    c.add(new Button(this, cx - 120, cy + 160, 210, 56, 'Yeni Oyun', () => this.scene.restart({ mode: this.mode.mode, ruleOrder: this.mode.ruleOrder }), UI.green, 20));
     c.add(new Button(this, cx + 120, cy + 160, 210, 56, 'Menü', () => this.scene.start('menu'), UI.slate, 20));
   }
 
