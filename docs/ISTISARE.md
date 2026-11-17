@@ -1,4 +1,4 @@
-# Küt (Amerikano) Okey — İstişare Planı
+# Küt: Kural Okey — İstişare Planı
 
 > Durum: **v0.2** (2026-11-17) — Faz 1 deneme sürümü yapıldı; açık sorular varsayımlarıyla kodlandı. Kararlar bölümü kesinleşenleri, "Açık sorular" bölümü cevap bekleyenleri tutar.
 > Açık sorulara cevap verildikçe bu dosya güncellenir; deneme sürümü kodlaması bu dosyadaki kurallara göre yapılır.
@@ -171,20 +171,20 @@ Cevaplanmayanlar için parantez içindeki **varsayım** ile başlanır.
 - **S10 — Takım modunda kural açma:** Takım arkadaşının açtığı kural diğerinin kilidini de açar mı? *(Varsayım: hayır, herkes kendi kuralını açar; takım biri bitince biter.)*
 - **S11 — "Elden bitmek −50":** Bunu "eli bitirmek" (normal bitiş) olarak yorumladık. Doğru mu?
 
-## 10. İsim ve gelir modeli (öneri — karar bekliyor)
+## 10. İsim ve gelir modeli (karar verildi — 2026-11-18)
 
 ### İsim adayları
 
 | İsim | Neden |
 |---|---|
-| **Küt: Kural Okey** *(önerilen)* | Halkın bildiği ad + oyunun farkı (her elin kuralı) tek bakışta anlaşılır. |
+| **Küt: Kural Okey** *(seçildi)* | Halkın bildiği ad + oyunun farkı (her elin kuralı) tek bakışta anlaşılır. |
 | Kontrat Okey | Oyunun mekaniğini anlatır; "kontrat" kelimesi oyuncuya yabancı gelebilir. |
 | Kilit Okey | "Kural kilidi" fikrinden; kısa ve akılda kalır. |
 | On Bir El | 11 elli yapıya vurgu; okey kelimesi olmadığı için aramada zayıf. |
 
-"Amerikano" adı tek başına kullanılmamalı: App Store'da *Amerikano Card Game* adlı bir uygulama var. Kesinleşmeden önce TÜRKPATENT marka araması ve Google Play / App Store isim kontrolü yapılmalı.
+Kararlaştırılan ad: **Küt: Kural Okey** (mağazada kısa ad: **Küt**). Yayından önce yapılacaklar: TÜRKPATENT marka araması ve Google Play / App Store isim kontrolü. "Amerikano" adı tek başına kullanılmamalı: App Store'da *Amerikano Card Game* adlı bir uygulama var. Kesinleşmeden önce TÜRKPATENT marka araması ve Google Play / App Store isim kontrolü yapılmalı.
 
-### Gelir modeli: hibrit, oynanışı satmayan
+### Gelir modeli: hibrit, oynanışı satmayan *(kararlaştırıldı, Faz 4'te uygulanacak)*
 
 Okey uygulamaları çoğunlukla ücretsiz + uygulama içi satın alma + reklam kullanıyor; kullanıcı şikâyetlerinin başında **sık reklam** ve **ödeme sorunları** geliyor. Öneri:
 

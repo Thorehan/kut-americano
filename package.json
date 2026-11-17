@@ -2,7 +2,7 @@
   "name": "kut-americano",
   "private": true,
   "version": "0.1.0",
-  "description": "Küt (Amerikano) okey — 101 okey görselliğinde kontratlı rummy",
+  "description": "Küt: Kural Okey — Küt (Amerikano) kurallarıyla, 101 okey görselliğinde okey",
   "type": "module",
   "workspaces": [
     "packages/*",

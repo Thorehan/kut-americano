@@ -141,7 +141,7 @@ export class MenuScene extends Phaser.Scene {
     const title = txt(this, GAME_W / 2, 200, 'KÜT', 64, UI.goldHex, 900).setOrigin(0.5).setShadow(0, 5, 'rgba(0,0,0,0.5)', 10);
     title.setAlpha(0).setScale(0.8);
     this.tweens.add({ targets: title, alpha: 1, scale: 1, duration: 500, delay: 550, ease: 'Back.easeOut' });
-    txt(this, GAME_W / 2, 242, 'AMERİKANO OKEY', 15, UI.cream, 900, { letterSpacing: 6 } as Phaser.Types.GameObjects.Text.TextStyle).setOrigin(0.5);
+    txt(this, GAME_W / 2, 242, 'KURAL OKEY', 15, UI.cream, 900, { letterSpacing: 6 } as Phaser.Types.GameObjects.Text.TextStyle).setOrigin(0.5);
   }
 
   // ------------------------------------------------------------ kural sırası

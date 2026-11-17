@@ -1,4 +1,6 @@
-# Küt (Amerikano) Okey
+# Küt: Kural Okey
+
+Küt (Amerikano) kurallarıyla oynanan okey.
 
 101 Okey görselliğinde, okey taşlarıyla oynanan kontratlı rummy. 11 el, her elde ayrı bir kural.
 Kurallar ve kararlar: [docs/ISTISARE.md](docs/ISTISARE.md)
