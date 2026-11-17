@@ -1,5 +1,7 @@
 import Phaser from 'phaser';
-import { CONTRACTS, GameMode, RANDOM_MAX_REPEAT, RANDOM_WEIGHTS, RuleOrder } from '@kut/core';
+import { CONTRACTS, GameMode, RANDOM_MAX_REPEAT, RANDOM_WEIGHTS, RuleOrder, normalizeCode } from '@kut/core';
+import type { OnlineController } from '../controller';
+import { connection } from '../net/connection';
 import { createTextures } from '../textures';
 import { Button } from '../ui/Button';
 import { panel, txt } from '../ui/text';
@@ -9,6 +11,8 @@ import { showBubble } from '../view/SeatView';
 
 export interface TableData {
   mode: GameMode;
+  /** Online oyunda sunucuya bağlı kontrolcü. */
+  online?: OnlineController;
   ruleOrder?: RuleOrder;
   seed?: number;
   startRound?: number;
@@ -90,6 +94,18 @@ export class MenuScene extends Phaser.Scene {
     txt(this, GAME_W / 2, 704, VERSION, 12, 'rgba(255,255,255,0.35)', 800).setOrigin(0.5, 1);
 
     this.renderOrder();
+
+    // Davet linki (?oda=ABCD) ya da yarım kalan online oda → lobiye git
+    const invite = normalizeCode(new URLSearchParams(location.search).get('oda') ?? '');
+    if (invite.length === 4 && !this.registry.get('inviteUsed')) {
+      this.registry.set('inviteUsed', true);
+      this.time.delayedCall(250, () => this.scene.start('lobby', { join: invite }));
+      return;
+    }
+    if (connection.session) {
+      this.time.delayedCall(250, () => this.scene.start('lobby', {}));
+      return;
+    }
     if (load('kut-seen-howto') !== '1') this.time.delayedCall(900, () => this.showHowTo());
   }
 
@@ -210,10 +226,10 @@ export class MenuScene extends Phaser.Scene {
         x: 950,
         title: 'Online Oda',
         sub: 'Arkadaşlarınla oda kodu',
-        color: 0x4a4f57,
+        color: 0x7a4bb8,
         tiles: ['tile-back', 'tile-joker', 'tile-back'],
-        locked: 'YAKINDA',
-        onTap: () => {},
+        locked: connection.available ? undefined : 'SUNUCU YOK',
+        onTap: () => this.scene.start('lobby', {}),
       },
     ];
     specs.forEach((sp, i) => this.modeCard(sp, i));
@@ -249,7 +265,7 @@ export class MenuScene extends Phaser.Scene {
     c.on('pointerdown', () => {
       if (sp.locked) {
         sfx.error();
-        showBubble(this, sp.x, y - h / 2 - 18, 'Online oyun Faz 3 ile geliyor', UI.gold);
+        showBubble(this, sp.x, y - h / 2 - 18, 'Online sunucu henüz yayında değil', UI.gold);
         return;
       }
       sfx.select();

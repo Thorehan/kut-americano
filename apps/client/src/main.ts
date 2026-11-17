@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import '@fontsource/nunito/700.css';
 import '@fontsource/nunito/800.css';
 import '@fontsource/nunito/900.css';
+import { LobbyScene } from './scenes/LobbyScene';
 import { MenuScene } from './scenes/MenuScene';
 import { TableScene } from './scenes/TableScene';
 import { GAME_H, GAME_W, RENDER_SCALE } from './layout';
@@ -22,7 +23,7 @@ void loadFonts().then(() => {
     scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
     render: { antialias: true, roundPixels: false, powerPreference: 'high-performance' },
     input: { activePointers: 2 },
-    scene: [MenuScene, TableScene],
+    scene: [MenuScene, LobbyScene, TableScene],
   });
   // Geliştirme sırasında konsoldan erişim için (prod build'de yok).
   if (import.meta.env.DEV) (window as unknown as { __game: Phaser.Game }).__game = game;

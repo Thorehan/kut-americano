@@ -20,7 +20,8 @@ import {
   findPairPartition,
   teamOf,
 } from '@kut/core';
-import { Controller } from '../controller';
+import { GameController, LocalController } from '../controller';
+import { connection } from '../net/connection';
 import {
   BTN,
   DECK,
@@ -53,7 +54,10 @@ const ZONE_SCALES = [0.4, 0.36, 0.32, 0.28, 0.25, 0.22, 0.19, 0.16, 0.14];
 type OverlayKind = 'none' | 'claim' | 'round' | 'scores' | 'final';
 
 export class TableScene extends Phaser.Scene {
-  private ctrl!: Controller;
+  private ctrl!: GameController;
+  /** Bir önceki çizimde alınabilir olan yan taş (gizli ele giderken uçacağı yeri bulmak için). */
+  private lastFresh: { id: number; from: number } | null = null;
+  private turnStartedAt = 0;
   private mode!: TableData;
   private tiles!: TileLayer;
   private seats: SeatView[] = [];
@@ -143,7 +147,17 @@ export class TableScene extends Phaser.Scene {
     this.add.image(0, 0, 'table-bg').setOrigin(0).setScale(1 / RENDER_SCALE).setDepth(-20);
     this.add.image(RACK.board.x, RACK.board.y, 'rack').setOrigin(0).setScale(1 / RENDER_SCALE).setDepth(-10);
 
-    this.ctrl = new Controller({ mode: this.mode.mode, seed: this.mode.seed, startRound: this.mode.startRound, ruleOrder: this.mode.ruleOrder });
+    this.ctrl =
+      this.mode.online ??
+      new LocalController({ mode: this.mode.mode, seed: this.mode.seed, startRound: this.mode.startRound, ruleOrder: this.mode.ruleOrder });
+    this.ctrl.onError((msg) => {
+      this.showError(msg);
+      this.sync();
+    });
+    if (this.ctrl.online) {
+      // sıra sayacı ve bağlantı durumu için saniyede bir tazele
+      this.time.addEvent({ delay: 1000, loop: true, callback: () => this.updateStatus() });
+    }
     this.ctrl.onChange((ev) => this.onEvents(ev));
     this.events.once('shutdown', () => this.ctrl.destroy());
 
@@ -263,7 +277,7 @@ export class TableScene extends Phaser.Scene {
       sort: new Button(this, c1, r2, w, h, 'Küt Diz', () => this.toggleSort(), UI.amber),
       sound: new Button(this, 1066, 34, 64, 38, sfx.muted ? 'Ses ✗' : 'Ses', () => this.toggleSound(), UI.slate, 14),
       scores: new Button(this, 1138, 34, 68, 38, 'Puan', () => this.showScores(), UI.slate, 14),
-      menu: new Button(this, 1212, 34, 68, 38, 'Menü', () => this.scene.start('menu'), UI.slate, 14),
+      menu: new Button(this, 1212, 34, 68, 38, 'Menü', () => this.exitToMenu(), UI.slate, 14),
     };
     Object.values(this.buttons).forEach((b) => b.setDepth(80));
   }
@@ -739,6 +753,9 @@ export class TableScene extends Phaser.Scene {
 
     // --- yan taş parlaması (alınabilir / istenebilir)
     const fresh = s.pendingDiscard ?? (s.claim ? { tile: s.claim.tile, from: s.claim.from } : null);
+    const prevFresh = this.lastFresh;
+    this.lastFresh = fresh ? { id: fresh.tile.id, from: fresh.from } : null;
+    if (!fresh && prevFresh) this.lastFresh = prevFresh; // bu çizimde uçuş hedefi için bir kez daha kullanılır
     if (fresh) {
       const p = DISCARD_POS[fresh.from];
       const mine = this.myDraw && fresh.from === 3;
@@ -778,6 +795,8 @@ export class TableScene extends Phaser.Scene {
   private departFor(id: number): Point | null {
     const holder = this.s.players.findIndex((p) => p.hand.some((t) => t.id === id));
     if (holder > 0) return this.anchor(holder);
+    // Online'da rakip eli gizli: alınan yan taş, alan oyuncuya uçsun.
+    if (this.lastFresh?.id === id && this.actor > 0) return this.anchor(this.actor);
     return null;
   }
 
@@ -845,7 +864,12 @@ export class TableScene extends Phaser.Scene {
     // rakipler
     for (let seat = 1; seat < 4; seat++) {
       const active = (s.phase === 'draw' || s.phase === 'action') && s.current === seat;
-      const thinking = s.phase === 'claim' && s.claim!.queue[0] === seat ? 'yan taşı düşünüyor…' : '';
+      const thinking =
+        this.ctrl.presence[seat] === false && !s.players[seat].isBot
+          ? '⚠ bağlantı koptu · bot oynuyor'
+          : s.phase === 'claim' && s.claim!.queue[0] === seat
+            ? 'yan taşı düşünüyor…'
+            : '';
       this.seats[seat].update(s.players[seat], active, s.mode, thinking);
     }
 
@@ -868,6 +892,7 @@ export class TableScene extends Phaser.Scene {
       this.rackGlow.lineStyle(4, UI.gold, 0.9);
       this.rackGlow.strokeRoundedRect(b.x - 3, b.y - 3, b.w + 6, b.h + 6, 22);
     }
+    if (myTurn && !this.wasMyTurn) this.turnStartedAt = Date.now();
     if (myTurn && !this.wasMyTurn && s.phase === 'draw') {
       sfx.turn();
       haptic(15);
@@ -917,7 +942,7 @@ export class TableScene extends Phaser.Scene {
     const me = this.me;
     const c = this.ctrl.game.contract;
     if (s.phase === 'draw' && s.current === 0) {
-      this.setStatus(s.pendingDiscard ? 'Sıra sende · ortadan çek ya da soldaki taşı al' : 'Sıra sende · ortadan çek', 'turn');
+      this.setStatus((s.pendingDiscard ? 'Sıra sende · ortadan çek ya da soldaki taşı al' : 'Sıra sende · ortadan çek') + this.turnClock(), 'turn');
     } else if (s.phase === 'action' && s.current === 0) {
       let t: string;
       if (c.mode !== 'normal') t = 'Tek seferde açabiliyorsan "Öner" · yoksa bir taş at';
@@ -929,7 +954,7 @@ export class TableScene extends Phaser.Scene {
       else if (me.hand.some((x) => this.ctrl.game.canSwapJoker(x))) t = 'Okeyi alabilirsin: mavi taşı seç → mavi çerçeveli pere dokun';
       else if (me.hand.some((x) => this.ctrl.game.isIslek(x))) t = 'Mavi taşlar işlek: seç → altın çerçeveli pere işle · atarsan +50';
       else t = 'Per diz · taş seçip parlayan pere işle · taş at';
-      this.setStatus(t, 'turn');
+      this.setStatus(t + this.turnClock(), 'turn');
     } else if (s.phase === 'claim') {
       this.setStatus(s.claim!.queue[0] === 0 ? 'Yan taşı istiyor musun?' : 'Yan taş isteniyor mu…', 'info');
     } else if (s.phase === 'draw' || s.phase === 'action') {
@@ -1182,8 +1207,12 @@ export class TableScene extends Phaser.Scene {
       c.add(txt(this, cx - 250, y, `${i + 1}.  ${e.name}`, 22, e.mine ? UI.goldHex : '#fff', 900));
       c.add(txt(this, cx + 250, y, `${e.score}`, 22, '#fff', 900).setOrigin(1, 0));
     });
-    c.add(new Button(this, cx - 120, cy + 160, 210, 56, 'Yeni Oyun', () => this.scene.restart({ mode: this.mode.mode, ruleOrder: this.mode.ruleOrder }), UI.green, 20));
-    c.add(new Button(this, cx + 120, cy + 160, 210, 56, 'Menü', () => this.scene.start('menu'), UI.slate, 20));
+    if (this.ctrl.online) {
+      c.add(new Button(this, cx - 120, cy + 160, 210, 56, 'Lobiye Dön', () => this.scene.start('lobby', {}), UI.green, 20));
+    } else {
+      c.add(new Button(this, cx - 120, cy + 160, 210, 56, 'Yeni Oyun', () => this.scene.restart({ mode: this.mode.mode, ruleOrder: this.mode.ruleOrder }), UI.green, 20));
+    }
+    c.add(new Button(this, cx + 120, cy + 160, 210, 56, 'Menü', () => this.exitToMenu(), UI.slate, 20));
   }
 
   private showScores() {
@@ -1215,5 +1244,18 @@ export class TableScene extends Phaser.Scene {
     c.add(txt(this, x0, ty, 'Toplam', 17, UI.goldHex, 900));
     seatsFor.forEach((seat, i) => c.add(txt(this, colX(i), ty, `${s.players[seat].score}`, 17, UI.goldHex, 900)));
     c.add(new Button(this, cx, cy + 246, 180, 50, 'Kapat', () => this.closeOverlay(), UI.slate));
+  }
+
+  /** Online'da son 15 saniyede geri sayım (süre dolarsa sunucu otomatik oynar). */
+  private turnClock(): string {
+    if (!this.ctrl.online || !this.turnStartedAt) return '';
+    const left = 45 - Math.floor((Date.now() - this.turnStartedAt) / 1000);
+    return left <= 15 ? ` · ⏱ ${Math.max(0, left)} sn` : '';
+  }
+
+  /** Menüye dön: online'da odadan çıkılır (koltuğu bot devralır). */
+  private exitToMenu() {
+    if (this.ctrl.online) connection.leave();
+    this.scene.start('menu');
   }
 }

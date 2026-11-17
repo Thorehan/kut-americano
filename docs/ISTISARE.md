@@ -108,14 +108,14 @@ Puanlar ceza mantığındadır; **11 el sonunda en düşük puan kazanır** (bit
 | GitHub'dan link ile oynanabilir prototip | GitHub Pages, anında | WebGL build ağır, mobil tarayıcıda zayıf |
 | Mobil mağaza | Capacitor ile Android/iOS | Güçlü |
 | PC web sürümü | Aynı kod tabanı | Ayrı build |
-| Online | Node.js + Colyseus, kural motoru sunucuyla ortak | Photon/Netcode, ayrı dil |
+| Online | Node.js + WebSocket, kural motoru sunucuyla ortak | Photon/Netcode, ayrı dil |
 | İterasyon hızı | Kaydet → tarayıcı yenilenir | Daha yavaş |
 
 **Yığın:**
 - **Dil:** TypeScript
 - **Kural motoru:** `packages/core` — saf TypeScript, UI'dan bağımsız, Vitest ile test edilir. İstemci, botlar ve online sunucu **aynı motoru** kullanır (hile koruması için sunucu otoriter olur).
 - **Oyun ekranı:** Phaser 3 + Vite (masa, ıstaka, sürükle-bırak, animasyon)
-- **Online (Faz 3):** Colyseus (Node.js), oda kodu ile davet, yeniden bağlanma
+- **Online (Faz 3):** Node.js + `ws` (WebSocket) üzerinde kendi küçük oda protokolümüz (`packages/core/src/protocol.ts`). Colyseus yerine bu seçildi: kural motoru zaten sunucuda otoriter çalışıyor, gizli bilgi (rakip elleri) her oyuncuya ayrı görünümle (`viewFor`) gönderiliyor; Colyseus'un durum eşitleme katmanına ihtiyaç kalmadı.
 - **Mobil paket (Faz 4):** Capacitor
 - **Yayın:** GitHub Actions → GitHub Pages
 
@@ -123,7 +123,7 @@ Puanlar ceza mantığındadır; **11 el sonunda en düşük puan kazanır** (bit
 kut-americano/
 ├─ packages/core/      # taş, deste, per doğrulama, kontratlar, puanlama, tur akışı
 ├─ apps/client/        # Phaser + Vite oyun istemcisi
-├─ apps/server/        # (Faz 3) Colyseus sunucusu
+├─ apps/server/        # (Faz 3) WebSocket oyun sunucusu (oda, botlar, yeniden bağlanma)
 └─ docs/ISTISARE.md    # bu dosya
 ```
 
@@ -144,7 +144,7 @@ kut-americano/
 | 0 | İstişare | Bu doküman, kuralların netleşmesi |
 | 1 ✅ | **Deneme sürümü** | Tarayıcıda 1 kişi + 3 bot, tekli + takım modu, 11 el, puan tablosu |
 | 2 | **GitHub prototipi** | GitHub reposu + Pages linki, telefonda açılır, takım modu |
-| 3 | Online | Colyseus sunucu, oda kodu, arkadaşla oynama |
+| 3 ✅ | Online | Oda kodu / davet linki, 1–4 insan + bot, yeniden bağlanma, süre aşımı. Sunucu yayına alınmayı bekliyor (render.yaml hazır) |
 | 4 | Mobil uygulama | Capacitor ile Android (sonra iOS) |
 | 5 | PC web | Masaüstü düzeni ve klavye/fare iyileştirmeleri |
 

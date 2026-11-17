@@ -5,3 +5,5 @@ export * from './solver';
 export * from './game';
 export * from './bot';
 export * from './rng';
+export * from './view';
+export * from './protocol';

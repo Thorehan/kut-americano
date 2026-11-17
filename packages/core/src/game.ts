@@ -175,6 +175,16 @@ export class Game {
   private rand: () => number;
   private nextMeldId = 1;
 
+  /**
+   * Sadece okumak için: sunucudan gelen görünümden (viewFor) bir Game kabuğu kurar.
+   * contract, canAddToMelds, isIslek gibi sorgular çalışır; act() kullanılmamalıdır.
+   */
+  static fromState(state: GameState): Game {
+    const g = Object.create(Game.prototype) as Game;
+    g.state = state;
+    return g;
+  }
+
   constructor(opts: GameOptions = {}) {
     const seed = opts.seed ?? Math.floor(Math.random() * 2 ** 31);
     this.rand = mulberry32(seed);

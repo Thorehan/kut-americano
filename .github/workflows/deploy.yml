@@ -26,6 +26,10 @@ jobs:
       - run: npm ci
       - run: npm test
       - run: npm run build
+        env:
+          # Online sunucu adresi (ör. wss://kut-server.onrender.com). Depo ayarlarında
+          # Settings → Secrets and variables → Actions → Variables altında VITE_SERVER_URL olarak tanımlanır.
+          VITE_SERVER_URL: ${{ vars.VITE_SERVER_URL }}
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

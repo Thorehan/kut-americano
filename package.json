@@ -12,8 +12,9 @@
     "dev": "npm run dev -w @kut/client",
     "build": "npm run build -w @kut/client",
     "preview": "npm run preview -w @kut/client",
-    "test": "npm run test -w @kut/core",
-    "typecheck": "tsc -p packages/core && tsc -p apps/client"
+    "test": "npm run test -w @kut/core && npm run test -w @kut/server",
+    "typecheck": "tsc -p packages/core && tsc -p apps/client && tsc -p apps/server",
+    "server": "npm run dev -w @kut/server"
   },
   "devDependencies": {
     "typescript": "^5.8.3"

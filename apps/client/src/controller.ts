@@ -1,6 +1,23 @@
-import { Action, Game, GameEvent, GameMode, RuleOrder, decideBotAction } from '@kut/core';
+import { Action, Game, GameEvent, GameMode, GameState, RuleOrder, ServerMsg, decideBotAction } from '@kut/core';
+import { Connection } from './net/connection';
 
 export type ChangeListener = (events: GameEvent[]) => void;
+export type ErrorListener = (message: string) => void;
+
+/** Masa sahnesinin konuştuğu ortak arayüz: yerel (botlarla) ya da online. */
+export interface GameController {
+  readonly game: Game;
+  readonly online: boolean;
+  /** Online: koltuk bağlı mı (görünüm sırasıyla). Yerelde hepsi true. */
+  readonly presence: boolean[];
+  /** Hamle; yerelde hata hemen döner, online'da hata onError ile gelir. */
+  act(action: Action): string | null;
+  onChange(fn: ChangeListener): void;
+  onError(fn: ErrorListener): void;
+  start(): void;
+  hold(ms: number): void;
+  destroy(): void;
+}
 
 export interface ControllerOptions {
   mode: GameMode;
@@ -11,9 +28,11 @@ export interface ControllerOptions {
   speed?: number;
 }
 
-/** Oyunu yürütür: insanın hamlelerini motora iletir, botları gecikmeli oynatır. */
-export class Controller {
+/** Yerel oyun: insanın hamlelerini motora iletir, botları gecikmeli oynatır. */
+export class LocalController implements GameController {
   readonly game: Game;
+  readonly online = false;
+  readonly presence = [true, true, true, true];
   readonly human = 0;
   private timer: ReturnType<typeof setTimeout> | null = null;
   private listeners = new Set<ChangeListener>();
@@ -28,6 +47,10 @@ export class Controller {
 
   onChange(fn: ChangeListener) {
     this.listeners.add(fn);
+  }
+
+  onError(_fn: ErrorListener) {
+    /* yerelde hatalar act() dönüşüyle gelir */
   }
 
   start() {
@@ -97,5 +120,57 @@ export class Controller {
     }
     this.emit(r.events);
     this.schedule();
+  }
+}
+
+/**
+ * Online oyun: durum sunucudadır. Gelen görünüm (alıcı = koltuk 0) bir Game kabuğuna
+ * konur; masa sahnesi yerel oyundaki gibi okur. Hamleler sunucuya gider.
+ */
+export class OnlineController implements GameController {
+  readonly game: Game;
+  readonly online = true;
+  presence: boolean[];
+  private listeners = new Set<ChangeListener>();
+  private errorListeners = new Set<ErrorListener>();
+  private unsub: () => void;
+
+  constructor(
+    private conn: Connection,
+    initial: { view: GameState; online: boolean[] },
+  ) {
+    this.game = Game.fromState(initial.view);
+    this.presence = initial.online;
+    this.unsub = conn.on((m: ServerMsg) => {
+      if (m.t === 'state') {
+        this.game.state = m.view;
+        this.presence = m.online;
+        for (const l of this.listeners) l(m.events);
+      } else if (m.t === 'error') {
+        for (const l of this.errorListeners) l(m.message);
+      }
+    });
+  }
+
+  act(action: Action): string | null {
+    this.conn.send({ t: 'act', action });
+    return null;
+  }
+  onChange(fn: ChangeListener) {
+    this.listeners.add(fn);
+  }
+  onError(fn: ErrorListener) {
+    this.errorListeners.add(fn);
+  }
+  start() {
+    /* sunucu yönetir */
+  }
+  hold(_ms: number) {
+    /* botları sunucu bekletir */
+  }
+  destroy() {
+    this.unsub();
+    this.listeners.clear();
+    this.errorListeners.clear();
   }
 }

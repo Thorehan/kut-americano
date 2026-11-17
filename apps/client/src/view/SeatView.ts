@@ -80,7 +80,9 @@ export class SeatView {
     if (sig === this.last) return;
     this.last = sig;
 
-    (this.root.getData('initial') as Phaser.GameObjects.Text).setText(/\d$/.test(p.name) ? p.name.slice(-1) : p.name.slice(0, 1).toUpperCase());
+    (this.root.getData('initial') as Phaser.GameObjects.Text).setText(
+      /\d$/.test(p.name) ? p.name.slice(-1) : (p.name.startsWith('Bot ') ? p.name.slice(4) : p.name).slice(0, 1).toUpperCase(),
+    );
     this.nameT.setText(p.name);
     this.countT.setText(`${p.hand.length}`);
     this.scoreT.setText(`${team ? `Takım ${team} · ` : ''}${p.score} puan`);
