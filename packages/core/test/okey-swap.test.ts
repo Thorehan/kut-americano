@@ -116,6 +116,35 @@ describe('işlek taş', () => {
     expect(s.phase).toBe('draw');
   });
 
+  it('pere işlenebilen taş da işlektir: rakibin 1-2-3 serisine 4 atılırsa geri gelir, +50, sıra geçer', () => {
+    const m = meld(1, 'r1 r2 r3', 'seri');
+    const g = setup({ hand: 'r4 b9 k11', melds: [m] });
+    const s = g.state;
+    const [r4] = s.players[0].hand;
+    expect(g.isIslek(r4)).toBe(true);
+    expect(g.canSwapJoker(r4)).toBe(false);
+    ok(g.act(0, { type: 'discard', tileId: r4.id }));
+    expect(s.extraPenalties[0]).toBe(50);
+    expect(s.players[0].hand).toContain(r4);
+    expect(s.players[0].hand).toHaveLength(4);
+    expect(s.pendingDiscard).toBeNull();
+    expect(s.current).toBe(1);
+    // sıradaki oyuncu yan taşı alamaz, ortadan çeker
+    expect(g.act(1, { type: 'takeDiscard' }).ok).toBe(false);
+  });
+
+  it('kütün eksik rengi işlektir, işlek olmayan taş normal atılır', () => {
+    const m = meld(2, 'r7 y7 k7', 'kut');
+    const g = setup({ hand: 'b7 b9 k11', melds: [m] });
+    const s = g.state;
+    const [b7, b9] = s.players[0].hand;
+    expect(g.isIslek(b7)).toBe(true);
+    expect(g.isIslek(b9)).toBe(false);
+    ok(g.act(0, { type: 'discard', tileId: b9.id }));
+    expect(s.extraPenalties[0]).toBe(0);
+    expect(s.pendingDiscard?.tile).toBe(b9);
+  });
+
   it('son taşı işlekse onunla bitilemez', () => {
     const m = meld(1, 'r1 J r3', 'seri');
     const g = setup({ hand: 'r2', melds: [m] });

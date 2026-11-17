@@ -1,5 +1,5 @@
 import { CONTRACTS, Contract, Requirement } from './contracts';
-import { Meld, MeldShape, asCift, asKut, asSeri, jokerSwapIndex, withJokerSwapped, withTile, MELD_NAMES } from './melds';
+import { Meld, MeldShape, addPosition, asCift, asKut, asSeri, jokerSwapIndex, withJokerSwapped, withTile, MELD_NAMES } from './melds';
 import { mulberry32, shuffle } from './rng';
 import { Tile, createTileSet, tileName, tilePenalty } from './tiles';
 
@@ -234,8 +234,16 @@ export class Game {
   }
 
   /** İşleme yapabilir mi (kural açık, açtığı sıra değil, normal el). */
-  /** Bu taş yerdeki bir perde okeyin yerine geçebilir mi? (işlek taş) */
+  /**
+   * İşlek taş: yerdeki herhangi bir pere işlenebilen (uca eklenebilen) ya da bir
+   * perdeki okeyin yerine geçebilen taş. Atan +50 ceza yer.
+   */
   isIslek(tile: Tile): boolean {
+    return !tile.joker && this.state.melds.some((m) => jokerSwapIndex(m, tile) !== null || addPosition(m, tile) !== null);
+  }
+
+  /** Bu taş yerdeki bir perde okeyin yerine geçebilir mi? */
+  canSwapJoker(tile: Tile): boolean {
     return !tile.joker && this.state.melds.some((m) => jokerSwapIndex(m, tile) !== null);
   }
 

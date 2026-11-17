@@ -320,6 +320,7 @@ export class TableScene extends Phaser.Scene {
         case 'islek':
           this.bubble(e.seat, `İŞLEK! Geri aldı +1 · +${ISLEK_PENALTY}`, UI.red, false);
           if (e.seat !== 0) this.tiles.flyBack(DECK, this.anchor(e.seat), 120);
+          else this.selected.clear();
           sfx.error();
           haptic(30);
           break;
@@ -912,9 +913,13 @@ export class TableScene extends Phaser.Scene {
     } else if (s.phase === 'action' && s.current === 0) {
       let t: string;
       if (c.mode !== 'normal') t = 'Tek seferde açabiliyorsan "Öner" · yoksa bir taş at';
-      else if (!me.opened) t = `Sadece kuralı aç (${c.name}) ya da taş at`;
-      else if (me.openedThisTurn) t = 'Kural açıldı! Fazlalıklar sonraki sırada · taş at';
-      else if (me.hand.some((x) => this.ctrl.game.isIslek(x))) t = 'Mavi parlayan taş okeyi alır: seç → mavi çerçeveli pere dokun';
+      else if (!me.opened)
+        t = me.hand.some((x) => this.ctrl.game.isIslek(x))
+          ? `Kuralı aç (${c.name}) ya da taş at · mavi taşlar işlek, atma (+50)`
+          : `Sadece kuralı aç (${c.name}) ya da taş at`;
+      else if (me.openedThisTurn) t = 'Kural açıldı! Fazlalıklar sonraki sırada · işlek olmayan bir taş at';
+      else if (me.hand.some((x) => this.ctrl.game.canSwapJoker(x))) t = 'Okeyi alabilirsin: mavi taşı seç → mavi çerçeveli pere dokun';
+      else if (me.hand.some((x) => this.ctrl.game.isIslek(x))) t = 'Mavi taşlar işlek: seç → altın çerçeveli pere işle · atarsan +50';
       else t = 'Per diz · taş seçip parlayan pere işle · taş at';
       this.setStatus(t, 'turn');
     } else if (s.phase === 'claim') {
