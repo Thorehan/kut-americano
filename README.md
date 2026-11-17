@@ -3,7 +3,9 @@
 101 Okey görselliğinde, okey taşlarıyla oynanan kontratlı rummy. 11 el, her elde ayrı bir kural.
 Kurallar ve kararlar: [docs/ISTISARE.md](docs/ISTISARE.md)
 
-**Durum:** Faz 1 — tarayıcıda deneme sürümü (1 kişi + 3 bot, tekli ve takım modu).
+**Durum:** Faz 2 — tarayıcıda deneme sürümü (1 kişi + 3 bot, tekli ve takım modu).
+
+**Oyna:** https://thorehan.github.io/kut-americano/ (telefonda yan çevirerek)
 
 ## Çalıştırma
 
