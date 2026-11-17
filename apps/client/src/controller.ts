@@ -1,0 +1,92 @@
+import { Action, Game, GameEvent, GameMode, decideBotAction } from '@kut/core';
+
+export type ChangeListener = (events: GameEvent[]) => void;
+
+export interface ControllerOptions {
+  mode: GameMode;
+  seed?: number;
+  startRound?: number;
+  /** Bot hızı çarpanı (1 = normal). */
+  speed?: number;
+}
+
+/** Oyunu yürütür: insanın hamlelerini motora iletir, botları gecikmeli oynatır. */
+export class Controller {
+  readonly game: Game;
+  readonly human = 0;
+  private timer: ReturnType<typeof setTimeout> | null = null;
+  private listeners = new Set<ChangeListener>();
+  private speed: number;
+  private destroyed = false;
+
+  constructor(opts: ControllerOptions) {
+    const names = opts.mode === 'team' ? ['Sen', 'Bot 1', 'Ortak', 'Bot 3'] : ['Sen', 'Bot 1', 'Bot 2', 'Bot 3'];
+    this.game = new Game({ mode: opts.mode, names, seed: opts.seed, startRound: opts.startRound });
+    this.speed = opts.speed ?? 1;
+  }
+
+  onChange(fn: ChangeListener) {
+    this.listeners.add(fn);
+  }
+
+  start() {
+    this.schedule();
+  }
+
+  /** İnsan hamlesi. Hata varsa mesajı döner. */
+  act(action: Action): string | null {
+    const r = this.game.act(this.human, action);
+    if (!r.ok) return r.error;
+    this.emit(r.events);
+    this.schedule();
+    return null;
+  }
+
+  destroy() {
+    this.destroyed = true;
+    if (this.timer) clearTimeout(this.timer);
+    this.listeners.clear();
+  }
+
+  private emit(events: GameEvent[]) {
+    for (const l of this.listeners) l(events);
+  }
+
+  private schedule() {
+    if (this.timer || this.destroyed) return;
+    const s = this.game.state;
+    let seat: number | null = null;
+    if (s.phase === 'claim') seat = s.claim!.queue[0];
+    else if (s.phase === 'draw' || s.phase === 'action') seat = s.current;
+    if (seat === null || !s.players[seat].isBot) return;
+    const base = s.phase === 'claim' ? 380 : s.phase === 'draw' ? 700 : 520;
+    const who = seat;
+    this.timer = setTimeout(() => {
+      this.timer = null;
+      this.botStep(who);
+    }, base / this.speed);
+  }
+
+  private botStep(seat: number) {
+    if (this.destroyed) return;
+    const s = this.game.state;
+    const action = decideBotAction(this.game, seat);
+    let r = this.game.act(seat, action);
+    if (!r.ok) {
+      console.warn('Bot hamlesi reddedildi:', r.error, action);
+      const fallback: Action =
+        s.phase === 'draw'
+          ? { type: 'drawDeck' }
+          : s.phase === 'claim'
+            ? { type: 'claim', want: false }
+            : { type: 'discard', tileId: s.players[seat].hand[0].id };
+      r = this.game.act(seat, fallback);
+      if (!r.ok) {
+        console.error('Bot takıldı:', r.error);
+        return;
+      }
+    }
+    this.emit(r.events);
+    this.schedule();
+  }
+}

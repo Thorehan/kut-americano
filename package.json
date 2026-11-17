@@ -1,0 +1,21 @@
+{
+  "name": "kut-americano",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Küt (Amerikano) okey — 101 okey görselliğinde kontratlı rummy",
+  "type": "module",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev -w @kut/client",
+    "build": "npm run build -w @kut/client",
+    "preview": "npm run preview -w @kut/client",
+    "test": "npm run test -w @kut/core",
+    "typecheck": "tsc -p packages/core && tsc -p apps/client"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.3"
+  }
+}
