@@ -376,7 +376,13 @@ export class TableScene extends Phaser.Scene {
     else if (c.mode === 'eldenBitme') melds = findFullPartition(hand, 1)?.melds ?? null;
     else if (c.mode === 'ciftEli') melds = findPairPartition(hand, 7)?.melds ?? null;
     if (!melds || melds.length === 0) {
-      this.toast(c.mode === 'normal' && this.me.opened ? 'Kural zaten açık — perlerini seçip "Per Ekle" ile diz.' : 'Şu an açılabilecek bir dizilim yok.');
+      this.toast(
+      c.mode === 'normal' && this.me.opened
+        ? this.me.openedThisTurn
+          ? 'Kuralı bu sırada açtın — fazlalıklar sonraki sıranda iner.'
+          : 'Kural açık — perlerini seçip "Per Ekle" ile diz.'
+        : 'Şu an açılabilecek bir dizilim yok.',
+    );
       return;
     }
     this.selected.clear();
@@ -723,7 +729,7 @@ export class TableScene extends Phaser.Scene {
     const b = this.buttons;
     const c = this.ctrl.game.contract;
     b.group.setLabel(c.mode === 'ciftEli' ? 'Çift Ekle' : 'Per Ekle').setEnabled(this.selected.size >= 2);
-    b.lay.setLabel(this.layLabel()).setEnabled(this.myAction && this.staged.length > 0);
+    b.lay.setLabel(this.layLabel()).setEnabled(this.myAction && this.staged.length > 0 && !this.me.openedThisTurn);
     b.cancel.setEnabled(this.staged.length > 0);
     b.discard.setEnabled(this.myAction && this.selected.size === 1);
     b.sort.setLabel(this.sortBy === 'seri' ? 'Küt Diz' : 'Seri Diz');
@@ -740,8 +746,8 @@ export class TableScene extends Phaser.Scene {
       text = s.pendingDiscard ? 'Sıra sende: ortadan çek ya da soldaki taşı al' : 'Sıra sende: ortadan çek';
     } else if (s.phase === 'action' && s.current === 0) {
       if (c.mode !== 'normal') text = 'Elini tek seferde açabilirsen "Öner"e bas · yoksa bir taş at';
-      else if (!me.opened) text = `Kuralı aç (${c.name}) ya da bir taş at`;
-      else if (me.openedThisTurn) text = 'Per dizebilir ya da taş atabilirsin · işleme sonraki sırada';
+      else if (!me.opened) text = `Sadece kuralı aç (${c.name}) ya da bir taş at`;
+      else if (me.openedThisTurn) text = 'Kural açıldı · fazlalıkların sonraki sıranda iner — şimdi bir taş at';
       else text = 'Per diz · taş işle (taşı seç → yanan pere dokun) · taş at';
     } else if (s.phase === 'claim') {
       text = s.claim!.queue[0] === 0 ? 'Yan taşı istiyor musun?' : 'Yan taş isteniyor mu…';
@@ -847,6 +853,13 @@ export class TableScene extends Phaser.Scene {
     objs.push(
       this.add.text(cx - 250, cy + 46, `Başlayan: ${s.players[s.starter].name}`, st(16, COLORS_UI.cream, true)).setDepth(800),
     );
+    if (g.contract.mode === 'normal') {
+      objs.push(
+        this.add
+          .text(cx - 250, cy + 66, 'Açarken sadece kural iner; fazlalıklar sonraki sırada.', st(13, COLORS_UI.goldText))
+          .setDepth(800),
+      );
+    }
     if (s.extraTile) {
       objs.push(this.add.text(cx + 210, cy - 70, 'Fazlalık taşı', st(13, COLORS_UI.muted)).setOrigin(0.5, 0).setDepth(800));
       objs.push(this.add.image(cx + 210, cy + 10, tileKey(s.extraTile)).setScale(0.7).setDepth(800));

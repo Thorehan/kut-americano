@@ -1,6 +1,6 @@
 import { Action, Game } from './game';
 import { addPosition } from './melds';
-import { findContractMelds, findFullPartition, findGreedyMelds, findPairPartition, without } from './solver';
+import { findContractMelds, findFullPartition, findGreedyMelds, findPairPartition } from './solver';
 import { Tile, tilePenalty } from './tiles';
 
 /** Basit kural tabanlı bot. Her çağrıda tek bir hamle döndürür. */
@@ -21,13 +21,10 @@ export function decideBotAction(game: Game, seat: number): Action {
 
   if (c.mode === 'normal') {
     if (!p.opened) {
+      // Açılışta yalnızca kural iner; fazlalıklar sonraki sırada.
       const open = findContractMelds(p.hand, c.reqs);
-      if (open) {
-        const rest = without(p.hand, open.flat());
-        const extra = findGreedyMelds(rest, 0);
-        return { type: 'lay', melds: ids([...open, ...extra]) };
-      }
-    } else {
+      if (open) return { type: 'lay', melds: ids(open) };
+    } else if (!p.openedThisTurn) {
       const jokers = p.hand.filter((t) => t.joker).length;
       const extra = findGreedyMelds(p.hand, jokers);
       if (extra.length) return { type: 'lay', melds: ids(extra) };

@@ -82,19 +82,42 @@ describe('kural açma ve işleme', () => {
     expect(g.state.players[0].opened).toBe(false);
   });
 
-  it('kural açılınca diğer perler de dizilebilir; aynı sırada işleme yok, sonraki sırada var', () => {
+  it('açılışta fazlalık per yere inemez', () => {
+    const g = rigged();
+    const h = g.state.players[0].hand;
+    const r = g.act(0, { type: 'lay', melds: [[h[0].id, h[1].id, h[2].id], [h[3].id, h[4].id, h[5].id]] });
+    expect(r.ok).toBe(false);
+    expect(g.state.players[0].opened).toBe(false);
+    expect(g.state.melds).toHaveLength(0);
+  });
+
+  it("3'lü küt elinde 4'lü kütle açılmaz (fazlalık taş inemez)", () => {
+    const g = rigged();
+    const p = g.state.players[0];
+    const k7 = tiles('k7')[0];
+    p.hand.push(k7);
+    const h = p.hand;
+    expect(g.act(0, { type: 'lay', melds: [[h[0].id, h[1].id, h[2].id, k7.id]] }).ok).toBe(false);
+    ok(g.act(0, { type: 'lay', melds: [[h[0].id, h[1].id, h[2].id]] }));
+  });
+
+  it('kural sırasında başka per dizilmez/işlenmez; sonraki sırada dizilir ve işlenir', () => {
     const g = rigged();
     const s = g.state;
     const h = s.players[0].hand;
-    ok(g.act(0, { type: 'lay', melds: [[h[0].id, h[1].id, h[2].id], [h[3].id, h[4].id, h[5].id]] }));
+    const kut = [h[0].id, h[1].id, h[2].id];
+    const seriIds = [h[3].id, h[4].id, h[5].id];
+    const b1 = h[6];
+    ok(g.act(0, { type: 'lay', melds: [kut] }));
     expect(s.players[0].opened).toBe(true);
-    expect(s.melds).toHaveLength(2);
+    expect(g.act(0, { type: 'lay', melds: [seriIds] }).ok).toBe(false);
+    const r9 = tiles('r9')[0]; // küte işlenebilir değil ama denenir: işleme aynı sırada kapalı
+    s.players[0].hand.push(r9);
+    expect(g.act(0, { type: 'addToMeld', tileId: r9.id, meldId: s.melds[0].id }).ok).toBe(false);
     const k5 = tiles('k5')[0];
     s.players[0].hand.push(k5);
-    const seri = s.melds.find((m) => m.kind === 'seri')!;
-    expect(g.act(0, { type: 'addToMeld', tileId: k5.id, meldId: seri.id }).ok).toBe(false);
     // bir tur dön
-    ok(g.act(0, { type: 'discard', tileId: s.players[0].hand[0].id }));
+    ok(g.act(0, { type: 'discard', tileId: b1.id }));
     for (let seat = 1; seat < SEATS; seat++) {
       ok(g.act(seat, { type: 'drawDeck' }));
       while (s.phase === 'claim') ok(g.act(s.claim!.queue[0], { type: 'claim', want: false }));
@@ -102,6 +125,8 @@ describe('kural açma ve işleme', () => {
     }
     ok(g.act(0, { type: 'drawDeck' }));
     while (s.phase === 'claim') ok(g.act(s.claim!.queue[0], { type: 'claim', want: false }));
+    ok(g.act(0, { type: 'lay', melds: [seriIds] }));
+    const seri = s.melds.find((m) => m.kind === 'seri')!;
     ok(g.act(0, { type: 'addToMeld', tileId: k5.id, meldId: seri.id }));
     expect(s.melds.find((m) => m.id === seri.id)!.tiles).toHaveLength(4);
   });

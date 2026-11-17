@@ -138,7 +138,7 @@ export function matchContract(groups: Tile[][], reqs: readonly Requirement[]): M
     const r = reqs[ri];
     for (let gi = 0; gi < groups.length; gi++) {
       if (chosen[gi]) continue;
-      const sh = options[gi].find((o) => o.kind === r.kind && o.tiles.length >= r.min);
+      const sh = options[gi].find((o) => o.kind === r.kind && o.tiles.length === r.size);
       if (!sh) continue;
       chosen[gi] = sh;
       if (rec(ri + 1)) return true;
@@ -387,9 +387,15 @@ export class Game {
 
     if (c.mode === 'normal') {
       if (!p.opened) {
+        // Açılış sırasında yalnızca kural yere iner; fazlalık per/taş o sırada inemez.
+        if (tileGroups.length !== c.reqs.length) {
+          throw new RuleError(`Açılışta sadece kural (${c.name}) yere iner; diğer perlerini sonraki sıranda dizebilirsin.`);
+        }
         const m = matchContract(tileGroups, c.reqs);
-        if (!m) throw new RuleError(`Kural sağlanmadı: ${c.name}. ${c.description}`);
+        if (!m) throw new RuleError(`Kural sağlanmadı: ${c.name}. ${c.description} (fazlalık taş o sırada inemez)`);
         shapes = m;
+      } else if (p.openedThisTurn) {
+        throw new RuleError('Kuralı açtığın sırada başka per dizilmez; sonraki sıranda dizebilirsin.');
       } else {
         shapes = tileGroups.map((g) => {
           const sh = asSeri(g) ?? asKut(g);

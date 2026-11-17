@@ -31,9 +31,9 @@ Her el sıradaki kural geçerlidir. UI'da sabit bir **Kural Paneli** o elin kura
 | 10 | Elden bitme | Tüm el tek hamlede (bkz. açık soru S4) |
 | 11 | Çift eli | Çiftlerle bitiş, puanlar ×2 (bkz. açık soru S5) |
 
-**Açma (kural kilidi):** Önce o elin kuralı yere açılır → kilit açılır. Ondan sonra eldeki diğer taşlarla per dizilir. Kural açılmadan **elden bile bitilemez**.
+**Açma (kural kilidi):** O elin kuralı yere açılır → kilit açılır. **Açtığın sırada yalnızca kural iner, fazlalık inmez:** ne ek per ne de kurala eklenen fazla taş (ör. 3'lü küt elinde 4'lü küt açılmaz). Fazlalıklar **bir sonraki sırada** dizilir/işlenir, bitebiliyorsan bitersin. Kural açılmadan **elden bile bitilemez**.
 
-**İşleme:** Kuralı açmış oyuncu, sonraki sıralarında yerdeki perlere (kendi ve rakiplerin) uyan taşları işleyebilir.
+**Dizme ve işleme:** Kuralı açmış oyuncu, sonraki sıralarında elindeki perleri yere dizebilir ve yerdeki perlere (kendi ve rakiplerin) uyan taşları işleyebilir.
 
 ## 3. Dağıtım ve tur akışı
 
@@ -136,7 +136,7 @@ Cevaplanmayanlar için parantez içindeki **varsayım** ile başlanır.
 - **S3 — Elde kalan okeyin ceza değeri?** *(Varsayım: 25 puan.)*
 - **S4 — 10. el "Elden bitme":** Önceden hiç açmadan, tüm 14 taşı tek hamlede perleyip bitmek mi? Bu elde ara açma yok mu? *(Varsayım: evet, tek hamlede bitiş; puanlama normal bitiş gibi.)*
 - **S5 — 11. el "Çift eli":** Kaç çift gerekli — 7 çift mi? Çift = aynı renk + aynı sayı mı? Okey çiftin yerine geçer mi? *(Varsayım: 7 çift, aynı renk-aynı sayı, okey bir taşın yerine geçer.)*
-- **S6 — Kontrat açıldıktan sonra dizme:** Kural açılan aynı hamlede diğer perler de dizilebilir mi? *(Varsayım: evet.)*
+- ~~**S6 — Kontrat açıldıktan sonra dizme**~~ — **Cevaplandı:** açılış sırasında sadece kural iner; fazlalıklar sonraki sırada.
 - **S7 — İşlemede okey değiştirme:** Yerdeki perde okeyin tuttuğu gerçek taş elindeyse, onu koyup okeyi alabilir mi? *(Varsayım: hayır, prototipte yok.)*
 - **S8 — İstek zamanlaması ve öncelik:** Birden fazla kişi aynı anda isterse kim alır? İstek penceresi ne zaman kapanır? *(Varsayım — Faz 1'de böyle kodlandı: sırası gelen oyuncu ortadan çektiği anda diğer oyunculara sıra yönüne göre tek tek sorulur (en yakın önce, 8 sn süre); ilk "İSTE" diyen alır, sonra sırası gelen oyuncu devam eder.)*
 - **S9 — Deste biterse:** Ortada taş kalmazsa el nasıl biter? *(Varsayım: el berabere biter, herkes elindeki cezayı yazar, kimse eksi almaz.)*

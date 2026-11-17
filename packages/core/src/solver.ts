@@ -82,7 +82,7 @@ export function seriCandidates(pool: readonly Tile[], size: number, maxJokers = 
 }
 
 export function requirementCandidates(pool: readonly Tile[], req: Requirement, maxJokers = Infinity): Tile[][] {
-  return req.kind === 'kut' ? kutCandidates(pool, req.min, maxJokers) : seriCandidates(pool, req.min, maxJokers);
+  return req.kind === 'kut' ? kutCandidates(pool, req.size, maxJokers) : seriCandidates(pool, req.size, maxJokers);
 }
 
 /** Elin kuralı açıp açamayacağını bulur; açabiliyorsa gerekli perleri döndürür. */

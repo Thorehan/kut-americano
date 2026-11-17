@@ -24,8 +24,8 @@ Deneme parametreleri: `?el=10` → 10. elden (Elden Bitme) başlar · `?seed=42`
 
 - **Taş seç:** taşa dokun (yukarı kalkar). **Taşı taşı:** ıstakada sürükle-bırak.
 - **Çek:** sıran gelince ortadaki desteye ya da soldaki yan taşa dokun.
-- **Kural aç:** taşları seç → **Per Ekle** → (gerekirse başka per) → **Kuralı Aç**. **Öner** butonu açılabilecek perleri otomatik hazırlar.
-- **İşle:** kural açtıktan sonraki sıralarında bir taş seç → parlayan pere dokun (ya da taşı pere sürükle).
+- **Kural aç:** taşları seç → **Per Ekle** → (kural iki perse ikincisi de) → **Kuralı Aç**. **Öner** butonu kuralı otomatik hazırlar. Açtığın sırada **sadece kural iner**, fazlalıklar inemez.
+- **Diz ve işle:** sonraki sıralarında perlerini **Per Ekle → Yere Koy** ile diz; tek taş seçip parlayan pere dokunarak (ya da sürükleyerek) işle.
 - **At:** bir taş seç → **Taş At** (ya da taşı "Taş at" alanına sürükle).
 - **İstek:** sıradaki oyuncu yan taşı almazsa sana sorulur: **İSTE** dersen yan taş + ortadan 1 taş gelir.
 

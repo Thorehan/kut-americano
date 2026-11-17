@@ -3,8 +3,8 @@ export type ContractMode = 'normal' | 'eldenBitme' | 'ciftEli';
 
 export interface Requirement {
   kind: 'kut' | 'seri';
-  /** En az kaç taşlık olmalı. */
-  min: number;
+  /** Açılışta per tam olarak kaç taş olmalı (fazlalık o sırada yere inemez). */
+  size: number;
 }
 
 export interface Contract {
@@ -14,8 +14,8 @@ export interface Contract {
   description: string;
 }
 
-const kut = (min: number): Requirement => ({ kind: 'kut', min });
-const seri = (min: number): Requirement => ({ kind: 'seri', min });
+const kut = (size: number): Requirement => ({ kind: 'kut', size });
+const seri = (size: number): Requirement => ({ kind: 'seri', size });
 
 /** 11 elin sırası (İstişare §2). */
 export const CONTRACTS: readonly Contract[] = [

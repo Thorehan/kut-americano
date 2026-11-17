@@ -98,17 +98,17 @@ describe('kontrat arama', () => {
   it("3'lü küt + 3'lü seri bulunur", () => {
     const hand = tiles('r5 y5 b5 k2 k3 k4 r9 b11');
     const m = findContractMelds(hand, [
-      { kind: 'kut', min: 3 },
-      { kind: 'seri', min: 3 },
+      { kind: 'kut', size: 3 },
+      { kind: 'seri', size: 3 },
     ]);
     expect(m).not.toBeNull();
     expect(m!.flat()).toHaveLength(6);
   });
   it('bulunamazsa null', () => {
-    expect(findContractMelds(tiles('r5 y5 k2 k3'), [{ kind: 'kut', min: 3 }])).toBeNull();
+    expect(findContractMelds(tiles('r5 y5 k2 k3'), [{ kind: 'kut', size: 3 }])).toBeNull();
   });
   it('matchContract: gruplar kurala eşlenir, kısa grup reddedilir', () => {
-    const reqs = [{ kind: 'seri' as const, min: 4 }];
+    const reqs = [{ kind: 'seri' as const, size: 4 }];
     expect(matchContract([tiles('b1 b2 b3 b4')], reqs)).not.toBeNull();
     expect(matchContract([tiles('b1 b2 b3')], reqs)).toBeNull();
     expect(matchContract([tiles('b1 b2 b3 b4'), tiles('r1 r1 r2')], reqs)).toBeNull();
