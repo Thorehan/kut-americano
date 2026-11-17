@@ -1,5 +1,5 @@
 import { Action, Game } from './game';
-import { addPosition } from './melds';
+import { addPosition, jokerSwapIndex } from './melds';
 import { findContractMelds, findFullPartition, findGreedyMelds, findPairPartition } from './solver';
 import { Tile, tilePenalty } from './tiles';
 
@@ -25,6 +25,11 @@ export function decideBotAction(game: Game, seat: number): Action {
       const open = findContractMelds(p.hand, c.reqs);
       if (open) return { type: 'lay', melds: ids(open) };
     } else if (!p.openedThisTurn) {
+      // Okeyin yerine geçen taş elimdeyse: koy, okeyi al (rakibe +50).
+      for (const t of p.hand) {
+        const m = s.melds.find((m) => jokerSwapIndex(m, t) !== null);
+        if (m) return { type: 'swapJoker', tileId: t.id, meldId: m.id };
+      }
       const jokers = p.hand.filter((t) => t.joker).length;
       const extra = findGreedyMelds(p.hand, jokers);
       if (extra.length) return { type: 'lay', melds: ids(extra) };
@@ -58,6 +63,8 @@ function hasDuplicate(hand: Tile[], t: Tile): boolean {
 /** Taşın eldeki faydası: yüksek = tut, düşük = at. */
 export function usefulness(game: Game, seat: number, hand: Tile[], t: Tile, inMeld: Set<number>): number {
   if (t.joker) return 1000;
+  // İşlek taş atmak +50 ceza: elde tut.
+  if (game.isIslek(t)) return 500;
   const p = game.state.players[seat];
   const c = game.contract;
   if (c.mode === 'ciftEli') return (hasDuplicate(hand, t) ? 50 : 0) - tilePenalty(t) * 0.1;
@@ -118,6 +125,7 @@ export function wantsDiscard(game: Game, seat: number, tile: Tile): boolean {
   if (tile.joker) return true;
   if (c.mode === 'ciftEli') return hasDuplicate([...p.hand, tile], tile);
   if (improvesContract(game, seat, tile)) return true;
+  if (p.opened && game.isIslek(tile)) return true;
   const after = [...p.hand, tile];
   if (meldCoverage(after) > meldCoverage(p.hand)) return true;
   if (p.opened && c.mode === 'normal' && game.state.melds.some((m) => addPosition(m, tile))) return true;

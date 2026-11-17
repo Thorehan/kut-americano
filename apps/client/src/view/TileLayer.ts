@@ -24,6 +24,8 @@ export interface Target {
   kind: TileKind;
   place: Place;
   selected?: boolean;
+  /** Okeyin yerine geçebilen (işlek) taş: mavi parlama. */
+  hint?: boolean;
   dim?: boolean;
 }
 
@@ -115,11 +117,13 @@ export class TileLayer {
         img.setScale(o?.scale ?? p.scale).setDepth(p.depth);
         if (!o) img.setAlpha(0);
         img.setData('id', id);
+        // Dokunma ancak basış da bu taşta başladıysa sayılır (altından kayıp gelen taş seçilmesin).
+        img.on('pointerdown', () => img!.setData('down', true).setData('dragged', false));
         img.on('pointerup', () => {
-          if (img!.getData('dragged')) {
-            img!.setData('dragged', false);
-            return;
-          }
+          const down = img!.getData('down');
+          const dragged = img!.getData('dragged');
+          img!.setData('down', false).setData('dragged', false);
+          if (!down || dragged) return;
           this.onTap(id, this.kinds.get(id) ?? 'meld');
         });
         this.sprites.set(id, img);
@@ -147,8 +151,9 @@ export class TileLayer {
         }
       }
 
-      // seçili taş parlaması
-      if (t.selected) this.enableGlow(img);
+      // seçili taş altın, işlek taş mavi parlar
+      if (t.selected) this.setGlow(img, 'sel');
+      else if (t.hint) this.setGlow(img, 'hint');
       else this.disableGlow(img);
     }
   }
@@ -195,10 +200,12 @@ export class TileLayer {
     }
   }
 
-  private enableGlow(img: Phaser.GameObjects.Image) {
-    if (img.getData('glow')) return;
-    const fx = img.preFX?.addGlow(0xffd35c, 5, 0, false, 0.12, 14);
-    img.setData('glow', fx ?? true);
+  private setGlow(img: Phaser.GameObjects.Image, kind: 'sel' | 'hint') {
+    if (img.getData('glow') === kind) return;
+    img.preFX?.clear();
+    if (kind === 'sel') img.preFX?.addGlow(0xffd35c, 5, 0, false, 0.12, 14);
+    else img.preFX?.addGlow(0x6fe7ff, 3, 0, false, 0.12, 10);
+    img.setData('glow', kind);
   }
 
   private disableGlow(img: Phaser.GameObjects.Image) {

@@ -35,6 +35,12 @@ Her el sıradaki kural geçerlidir. UI'da sabit bir **Kural Paneli** o elin kura
 
 **Dizme ve işleme:** Kuralı açmış oyuncu, sonraki sıralarında elindeki perleri yere dizebilir ve yerdeki perlere (kendi ve rakiplerin) uyan taşları işleyebilir.
 
+**Okeyi alma ve işlek taş:** Yerdeki bir perde okeyin yerini tuttuğu taş (ör. `1-okey-3` perinde `2`) **işlek taştır**.
+- İşlek taşı elinde tutan oyuncu, sırasında o taşı okeyin yerine koyup **okeyi eline alabilir**. Okeyi alınan **rakibe +50 ceza** yazılır.
+- Kütte okeyin yerine eksik renklerden herhangi biri geçer (ör. kırmızı 7 – sarı 7 – okey perine mavi 7 ya da siyah 7).
+- İşlemek zorunlu değildir; oyuncu işleği elinde bekletebilir. Ama **işlek taşı yere atarsa:** attığı taşı **geri alır, ortadan 1 taş daha çeker, kendisine +50 ceza** yazılır ve **sıra sonraki oyuncuya geçer** (o sırada taş atılmamış sayılır, işlek taşla bitilemez).
+- *Varsayımlar (onay bekliyor):* okey almak için kuralın açılmış olması gerekir ve kuralın açıldığı sırada okey alınmaz (işleme ile aynı). Kendi ya da takım arkadaşının perindeki okeyi almak serbesttir, ceza yazılmaz. +50 cezalar el sonunda puana çarpansız eklenir.
+
 ## 3. Dağıtım ve tur akışı
 
 - 4 oyuncu. Her oyuncuya **14 taş**, başlayan oyuncuya **15 taş**.
@@ -137,7 +143,7 @@ Cevaplanmayanlar için parantez içindeki **varsayım** ile başlanır.
 - **S4 — 10. el "Elden bitme":** Önceden hiç açmadan, tüm 14 taşı tek hamlede perleyip bitmek mi? Bu elde ara açma yok mu? *(Varsayım: evet, tek hamlede bitiş; puanlama normal bitiş gibi.)*
 - **S5 — 11. el "Çift eli":** Kaç çift gerekli — 7 çift mi? Çift = aynı renk + aynı sayı mı? Okey çiftin yerine geçer mi? *(Varsayım: 7 çift, aynı renk-aynı sayı, okey bir taşın yerine geçer.)*
 - ~~**S6 — Kontrat açıldıktan sonra dizme**~~ — **Cevaplandı:** açılış sırasında sadece kural iner; fazlalıklar sonraki sırada.
-- **S7 — İşlemede okey değiştirme:** Yerdeki perde okeyin tuttuğu gerçek taş elindeyse, onu koyup okeyi alabilir mi? *(Varsayım: hayır, prototipte yok.)*
+- ~~**S7 — İşlemede okey değiştirme**~~ — **Cevaplandı:** evet; okeyi alınan rakibe +50, işlek taşı atana +50 (bkz. §2).
 - **S8 — İstek zamanlaması ve öncelik:** Birden fazla kişi aynı anda isterse kim alır? İstek penceresi ne zaman kapanır? *(Varsayım — Faz 1'de böyle kodlandı: sırası gelen oyuncu ortadan çektiği anda diğer oyunculara sıra yönüne göre tek tek sorulur (en yakın önce, 8 sn süre); ilk "İSTE" diyen alır, sonra sırası gelen oyuncu devam eder.)*
 - **S9 — Deste biterse:** Ortada taş kalmazsa el nasıl biter? *(Varsayım: el berabere biter, herkes elindeki cezayı yazar, kimse eksi almaz.)*
 - **S10 — Takım modunda kural açma:** Takım arkadaşının açtığı kural diğerinin kilidini de açar mı? *(Varsayım: hayır, herkes kendi kuralını açar; takım biri bitince biter.)*

@@ -1,11 +1,15 @@
 import { CONTRACTS, Contract, Requirement } from './contracts';
-import { Meld, MeldShape, asCift, asKut, asSeri, withTile, MELD_NAMES } from './melds';
+import { Meld, MeldShape, asCift, asKut, asSeri, jokerSwapIndex, withJokerSwapped, withTile, MELD_NAMES } from './melds';
 import { mulberry32, shuffle } from './rng';
 import { Tile, createTileSet, tileName, tilePenalty } from './tiles';
 
 export const SEATS = 4;
 export const HAND_SIZE = 14;
 export const FINISH_BONUS = -50;
+/** Rakibin perindeki okeyi alınan oyuncuya yazılan ceza. */
+export const OKEY_SWAP_PENALTY = 50;
+/** İşlek taşı (okeyin yerine geçebilecek taşı) yere atan oyuncuya yazılan ceza. */
+export const ISLEK_PENALTY = 50;
 
 export type GameMode = 'solo' | 'team';
 export type Phase = 'draw' | 'claim' | 'action' | 'roundOver' | 'gameOver';
@@ -52,6 +56,8 @@ export interface RoundResult {
   multiplier: number;
   /** Her oyuncunun elinde kalan taşların ham ceza toplamı. */
   penalties: number[];
+  /** Okeyi alınma / işlek atma gibi el içinde yazılan ek cezalar (koltuk bazında, çarpansız). */
+  extras: number[];
   /** Bu elde her koltuğa yazılan puan. */
   deltas: number[];
 }
@@ -76,6 +82,8 @@ export interface GameState {
   claim: ClaimState | null;
   /** Sıra başında eldeki okey sayısı (çift okey bitişi için). */
   turnJokers: number;
+  /** Bu el içinde yazılan ek cezalar (okeyi alınma, işlek atma). */
+  extraPenalties: number[];
   history: RoundResult[];
   log: GameEvent[];
 }
@@ -86,6 +94,8 @@ export type Action =
   | { type: 'claim'; want: boolean }
   | { type: 'lay'; melds: number[][] }
   | { type: 'addToMeld'; tileId: number; meldId: number }
+  /** Yerdeki perde okeyin tuttuğu taşı koyup okeyi almak. */
+  | { type: 'swapJoker'; tileId: number; meldId: number }
   | { type: 'discard'; tileId: number }
   | { type: 'nextRound' };
 
@@ -97,6 +107,8 @@ export type GameEventType =
   | 'open'
   | 'lay'
   | 'addToMeld'
+  | 'swapJoker'
+  | 'islek'
   | 'discard'
   | 'roundEnd'
   | 'gameEnd';
@@ -106,6 +118,8 @@ export interface GameEvent {
   seat: number;
   text: string;
   tile?: Tile;
+  /** Olaydan etkilenen diğer oyuncu (ör. okeyi alınan). */
+  target?: number;
 }
 
 export type ActResult = { ok: true; events: GameEvent[] } | { ok: false; error: string };
@@ -188,6 +202,7 @@ export class Game {
       pendingDiscard: null,
       claim: null,
       turnJokers: 0,
+      extraPenalties: [0, 0, 0, 0],
       history: [],
       log: [],
     };
@@ -219,6 +234,17 @@ export class Game {
   }
 
   /** İşleme yapabilir mi (kural açık, açtığı sıra değil, normal el). */
+  /** Bu taş yerdeki bir perde okeyin yerine geçebilir mi? (işlek taş) */
+  isIslek(tile: Tile): boolean {
+    return !tile.joker && this.state.melds.some((m) => jokerSwapIndex(m, tile) !== null);
+  }
+
+  /** Okeyi alınınca ceza yazılacak mı? (rakibin peri ise evet; kendi/ortağının ise hayır) */
+  isOpponent(a: number, b: number): boolean {
+    if (a === b) return false;
+    return this.state.mode === 'solo' || teamOf(a) !== teamOf(b);
+  }
+
   canAddToMelds(seat: number): boolean {
     const p = this.state.players[seat];
     return this.contract.mode === 'normal' && p.opened && !p.openedThisTurn;
@@ -250,6 +276,8 @@ export class Game {
     switch (a.type) {
       case 'lay':
         return this.doLay(seat, a.melds);
+      case 'swapJoker':
+        return this.doSwapJoker(seat, a.tileId, a.meldId);
       case 'addToMeld':
         return this.doAddToMeld(seat, a.tileId, a.meldId);
       case 'discard':
@@ -274,6 +302,7 @@ export class Game {
     s.players[s.starter].hand.push(extra);
     s.extraTile = extra;
     s.melds = [];
+    s.extraPenalties = [0, 0, 0, 0];
     s.pendingDiscard = null;
     s.claim = null;
     s.current = s.starter;
@@ -436,6 +465,36 @@ export class Game {
     return events;
   }
 
+  private doSwapJoker(seat: number, tileId: number, meldId: number): GameEvent[] {
+    const s = this.state;
+    const p = s.players[seat];
+    if (this.contract.mode !== 'normal') throw new RuleError('Bu elde okey alınmaz.');
+    if (!p.opened) throw new RuleError('Okeyi almak için önce kuralı açmalısın.');
+    if (p.openedThisTurn) throw new RuleError('Kuralı açtığın sırada okey alınmaz; sonraki sıranda alabilirsin.');
+    const tile = p.hand.find((t) => t.id === tileId);
+    if (!tile) throw new RuleError('Bu taş elinde değil.');
+    const idx = s.melds.findIndex((m) => m.id === meldId);
+    if (idx < 0) throw new RuleError('Per bulunamadı.');
+    const swapped = withJokerSwapped(s.melds[idx], tile);
+    if (!swapped) throw new RuleError(`${tileName(tile)} bu perdeki okeyin yerine geçmez.`);
+    s.melds[idx] = swapped.meld;
+    p.hand = p.hand.filter((t) => t !== tile);
+    p.hand.push(swapped.joker);
+    const owner = swapped.meld.owner;
+    const penalize = this.isOpponent(seat, owner);
+    if (penalize) s.extraPenalties[owner] += OKEY_SWAP_PENALTY;
+    const ownerName = owner === seat ? 'kendi' : `${s.players[owner].name}'in`;
+    return [
+      {
+        type: 'swapJoker',
+        seat,
+        tile,
+        target: owner,
+        text: `${p.name} ${ownerName} perindeki okeyi aldı (${tileName(tile)} koydu)${penalize ? `: ${s.players[owner].name} +${OKEY_SWAP_PENALTY} ceza!` : '.'}`,
+      },
+    ];
+  }
+
   private doAddToMeld(seat: number, tileId: number, meldId: number): GameEvent[] {
     const s = this.state;
     const p = s.players[seat];
@@ -464,6 +523,28 @@ export class Game {
     const tile = p.hand.find((t) => t.id === tileId);
     if (!tile) throw new RuleError('Bu taş elinde değil.');
     if (p.hand.length === 1 && !p.opened) throw new RuleError('Kuralı açmadan bitilemez.');
+    if (this.isIslek(tile)) {
+      // İşlek atan: taşı geri alır + ortadan 1 taş çeker, +50 ceza yer, sıra sonrakine geçer.
+      s.extraPenalties[seat] += ISLEK_PENALTY;
+      const extra = s.deck.pop();
+      if (extra) p.hand.push(extra);
+      const events: GameEvent[] = [
+        {
+          type: 'islek',
+          seat,
+          tile,
+          text: `${p.name} işlek taş attı (${tileName(tile)}): taşı geri aldı${extra ? ' + ortadan 1 taş' : ''}, +${ISLEK_PENALTY} ceza!`,
+        },
+      ];
+      s.pendingDiscard = null;
+      s.current = (seat + 1) % SEATS;
+      if (s.deck.length === 0) {
+        events.push(...this.finishRound(null, null));
+        return events;
+      }
+      s.phase = 'draw';
+      return events;
+    }
     p.hand = p.hand.filter((t) => t !== tile);
     p.discards.push(tile);
     const events: GameEvent[] = [{ type: 'discard', seat, tile, text: `${p.name} ${tileName(tile)} attı.` }];
@@ -489,13 +570,15 @@ export class Game {
     const multiplier = winner === null || !ft ? 1 : FINISH_MULT[ft] * (c.mode === 'ciftEli' ? 2 : 1);
     const deltas = [0, 0, 0, 0];
 
+    const extras = s.extraPenalties.slice();
     if (s.mode === 'solo') {
-      for (let i = 0; i < SEATS; i++) deltas[i] = i === winner ? FINISH_BONUS * multiplier : penalties[i] * multiplier;
+      for (let i = 0; i < SEATS; i++) deltas[i] = (i === winner ? FINISH_BONUS * multiplier : penalties[i] * multiplier) + extras[i];
     } else {
       const team = [0, 0];
       for (let t = 0; t < 2; t++) {
         const pen = penalties.filter((_, i) => teamOf(i) === t).reduce((a, b) => a + b, 0);
-        team[t] = winner !== null && teamOf(winner) === t ? FINISH_BONUS * multiplier : pen * multiplier;
+        const ext = extras.filter((_, i) => teamOf(i) === t).reduce((a, b) => a + b, 0);
+        team[t] = (winner !== null && teamOf(winner) === t ? FINISH_BONUS * multiplier : pen * multiplier) + ext;
       }
       for (let i = 0; i < SEATS; i++) deltas[i] = team[teamOf(i)];
     }
@@ -508,6 +591,7 @@ export class Game {
       finishType: ft,
       multiplier,
       penalties,
+      extras,
       deltas,
     };
     s.history.push(result);

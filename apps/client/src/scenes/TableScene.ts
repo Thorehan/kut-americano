@@ -4,7 +4,10 @@ import {
   FINISH_NAMES,
   GameEvent,
   Tile,
+  ISLEK_PENALTY,
+  OKEY_SWAP_PENALTY,
   addPosition,
+  jokerSwapIndex,
   asCift,
   asKut,
   asSeri,
@@ -82,6 +85,7 @@ export class TableScene extends Phaser.Scene {
   private dealing = false;
   private dragging = false;
   private wasMyTurn = false;
+  private islekConfirm = -1;
 
   private overlay: Phaser.GameObjects.Container | null = null;
   private overlayKind: OverlayKind = 'none';
@@ -106,6 +110,7 @@ export class TableScene extends Phaser.Scene {
     this.dealing = false;
     this.dragging = false;
     this.wasMyTurn = false;
+    this.islekConfirm = -1;
     this.overlay = null;
     this.overlayKind = 'none';
     this.overlayTimers = [];
@@ -304,6 +309,20 @@ export class TableScene extends Phaser.Scene {
           this.bubble(e.seat, 'İşledi', UI.panelHi, false);
           sfx.tok();
           break;
+        case 'swapJoker':
+          this.bubble(e.seat, 'OKEYİ ALDI!', UI.gold);
+          if (e.target !== undefined && this.ctrl.game.isOpponent(e.seat, e.target)) {
+            this.time.delayedCall(260, () => this.bubble(e.target!, `+${OKEY_SWAP_PENALTY} ceza`, UI.red, false));
+          }
+          sfx.swap();
+          haptic(25);
+          break;
+        case 'islek':
+          this.bubble(e.seat, `İŞLEK! Geri aldı +1 · +${ISLEK_PENALTY}`, UI.red, false);
+          if (e.seat !== 0) this.tiles.flyBack(DECK, this.anchor(e.seat), 120);
+          sfx.error();
+          haptic(30);
+          break;
         case 'discard':
           sfx.tok();
           break;
@@ -325,6 +344,7 @@ export class TableScene extends Phaser.Scene {
     sfx.unlock();
     const err = this.ctrl.act(action);
     if (err) this.showError(err);
+    else this.errorUntil = 0; // başarılı hamle eski uyarıyı kaldırır
     this.sync();
     return !err;
   }
@@ -494,7 +514,7 @@ export class TableScene extends Phaser.Scene {
     const sel = this.selectedSingle();
     if (!sel || !this.myAction) return;
     const hit = this.meldHits.find((h) => h.rect.contains(x, y));
-    if (hit) this.humanAct({ type: 'addToMeld', tileId: sel.id, meldId: hit.id });
+    if (hit) this.meldAction(sel.id, hit.id);
   }
 
   private onDrop(id: number, x: number, y: number) {
@@ -503,11 +523,11 @@ export class TableScene extends Phaser.Scene {
       this.moveToSlot(id, slot);
       sfx.tok();
     } else if (Phaser.Math.Distance.Between(x, y, DISCARD_POS[0].x, DISCARD_POS[0].y) < 70) {
-      if (this.myAction) this.humanAct({ type: 'discard', tileId: id });
+      if (this.myAction) this.tryDiscard(id);
       else this.showError('Taş atmak için sıranı bekle.');
     } else {
       const hit = this.meldHits.find((h) => h.rect.contains(x, y));
-      if (hit && this.myAction) this.humanAct({ type: 'addToMeld', tileId: id, meldId: hit.id });
+      if (hit && this.myAction) this.meldAction(id, hit.id);
       else if (this.inZone(MELD_ZONES[0], x, y) && this.myAction) {
         // kendi alanına bırakılan taş → hazırlanan pere eklenir
         const last = this.staged[this.staged.length - 1];
@@ -552,7 +572,27 @@ export class TableScene extends Phaser.Scene {
 
   private discardSelected() {
     if (this.selected.size !== 1) return;
-    this.humanAct({ type: 'discard', tileId: [...this.selected][0] });
+    this.tryDiscard([...this.selected][0]);
+  }
+
+  /** İşlek taş atılmadan önce bir kez uyarır (atarsa +50 ceza). */
+  private tryDiscard(id: number) {
+    const t = this.tileById(id);
+    if (t && this.ctrl.game.isIslek(t) && this.islekConfirm !== id) {
+      this.islekConfirm = id;
+      this.showError(`İşlek taş! Atarsan geri gelir + ortadan 1 taş, +${ISLEK_PENALTY} ceza, sıra geçer · yine de atmak için tekrar at`);
+      return;
+    }
+    this.islekConfirm = -1;
+    this.humanAct({ type: 'discard', tileId: id });
+  }
+
+  /** Taşı pere ver: okeyin yerine geçiyorsa okeyi al, değilse işle. */
+  private meldAction(tileId: number, meldId: number) {
+    const t = this.tileById(tileId);
+    const m = this.s.melds.find((x) => x.id === meldId);
+    if (t && m && jokerSwapIndex(m, t) !== null) this.humanAct({ type: 'swapJoker', tileId, meldId });
+    else this.humanAct({ type: 'addToMeld', tileId, meldId });
   }
 
   private toggleSort() {
@@ -627,7 +667,8 @@ export class TableScene extends Phaser.Scene {
       if (!t) return;
       const { x, y } = this.slotPos(i);
       const sel = this.selected.has(id);
-      targets.set(id, { tile: t, kind: 'rack', selected: sel, place: { x, y: sel ? y - 16 : y, scale: RACK.scale, depth: 200 + i } });
+      const hint = !sel && this.ctrl.game.isIslek(t);
+      targets.set(id, { tile: t, kind: 'rack', selected: sel, hint, place: { x, y: sel ? y - 16 : y, scale: RACK.scale, depth: 200 + i } });
     });
 
     // --- atılan taşlar (her yığında en üstteki 2 taş)
@@ -661,11 +702,12 @@ export class TableScene extends Phaser.Scene {
         const frame = lay.frames[gi];
         if (g.meldId !== undefined) {
           const m = melds[gi];
-          const target = !!(sel && canAdd && addPosition(m, sel));
+          const swap = !!(sel && canAdd && jokerSwapIndex(m, sel) !== null);
+          const target = swap || !!(sel && canAdd && addPosition(m, sel));
           this.zoneGfx.fillStyle(0x000000, 0.2);
           this.zoneGfx.fillRoundedRect(frame.x, frame.y, frame.width, frame.height, 8);
           if (target) {
-            this.zoneGfx.lineStyle(3, UI.gold, 1);
+            this.zoneGfx.lineStyle(3, swap ? 0x6fe7ff : UI.gold, 1);
             this.zoneGfx.strokeRoundedRect(frame.x - 2, frame.y - 2, frame.width + 4, frame.height + 4, 10);
           }
           this.meldHits.push({ id: g.meldId, rect: frame });
@@ -872,6 +914,7 @@ export class TableScene extends Phaser.Scene {
       if (c.mode !== 'normal') t = 'Tek seferde açabiliyorsan "Öner" · yoksa bir taş at';
       else if (!me.opened) t = `Sadece kuralı aç (${c.name}) ya da taş at`;
       else if (me.openedThisTurn) t = 'Kural açıldı! Fazlalıklar sonraki sırada · taş at';
+      else if (me.hand.some((x) => this.ctrl.game.isIslek(x))) t = 'Mavi parlayan taş okeyi alır: seç → mavi çerçeveli pere dokun';
       else t = 'Per diz · taş seçip parlayan pere işle · taş at';
       this.setStatus(t, 'turn');
     } else if (s.phase === 'claim') {
@@ -1041,7 +1084,8 @@ export class TableScene extends Phaser.Scene {
       const team = s.mode === 'team' ? ` (${teamOf(i) === 0 ? 'A' : 'B'})` : '';
       c.add(txt(this, x0, y, p.name + team, 18, win ? UI.greenHex : '#fff', 900).setOrigin(0, 0.5));
       p.hand.slice(0, 16).forEach((t, k) => c.add(this.add.image(x0 + 160 + k * 21, y, tileKey(t)).setScale(0.2)));
-      c.add(txt(this, x0 + 500, y, `${r.penalties[i]}`, 17, UI.cream, 800).setOrigin(0, 0.5));
+      const ex = r.extras?.[i] ?? 0;
+      c.add(txt(this, x0 + 500, y, `${r.penalties[i]}${ex ? ` +${ex}` : ''}`, 17, ex ? UI.redHex : UI.cream, 800).setOrigin(0, 0.5));
       const d = r.deltas[i];
       c.add(txt(this, x0 + 570, y, `${d > 0 ? '+' : ''}${d}`, 18, d < 0 ? UI.greenHex : UI.redHex, 900).setOrigin(0, 0.5));
       c.add(txt(this, x0 + 640, y, `${p.score}`, 18, UI.goldHex, 900).setOrigin(0, 0.5));

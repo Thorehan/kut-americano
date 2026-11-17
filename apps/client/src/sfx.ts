@@ -1,6 +1,13 @@
-/** Dosyasız, WebAudio ile üretilen kısa ses efektleri + titreşim. */
+/**
+ * Dosyasız, WebAudio ile üretilen yumuşak ses efektleri + titreşim.
+ *
+ * Ses dili: ahşap masaya konan taş "tık"ı ve marimba benzeri kısa notalar.
+ * Sert gürültü patlamaları, kayan (uluyan) tonlar ve kare dalga yok; her şey
+ * alçak geçiren bir filtre ve yumuşak bir sıkıştırıcıdan geçer.
+ */
 class Sfx {
   private ctx: AudioContext | null = null;
+  private out: AudioNode | null = null;
   private noiseBuf: AudioBuffer | null = null;
   muted = false;
 
@@ -17,11 +24,28 @@ class Sfx {
     if (!this.ctx) {
       const AC = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
       if (!AC) return;
-      this.ctx = new AC();
-      const len = Math.floor(this.ctx.sampleRate * 0.3);
-      this.noiseBuf = this.ctx.createBuffer(1, len, this.ctx.sampleRate);
+      const c = new AC();
+      this.ctx = c;
+      // ana zincir: kazanç → yumuşatıcı filtre → sıkıştırıcı → hoparlör
+      const master = c.createGain();
+      master.gain.value = 0.55;
+      const soften = c.createBiquadFilter();
+      soften.type = 'lowpass';
+      soften.frequency.value = 5200;
+      const comp = c.createDynamicsCompressor();
+      comp.threshold.value = -20;
+      comp.ratio.value = 4;
+      master.connect(soften).connect(comp).connect(c.destination);
+      this.out = master;
+      // pembe-benzeri gürültü (yumuşak hışırtı için)
+      const len = Math.floor(c.sampleRate * 0.6);
+      this.noiseBuf = c.createBuffer(1, len, c.sampleRate);
       const d = this.noiseBuf.getChannelData(0);
-      for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+      let last = 0;
+      for (let i = 0; i < len; i++) {
+        last = 0.97 * last + 0.03 * (Math.random() * 2 - 1);
+        d[i] = last * 6;
+      }
     }
     if (this.ctx.state === 'suspended') void this.ctx.resume();
   }
@@ -36,79 +60,123 @@ class Sfx {
   }
 
   private ready(): AudioContext | null {
-    if (this.muted || !this.ctx || this.ctx.state !== 'running') return null;
+    if (this.muted || !this.ctx || !this.out || this.ctx.state !== 'running') return null;
     return this.ctx;
   }
 
-  private tone(freq: number, dur: number, type: OscillatorType = 'sine', gain = 0.12, when = 0, slideTo?: number) {
+  /** Yumuşak sinüs (isteğe bağlı üst harmonikle) — zarf: hızlı atak, üstel sönüm. */
+  private note(freq: number, dur: number, gain: number, when = 0, harmonic = 0) {
     const c = this.ready();
     if (!c) return;
     const t = c.currentTime + when;
-    const o = c.createOscillator();
     const g = c.createGain();
-    o.type = type;
-    o.frequency.setValueAtTime(freq, t);
-    if (slideTo) o.frequency.exponentialRampToValueAtTime(slideTo, t + dur);
     g.gain.setValueAtTime(0.0001, t);
-    g.gain.exponentialRampToValueAtTime(gain, t + 0.008);
+    g.gain.exponentialRampToValueAtTime(gain, t + 0.006);
     g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    o.connect(g).connect(c.destination);
+    g.connect(this.out!);
+    const o = c.createOscillator();
+    o.type = 'sine';
+    o.frequency.value = freq;
+    o.connect(g);
     o.start(t);
     o.stop(t + dur + 0.02);
+    if (harmonic > 0) {
+      const hg = c.createGain();
+      hg.gain.setValueAtTime(0.0001, t);
+      hg.gain.exponentialRampToValueAtTime(gain * harmonic, t + 0.004);
+      hg.gain.exponentialRampToValueAtTime(0.0001, t + dur * 0.35);
+      hg.connect(this.out!);
+      const h = c.createOscillator();
+      h.type = 'sine';
+      h.frequency.value = freq * 4;
+      h.connect(hg);
+      h.start(t);
+      h.stop(t + dur + 0.02);
+    }
   }
 
-  private noise(dur: number, gain: number, freq: number, when = 0, q = 1) {
+  /** Marimba benzeri nota. */
+  private mallet(freq: number, gain = 0.09, when = 0, dur = 0.45) {
+    this.note(freq, dur, gain, when, 0.18);
+  }
+
+  /** Alçak geçiren filtreli, yumuşak açılıp kapanan hışırtı. */
+  private hush(dur: number, gain: number, from: number, to: number, when = 0) {
     const c = this.ready();
     if (!c || !this.noiseBuf) return;
     const t = c.currentTime + when;
     const src = c.createBufferSource();
     src.buffer = this.noiseBuf;
     const f = c.createBiquadFilter();
-    f.type = 'bandpass';
-    f.frequency.value = freq;
-    f.Q.value = q;
+    f.type = 'lowpass';
+    f.Q.value = 0.4;
+    f.frequency.setValueAtTime(from, t);
+    f.frequency.exponentialRampToValueAtTime(to, t + dur);
     const g = c.createGain();
-    g.gain.setValueAtTime(gain, t);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(gain, t + dur * 0.35);
     g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    src.connect(f).connect(g).connect(c.destination);
-    src.start(t);
+    src.connect(f).connect(g).connect(this.out!);
+    src.start(t, Math.random() * 0.2);
     src.stop(t + dur + 0.02);
   }
 
-  /** Taşın masaya konma sesi ("tak"). */
+  /** Taşın ahşaba konma sesi: kısa, tok bir "tık". */
+  private click(gain = 1, when = 0) {
+    const j = 1 + (Math.random() - 0.5) * 0.08; // her tık biraz farklı
+    this.note(1150 * j, 0.03, 0.05 * gain, when);
+    this.note(260 * j, 0.07, 0.09 * gain, when);
+  }
+
   tok() {
-    this.noise(0.05, 0.5, 2600, 0, 2.5);
-    this.tone(1250, 0.045, 'triangle', 0.07);
+    this.click(1);
   }
   select() {
-    this.tone(1650, 0.035, 'sine', 0.035);
+    this.note(1900, 0.025, 0.018);
   }
+  /** Desteden çekme: kısa yumuşak kayma + konma. */
   draw() {
-    this.noise(0.14, 0.16, 1400, 0, 0.8);
+    this.hush(0.2, 0.05, 500, 1400);
+    this.click(0.7, 0.17);
   }
+  /** Taş dağıtma / dizme: art arda hafif tıklar. */
+  shuffle() {
+    for (let i = 0; i < 6; i++) this.click(0.45 + Math.random() * 0.25, i * 0.07 + Math.random() * 0.02);
+  }
+  /** Yan taş isteği. */
   pop() {
-    this.tone(420, 0.12, 'sine', 0.16, 0, 880);
+    this.mallet(784, 0.08);
+    this.mallet(1047, 0.07, 0.08);
   }
+  /** Okeyi alma. */
+  swap() {
+    this.click(0.8);
+    this.mallet(659, 0.07, 0.06);
+    this.mallet(988, 0.07, 0.13);
+    this.mallet(1319, 0.06, 0.2);
+  }
+  /** Kural açma. */
   chime() {
-    this.tone(880, 0.3, 'sine', 0.1);
-    this.tone(1318, 0.42, 'sine', 0.09, 0.09);
+    this.mallet(523, 0.08);
+    this.mallet(659, 0.08, 0.08);
+    this.mallet(784, 0.08, 0.16, 0.6);
   }
+  /** Sıra sende. */
   turn() {
-    this.tone(740, 0.12, 'sine', 0.06);
-    this.tone(988, 0.2, 'sine', 0.055, 0.09);
+    this.mallet(880, 0.05, 0, 0.35);
+    this.mallet(1175, 0.045, 0.1, 0.4);
   }
+  /** Uyarı: yumuşak, alçak iki nota (sert vızıltı yok). */
   error() {
-    this.tone(196, 0.16, 'square', 0.045);
-    this.tone(165, 0.2, 'square', 0.04, 0.08);
+    this.mallet(330, 0.07, 0, 0.3);
+    this.mallet(262, 0.07, 0.11, 0.35);
   }
   win() {
-    [523, 659, 784, 1047].forEach((f, i) => this.tone(f, 0.32, 'triangle', 0.09, i * 0.09));
+    [523, 659, 784, 1047].forEach((f, i) => this.mallet(f, 0.08, i * 0.1, 0.6));
   }
   lose() {
-    [392, 330, 262].forEach((f, i) => this.tone(f, 0.3, 'triangle', 0.07, i * 0.12));
-  }
-  shuffle() {
-    for (let i = 0; i < 7; i++) this.noise(0.05, 0.12, 2000 + i * 120, i * 0.045, 2);
+    this.mallet(440, 0.06, 0, 0.45);
+    this.mallet(349, 0.06, 0.15, 0.55);
   }
 }
 

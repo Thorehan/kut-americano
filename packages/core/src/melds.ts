@@ -1,4 +1,4 @@
-import { Color, MAX_VALUE, Tile, colorIndex } from './tiles';
+import { COLORS, Color, MAX_VALUE, Tile, colorIndex } from './tiles';
 
 /** kut: aynı sayı farklı renk · seri: aynı renk ardışık · cift: aynı renk aynı sayı (çift eli) */
 export type MeldKind = 'kut' | 'seri' | 'cift';
@@ -122,4 +122,49 @@ export function withTile<T extends MeldShape>(meld: T, tile: Tile): T | null {
   }
   if (pos === 'end') return { ...meld, tiles: [...meld.tiles, tile] };
   return { ...meld, tiles: [tile, ...meld.tiles], value: meld.value - 1 };
+}
+
+// ------------------------------------------------------------ okey değiştirme
+
+export interface JokerSlot {
+  /** Okeyin perdeki sırası. */
+  index: number;
+  /** Okeyin yerini tuttuğu sayı. */
+  value: number;
+  /** Okeyin yerine geçebilecek renkler (seride tek renk, kütte eksik renkler). */
+  colors: Color[];
+}
+
+/** Perdeki her okeyin hangi taşın yerini tuttuğu. */
+export function jokerSlots(meld: MeldShape): JokerSlot[] {
+  if (meld.kind === 'seri') {
+    return meld.tiles.flatMap((t, i) => (t.joker ? [{ index: i, value: meld.value + i, colors: [meld.color!] }] : []));
+  }
+  if (meld.kind === 'kut') {
+    const present = new Set(meld.tiles.filter((t) => !t.joker).map((t) => t.color));
+    const missing = COLORS.filter((c) => !present.has(c));
+    return meld.tiles.flatMap((t, i) => (t.joker ? [{ index: i, value: meld.value, colors: missing }] : []));
+  }
+  return [];
+}
+
+/** Bu taş perdeki bir okeyin yerine konabilir mi? (işlek taş) Okeyin sırasını döndürür. */
+export function jokerSwapIndex(meld: MeldShape, tile: Tile): number | null {
+  if (tile.joker) return null;
+  const slot = jokerSlots(meld).find((s) => s.value === tile.value && s.colors.includes(tile.color!));
+  return slot ? slot.index : null;
+}
+
+/** Okeyin yerine gerçek taşı koyar; yeni peri ve alınan okeyi döndürür. */
+export function withJokerSwapped<T extends MeldShape>(meld: T, tile: Tile): { meld: T; joker: Tile } | null {
+  const idx = jokerSwapIndex(meld, tile);
+  if (idx === null) return null;
+  const joker = meld.tiles[idx];
+  const tiles = meld.tiles.slice();
+  tiles[idx] = tile;
+  if (meld.kind === 'kut') {
+    const shaped = asKut(tiles);
+    return shaped ? { meld: { ...meld, tiles: shaped.tiles }, joker } : null;
+  }
+  return { meld: { ...meld, tiles }, joker };
 }
