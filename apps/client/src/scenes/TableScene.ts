@@ -44,6 +44,7 @@ import { panel, txt } from '../ui/text';
 import { SeatView, showBubble } from '../view/SeatView';
 import { Origin, Point, Target, TileKind, TileLayer } from '../view/TileLayer';
 import type { TableData } from './MenuScene';
+import { TutorialRunner } from '../tutorial';
 
 type Obj = Phaser.GameObjects.GameObject;
 type Rect = Phaser.Geom.Rectangle;
@@ -91,6 +92,12 @@ export class TableScene extends Phaser.Scene {
   private dragging = false;
   private wasMyTurn = false;
   private islekConfirm = -1;
+  /**
+   * Yardım modu (sadece öğreticide): işlek taşlar parlar, işlenebilir perler
+   * çerçevelenir, işlek atmadan önce uyarılır. Normal oyunda kapalı — işlek atan ceza yer.
+   */
+  private assist = false;
+  private tutorial: TutorialRunner | null = null;
   /** Rastgele modda kural çarkı dönerken kural gizli kalır. */
   private spinning = false;
 
@@ -105,6 +112,8 @@ export class TableScene extends Phaser.Scene {
 
   init(data: TableData) {
     this.mode = data;
+    this.assist = !!data.tutorial;
+    this.tutorial = null;
     this.seats = [];
     this.slots = new Array(SLOT_COUNT).fill(null);
     this.selected = new Set();
@@ -149,7 +158,24 @@ export class TableScene extends Phaser.Scene {
 
     this.ctrl =
       this.mode.online ??
-      new LocalController({ mode: this.mode.mode, seed: this.mode.seed, startRound: this.mode.startRound, ruleOrder: this.mode.ruleOrder });
+      new LocalController({
+        mode: this.mode.mode,
+        seed: this.mode.seed,
+        startRound: this.mode.startRound,
+        ruleOrder: this.mode.ruleOrder,
+        tutorial: this.mode.tutorial,
+      });
+    if (this.mode.tutorial) {
+      this.tutorial = new TutorialRunner(this, () => this.s, (a) => {
+        try {
+          localStorage.setItem('kut-tutorial-done', '1');
+        } catch {
+          /* depolama yok */
+        }
+        if (a === 'play') this.scene.start('table', { mode: 'solo' });
+        else this.scene.start('menu');
+      });
+    }
     this.ctrl.onError((msg) => {
       this.showError(msg);
       this.sync();
@@ -603,7 +629,7 @@ export class TableScene extends Phaser.Scene {
   private tryDiscard(id: number) {
     const t = this.tileById(id);
     // Son taş her zaman ortaya vurulup biter (işlek uyarısı yok).
-    if (t && this.me.hand.length > 1 && this.ctrl.game.isIslek(t) && this.islekConfirm !== id) {
+    if (this.assist && t && this.me.hand.length > 1 && this.ctrl.game.isIslek(t) && this.islekConfirm !== id) {
       this.islekConfirm = id;
       this.showError(`İşlek taş! Atarsan geri gelir + ortadan 1 taş, +${ISLEK_PENALTY} ceza, sıra geçer · yine de atmak için tekrar at`);
       return;
@@ -678,6 +704,7 @@ export class TableScene extends Phaser.Scene {
   /** Tek giriş noktası: durumdan görünümü hesaplar, taşları hedeflerine kaydırır. */
   private sync() {
     if (!this.ctrl) return;
+    this.tutorial?.update(); // öğretici adımı önce ilerlesin ki doğru taşlar parlasın
     const s = this.s;
     const targets = new Map<number, Target>();
     const byId = new Map<number, Tile>();
@@ -692,8 +719,9 @@ export class TableScene extends Phaser.Scene {
       if (!t) return;
       const { x, y } = this.slotPos(i);
       const sel = this.selected.has(id);
-      const hint = !sel && this.ctrl.game.isIslek(t);
-      targets.set(id, { tile: t, kind: 'rack', selected: sel, hint, place: { x, y: sel ? y - 16 : y, scale: RACK.scale, depth: 200 + i } });
+      const focus = !sel && !!this.tutorial?.highlights.has(id);
+      const hint = !sel && this.assist && this.ctrl.game.isIslek(t);
+      targets.set(id, { tile: t, kind: 'rack', selected: sel, hint, focus, place: { x, y: sel ? y - 16 : y, scale: RACK.scale, depth: 200 + i } });
     });
 
     // --- atılan taşlar (her yığında en üstteki 2 taş)
@@ -732,8 +760,8 @@ export class TableScene extends Phaser.Scene {
         const frame = lay.frames[gi];
         if (g.meldId !== undefined) {
           const m = melds[gi];
-          const swap = !!(sel && canAdd && jokerSwapIndex(m, sel) !== null);
-          const target = swap || !!(sel && canAdd && addPosition(m, sel));
+          const swap = this.assist && !!(sel && canAdd && jokerSwapIndex(m, sel) !== null);
+          const target = swap || (this.assist && !!(sel && canAdd && addPosition(m, sel))) || !!this.tutorial?.meldHighlights.has(m.id);
           this.zoneGfx.fillStyle(0x000000, 0.2);
           this.zoneGfx.fillRoundedRect(frame.x, frame.y, frame.width, frame.height, 8);
           if (target) {
@@ -958,14 +986,9 @@ export class TableScene extends Phaser.Scene {
       let t: string;
       if (me.hand.length === 1 && me.opened) t = 'Son taş! Ortaya vur ve bit → "Bitir!"';
       else if (c.mode !== 'normal') t = 'Tek seferde açabiliyorsan "Öner" · yoksa bir taş at';
-      else if (!me.opened)
-        t = me.hand.some((x) => this.ctrl.game.isIslek(x))
-          ? `Kuralı aç (${c.name}) ya da taş at · mavi taşlar işlek, atma (+50)`
-          : `Sadece kuralı aç (${c.name}) ya da taş at`;
-      else if (me.openedThisTurn) t = 'Kural açıldı! Fazlalıklar sonraki sırada · işlek olmayan bir taş at';
-      else if (me.hand.some((x) => this.ctrl.game.canSwapJoker(x))) t = 'Okeyi alabilirsin: mavi taşı seç → mavi çerçeveli pere dokun';
-      else if (me.hand.some((x) => this.ctrl.game.isIslek(x))) t = 'Mavi taşlar işlek: seç → altın çerçeveli pere işle · atarsan +50';
-      else t = 'Per diz · taş seçip parlayan pere işle · taş at';
+      else if (!me.opened) t = `Sadece kuralı aç (${c.name}) ya da taş at`;
+      else if (me.openedThisTurn) t = 'Kural açıldı! Fazlalıklar sonraki sırada · bir taş at';
+      else t = 'Per diz · taş seçip pere dokunarak işle · taş at';
       this.setStatus(t + this.turnClock(), 'turn');
     } else if (s.phase === 'claim') {
       this.setStatus(s.claim!.queue[0] === 0 ? 'Yan taşı istiyor musun?' : 'Yan taş isteniyor mu…', 'info');
@@ -1035,7 +1058,7 @@ export class TableScene extends Phaser.Scene {
     }
     if ((s.phase === 'roundOver' || s.phase === 'gameOver') && this.roundShown < s.history.length) {
       this.roundShown = s.history.length;
-      this.time.delayedCall(1100, () => this.showRoundResult());
+      this.time.delayedCall(1100, () => (this.tutorial ? this.tutorial.complete() : this.showRoundResult()));
     }
   }
 

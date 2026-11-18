@@ -13,6 +13,8 @@ export interface TableData {
   mode: GameMode;
   /** Online oyunda sunucuya bağlı kontrolcü. */
   online?: OnlineController;
+  /** Kısa öğretici eli. */
+  tutorial?: boolean;
   ruleOrder?: RuleOrder;
   seed?: number;
   startRound?: number;
@@ -198,6 +200,22 @@ export class MenuScene extends Phaser.Scene {
     const btn = new Button(this, GAME_W / 2, y, 380, 84, 'HIZLI OYUN  ▶', () => this.start(this.lastMode), UI.green, 26);
     this.tweens.add({ targets: btn, scale: 1.035, duration: 900, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
     this.quickSub = txt(this, GAME_W / 2, y + 50, '', 15, UI.cream, 800).setOrigin(0.5, 0);
+
+    // Öğretici: kısa, rehberli tek el
+    const done = load('kut-tutorial-done') === '1';
+    new Button(this, GAME_W / 2 + 320, y, 200, 64, '🎓 Öğretici', () => this.startTutorial(), UI.amber, 18);
+    if (!done) {
+      const bg = this.add.graphics();
+      bg.fillStyle(UI.gold, 1);
+      bg.fillRoundedRect(GAME_W / 2 + 320 + 48, y - 44, 56, 20, 10);
+      txt(this, GAME_W / 2 + 320 + 76, y - 34, '2 DK', 11, '#2a1d02', 900).setOrigin(0.5);
+    }
+  }
+
+  private startTutorial() {
+    haptic(12);
+    this.cameras.main.fadeOut(220, 7, 29, 21);
+    this.cameras.main.once('camerafadeoutcomplete', () => this.scene.start('table', { mode: 'solo', tutorial: true } satisfies TableData));
   }
 
   private start(mode: GameMode) {
@@ -309,10 +327,13 @@ export class MenuScene extends Phaser.Scene {
       c.add(b);
     });
     c.add(
-      new Button(this, GAME_W / 2, y0 + H - 46, 220, 58, 'Anladım', () => {
+      new Button(this, GAME_W / 2 - 130, y0 + H - 46, 230, 58, 'Anladım', () => {
         this.tweens.add({ targets: c, alpha: 0, duration: 140, onComplete: () => c.destroy() });
         this.overlay = null;
-      }, UI.green, 20),
+      }, UI.slate, 20),
+    );
+    c.add(
+      new Button(this, GAME_W / 2 + 130, y0 + H - 46, 230, 58, '🎓 Öğreticiyi Oyna', () => this.startTutorial(), UI.green, 18),
     );
     show(page);
     c.setAlpha(0);

@@ -26,6 +26,8 @@ export interface Target {
   selected?: boolean;
   /** Okeyin yerine geçebilen (işlek) taş: mavi parlama. */
   hint?: boolean;
+  /** Öğreticinin işaret ettiği taş: yeşil parlama. */
+  focus?: boolean;
   dim?: boolean;
 }
 
@@ -153,6 +155,7 @@ export class TileLayer {
 
       // seçili taş altın, işlek taş mavi parlar
       if (t.selected) this.setGlow(img, 'sel');
+      else if (t.focus) this.setGlow(img, 'focus');
       else if (t.hint) this.setGlow(img, 'hint');
       else this.disableGlow(img);
     }
@@ -200,10 +203,11 @@ export class TileLayer {
     }
   }
 
-  private setGlow(img: Phaser.GameObjects.Image, kind: 'sel' | 'hint') {
+  private setGlow(img: Phaser.GameObjects.Image, kind: 'sel' | 'hint' | 'focus') {
     if (img.getData('glow') === kind) return;
     img.preFX?.clear();
     if (kind === 'sel') img.preFX?.addGlow(0xffd35c, 5, 0, false, 0.12, 14);
+    else if (kind === 'focus') img.preFX?.addGlow(0x6bff8f, 7, 0, false, 0.12, 16);
     else img.preFX?.addGlow(0x6fe7ff, 3, 0, false, 0.12, 10);
     img.setData('glow', kind);
   }

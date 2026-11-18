@@ -1,5 +1,6 @@
 import { Action, Game, GameEvent, GameMode, GameState, RuleOrder, ServerMsg, decideBotAction } from '@kut/core';
 import { Connection } from './net/connection';
+import { setupTutorialGame, tutorialBotAction } from './tutorial';
 
 export type ChangeListener = (events: GameEvent[]) => void;
 export type ErrorListener = (message: string) => void;
@@ -24,6 +25,8 @@ export interface ControllerOptions {
   seed?: number;
   startRound?: number;
   ruleOrder?: RuleOrder;
+  /** Öğretici: hazır el, tek el, senaryolu botlar. */
+  tutorial?: boolean;
   /** Bot hızı çarpanı (1 = normal). */
   speed?: number;
 }
@@ -41,7 +44,13 @@ export class LocalController implements GameController {
 
   constructor(opts: ControllerOptions) {
     const names = opts.mode === 'team' ? ['Sen', 'Bot 1', 'Ortak', 'Bot 3'] : ['Sen', 'Bot 1', 'Bot 2', 'Bot 3'];
-    this.game = new Game({ mode: opts.mode, names, seed: opts.seed, startRound: opts.startRound, ruleOrder: opts.ruleOrder });
+    if (opts.tutorial) {
+      this.game = new Game({ mode: 'solo', names, seed: 7, startRound: 0, endRound: 0 });
+      setupTutorialGame(this.game);
+      this.tutorial = true;
+    } else {
+      this.game = new Game({ mode: opts.mode, names, seed: opts.seed, startRound: opts.startRound, ruleOrder: opts.ruleOrder });
+    }
     this.speed = opts.speed ?? 1;
   }
 
@@ -99,10 +108,14 @@ export class LocalController implements GameController {
 
   private holdUntil = 0;
 
+  private tutorial = false;
+  /** Öğreticide her botun en son eline aldığı taş (onu geri atar). */
+  private lastGot = new Map<number, number>();
+
   private botStep(seat: number) {
     if (this.destroyed) return;
     const s = this.game.state;
-    const action = decideBotAction(this.game, seat);
+    const action = this.tutorial ? tutorialBotAction(this.game, seat, this.lastGot) : decideBotAction(this.game, seat);
     let r = this.game.act(seat, action);
     if (!r.ok) {
       console.warn('Bot hamlesi reddedildi:', r.error, action);
@@ -117,6 +130,10 @@ export class LocalController implements GameController {
         console.error('Bot takıldı:', r.error);
         return;
       }
+    }
+    if (this.tutorial && (action.type === 'drawDeck' || action.type === 'takeDiscard')) {
+      const hand = s.players[seat].hand;
+      this.lastGot.set(seat, hand[hand.length - 1].id);
     }
     this.emit(r.events);
     this.schedule();

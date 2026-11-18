@@ -39,6 +39,7 @@ Her el sıradaki kural geçerlidir. UI'da sabit bir **Kural Paneli** o elin kura
 - Okeyin yerini tutan taşı elinde tutan oyuncu, sırasında o taşı okeyin yerine koyup **okeyi eline alabilir**. Okeyi alınan **rakibe +50 ceza** yazılır.
 - Kütte okeyin yerine eksik renklerden herhangi biri geçer (ör. kırmızı 7 – sarı 7 – okey perine mavi 7 ya da siyah 7).
 - İşlemek zorunlu değildir; oyuncu işleği elinde bekletebilir. Ama **işlek taşı yere atarsa:** attığı taşı **geri alır, ortadan 1 taş daha çeker, kendisine +50 ceza** yazılır ve **sıra sonraki oyuncuya geçer** (o sırada taş atılmamış sayılır).
+- **İpucu yok:** gerçek oyunda işlek taşlar gösterilmez, işlenebilir perler parlamaz ve işlek atmadan önce uyarı gelmez — atan doğrudan cezayı yer. Bu ipuçları sadece **öğreticide** açıktır.
 - **Bitiş taşı:** elde tek taş kalınca o taş **yana atılmaz, ortaya (destenin üstüne) vurulur ve el biter** — işlek olsa bile ceza yazılmaz.
 - *Varsayımlar (onay bekliyor):* okey almak için kuralın açılmış olması gerekir ve kuralın açıldığı sırada okey alınmaz (işleme ile aynı). Kendi ya da takım arkadaşının perindeki okeyi almak serbesttir, ceza yazılmaz. +50 cezalar el sonunda puana çarpansız eklenir.
 
@@ -145,6 +146,7 @@ kut-americano/
 | 0 | İstişare | Bu doküman, kuralların netleşmesi |
 | 1 ✅ | **Deneme sürümü** | Tarayıcıda 1 kişi + 3 bot, tekli + takım modu, 11 el, puan tablosu |
 | 2 | **GitHub prototipi** | GitHub reposu + Pages linki, telefonda açılır, takım modu |
+| 2.5 ✅ | Öğretici | ~2 dk rehberli tek el: kural aç, taş at, çek, per diz, işle, okeyi al, son taşla bit |
 | 3 ✅ | Online | Oda kodu / davet linki, 1–4 insan + bot, yeniden bağlanma, süre aşımı. Yayın: Cloudflare Workers + Durable Objects (Render ücretsiz planda bile kart istediği için) |
 | 4 | Mobil uygulama | Capacitor ile Android (sonra iOS) |
 | 5 | PC web | Masaüstü düzeni ve klavye/fare iyileştirmeleri |
