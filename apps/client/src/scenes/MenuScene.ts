@@ -336,6 +336,7 @@ export class MenuScene extends Phaser.Scene {
         '•  Sonraki sıralarında per dizer, yerdeki perlere taş işlersin; bitebiliyorsan bitersin.',
         '•  Okeyi al: yerdeki okeyin yerini tutan taşı koy, okey senin olur, perin sahibine +50.',
         '•  İşlek taş (pere işlenebilen ya da okeyin yerini tutan) mavi parlar. Atarsan geri gelir, ortadan 1 taş daha çekersin, +50 ceza yersin ve sıra geçer.',
+        '•  Son taşın kalınca onu ortaya vur ve bit ("Bitir!"); son taş işlek olsa da ceza yok.',
       ].join('\n'),
       [
         '•  Biten −50. Diğerleri elde kalanı yazar: 1–9 kendi sayısı, 10 ve üstü 10, okey 25.',

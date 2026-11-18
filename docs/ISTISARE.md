@@ -38,7 +38,8 @@ Her el sıradaki kural geçerlidir. UI'da sabit bir **Kural Paneli** o elin kura
 **Okeyi alma ve işlek taş:** Yerdeki herhangi bir pere **işlenebilen** (uca eklenebilen, ör. `1-2-3` serisine `4`; `kırmızı-sarı-siyah 7` kütüne `mavi 7`) ya da bir perdeki **okeyin yerini tutan** (ör. `1-okey-3` perinde `2`) taş **işlek taştır**.
 - Okeyin yerini tutan taşı elinde tutan oyuncu, sırasında o taşı okeyin yerine koyup **okeyi eline alabilir**. Okeyi alınan **rakibe +50 ceza** yazılır.
 - Kütte okeyin yerine eksik renklerden herhangi biri geçer (ör. kırmızı 7 – sarı 7 – okey perine mavi 7 ya da siyah 7).
-- İşlemek zorunlu değildir; oyuncu işleği elinde bekletebilir. Ama **işlek taşı yere atarsa:** attığı taşı **geri alır, ortadan 1 taş daha çeker, kendisine +50 ceza** yazılır ve **sıra sonraki oyuncuya geçer** (o sırada taş atılmamış sayılır, işlek taşla bitilemez).
+- İşlemek zorunlu değildir; oyuncu işleği elinde bekletebilir. Ama **işlek taşı yere atarsa:** attığı taşı **geri alır, ortadan 1 taş daha çeker, kendisine +50 ceza** yazılır ve **sıra sonraki oyuncuya geçer** (o sırada taş atılmamış sayılır).
+- **Bitiş taşı:** elde tek taş kalınca o taş **yana atılmaz, ortaya (destenin üstüne) vurulur ve el biter** — işlek olsa bile ceza yazılmaz.
 - *Varsayımlar (onay bekliyor):* okey almak için kuralın açılmış olması gerekir ve kuralın açıldığı sırada okey alınmaz (işleme ile aynı). Kendi ya da takım arkadaşının perindeki okeyi almak serbesttir, ceza yazılmaz. +50 cezalar el sonunda puana çarpansız eklenir.
 
 ### Rastgele mod

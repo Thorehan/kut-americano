@@ -145,12 +145,19 @@ describe('işlek taş', () => {
     expect(s.pendingDiscard?.tile).toBe(b9);
   });
 
-  it('son taşı işlekse onunla bitilemez', () => {
+  it('son taş işlek olsa da ortaya vurulur ve el biter; ceza yok, yana düşmez', () => {
     const m = meld(1, 'r1 J r3', 'seri');
     const g = setup({ hand: 'r2', melds: [m] });
-    ok(g.act(0, { type: 'discard', tileId: g.state.players[0].hand[0].id }));
-    expect(g.state.phase).toBe('draw');
-    expect(g.state.players[0].hand).toHaveLength(2);
+    const s = g.state;
+    const [r2] = s.players[0].hand;
+    expect(g.isIslek(r2)).toBe(true);
+    ok(g.act(0, { type: 'discard', tileId: r2.id }));
+    expect(s.phase).toBe('roundOver');
+    expect(s.history[0].winner).toBe(0);
+    expect(s.extraPenalties[0]).toBe(0);
+    expect(s.finishTile).toBe(r2);
+    expect(s.players[0].discards).not.toContain(r2);
+    expect(s.pendingDiscard).toBeNull();
   });
 
   it('ek cezalar el sonu puanına çarpansız eklenir', () => {

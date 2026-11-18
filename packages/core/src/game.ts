@@ -88,6 +88,8 @@ export interface GameState {
   turnJokers: number;
   /** Bu el içinde yazılan ek cezalar (okeyi alınma, işlek atma). */
   extraPenalties: number[];
+  /** Eli bitiren son taş: yana değil ortaya vurulur. */
+  finishTile: Tile | null;
   history: RoundResult[];
   log: GameEvent[];
 }
@@ -221,6 +223,7 @@ export class Game {
       claim: null,
       turnJokers: 0,
       extraPenalties: [0, 0, 0, 0],
+      finishTile: null,
       history: [],
       log: [],
     };
@@ -329,6 +332,7 @@ export class Game {
     s.extraTile = extra;
     s.melds = [];
     s.extraPenalties = [0, 0, 0, 0];
+    s.finishTile = null;
     s.pendingDiscard = null;
     s.claim = null;
     s.current = s.starter;
@@ -549,6 +553,13 @@ export class Game {
     const tile = p.hand.find((t) => t.id === tileId);
     if (!tile) throw new RuleError('Bu taş elinde değil.');
     if (p.hand.length === 1 && !p.opened) throw new RuleError('Kuralı açmadan bitilemez.');
+    if (p.hand.length === 1) {
+      // Son taş: işlek olsa da ortaya vurulur ve el biter (yana atılmaz, ceza yok).
+      p.hand = [];
+      s.finishTile = tile;
+      const ft: FinishType = tile.joker ? (s.turnJokers >= 2 ? 'ciftOkey' : 'okey') : 'normal';
+      return [{ type: 'discard', seat, tile, text: `${p.name} son taşını ortaya vurdu (${tileName(tile)}).` }, ...this.finishRound(seat, ft)];
+    }
     if (this.isIslek(tile)) {
       // İşlek atan: taşı geri alır + ortadan 1 taş çeker, +50 ceza yer, sıra sonrakine geçer.
       s.extraPenalties[seat] += ISLEK_PENALTY;
@@ -574,11 +585,6 @@ export class Game {
     p.hand = p.hand.filter((t) => t !== tile);
     p.discards.push(tile);
     const events: GameEvent[] = [{ type: 'discard', seat, tile, text: `${p.name} ${tileName(tile)} attı.` }];
-    if (p.hand.length === 0) {
-      const ft: FinishType = tile.joker ? (s.turnJokers >= 2 ? 'ciftOkey' : 'okey') : 'normal';
-      events.push(...this.finishRound(seat, ft));
-      return events;
-    }
     s.pendingDiscard = { tile, from: seat };
     s.current = (seat + 1) % SEATS;
     if (s.deck.length === 0) {

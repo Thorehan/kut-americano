@@ -541,7 +541,10 @@ export class TableScene extends Phaser.Scene {
     if (slot !== null) {
       this.moveToSlot(id, slot);
       sfx.tok();
-    } else if (Phaser.Math.Distance.Between(x, y, DISCARD_POS[0].x, DISCARD_POS[0].y) < 70) {
+    } else if (
+      Phaser.Math.Distance.Between(x, y, DISCARD_POS[0].x, DISCARD_POS[0].y) < 70 ||
+      (this.me.hand.length === 1 && Phaser.Math.Distance.Between(x, y, DECK.x, DECK.y) < 80)
+    ) {
       if (this.myAction) this.tryDiscard(id);
       else this.showError('Taş atmak için sıranı bekle.');
     } else {
@@ -590,6 +593,8 @@ export class TableScene extends Phaser.Scene {
   }
 
   private discardSelected() {
+    // Son taşta seçim gerekmez: "Bitir!" o taşı ortaya vurur.
+    if (this.me.hand.length === 1) return this.tryDiscard(this.me.hand[0].id);
     if (this.selected.size !== 1) return;
     this.tryDiscard([...this.selected][0]);
   }
@@ -597,7 +602,8 @@ export class TableScene extends Phaser.Scene {
   /** İşlek taş atılmadan önce bir kez uyarır (atarsa +50 ceza). */
   private tryDiscard(id: number) {
     const t = this.tileById(id);
-    if (t && this.ctrl.game.isIslek(t) && this.islekConfirm !== id) {
+    // Son taş her zaman ortaya vurulup biter (işlek uyarısı yok).
+    if (t && this.me.hand.length > 1 && this.ctrl.game.isIslek(t) && this.islekConfirm !== id) {
       this.islekConfirm = id;
       this.showError(`İşlek taş! Atarsan geri gelir + ortadan 1 taş, +${ISLEK_PENALTY} ceza, sıra geçer · yine de atmak için tekrar at`);
       return;
@@ -704,6 +710,11 @@ export class TableScene extends Phaser.Scene {
         });
       });
     });
+
+    // --- eli bitiren taş: masanın ortasına, destenin üstüne
+    if (s.finishTile) {
+      targets.set(s.finishTile.id, { tile: s.finishTile, kind: 'discard', place: { x: DECK.x, y: DECK.y - 4, scale: 0.56, depth: 450, angle: -8 } });
+    }
 
     // --- perler + hazırlananlar
     this.zoneGfx.clear();
@@ -945,7 +956,8 @@ export class TableScene extends Phaser.Scene {
       this.setStatus((s.pendingDiscard ? 'Sıra sende · ortadan çek ya da soldaki taşı al' : 'Sıra sende · ortadan çek') + this.turnClock(), 'turn');
     } else if (s.phase === 'action' && s.current === 0) {
       let t: string;
-      if (c.mode !== 'normal') t = 'Tek seferde açabiliyorsan "Öner" · yoksa bir taş at';
+      if (me.hand.length === 1 && me.opened) t = 'Son taş! Ortaya vur ve bit → "Bitir!"';
+      else if (c.mode !== 'normal') t = 'Tek seferde açabiliyorsan "Öner" · yoksa bir taş at';
       else if (!me.opened)
         t = me.hand.some((x) => this.ctrl.game.isIslek(x))
           ? `Kuralı aç (${c.name}) ya da taş at · mavi taşlar işlek, atma (+50)`
@@ -973,7 +985,12 @@ export class TableScene extends Phaser.Scene {
     b.lay.setLabel(this.layLabel()).setEnabled(this.myAction && this.staged.length > 0 && !me.openedThisTurn);
     b.lay.setPulse(this.myAction && stagedValid && !me.openedThisTurn);
     b.cancel.setEnabled(this.staged.length > 0);
-    b.discard.setEnabled(this.myAction && this.selected.size === 1);
+    const lastTile = this.me.hand.length === 1;
+    b.discard
+      .setLabel(lastTile ? 'Bitir!' : 'Taş At')
+      .setColor(lastTile ? UI.green : UI.red)
+      .setEnabled(this.myAction && (this.selected.size === 1 || lastTile));
+    b.discard.setPulse(this.myAction && lastTile);
     b.sort.setLabel(this.sortBy === 'seri' ? 'Küt Diz' : 'Seri Diz');
     b.hint.setEnabled(this.s.phase !== 'roundOver' && this.s.phase !== 'gameOver');
   }
