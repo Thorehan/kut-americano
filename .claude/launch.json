@@ -8,6 +8,12 @@
       "port": 5173
     },
     {
+      "name": "worker",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "-w", "@kut/worker"],
+      "port": 8787
+    },
+    {
       "name": "server",
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "server"],

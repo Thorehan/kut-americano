@@ -1,21 +1,12 @@
-import { randomBytes } from 'node:crypto';
-import {
-  Action,
-  ClientMsg,
-  CODE_ALPHABET,
-  CODE_LENGTH,
-  Game,
-  GameEvent,
-  GameMode,
-  LobbyInfo,
-  RuleOrder,
-  SEATS,
-  ServerMsg,
-  decideBotAction,
-  rotateEvents,
-  toView,
-  viewFor,
-} from '@kut/core';
+/**
+ * Platformdan bağımsız oda mantığı: hem Node sunucusu (apps/server) hem de
+ * Cloudflare Durable Object (apps/worker) aynı Room sınıfını kullanır.
+ */
+import { decideBotAction } from './bot';
+import { RuleOrder } from './contracts';
+import { Action, Game, GameEvent, GameMode, SEATS } from './game';
+import { ClientMsg, CODE_ALPHABET, CODE_LENGTH, LobbyInfo, ServerMsg } from './protocol';
+import { rotateEvents, toView, viewFor } from './view';
 
 /** Bir koltuğa bağlı istemci (WebSocket soyutlaması — testte sahte de olabilir). */
 export interface Client {
@@ -57,8 +48,14 @@ export const DEFAULT_TIMING: RoomTiming = {
 
 const BOT_NAMES = ['Bot Ayla', 'Bot Cem', 'Bot Derya', 'Bot Emre'];
 
+function randomBytes(n: number): Uint8Array {
+  const b = new Uint8Array(n);
+  crypto.getRandomValues(b);
+  return b;
+}
+
 export function newToken(): string {
-  return randomBytes(16).toString('hex');
+  return Array.from(randomBytes(16), (x) => x.toString(16).padStart(2, '0')).join('');
 }
 
 export class Room {

@@ -25,8 +25,17 @@ type StatusListener = (s: ConnStatus) => void;
 
 const SESSION_KEY = 'kut-session';
 
+/**
+ * Hangi odaya bağlanılacağı adreste söylenir: Cloudflare'de her oda ayrı bir
+ * Durable Object olduğu için bağlantı doğrudan o odaya yönlendirilir.
+ *   new  → yeni oda (kodu sunucu üretir)
+ *   code → var olan oda
+ */
+export type Target = { kind: 'new' } | { kind: 'code'; code: string };
+
 /** Tek WebSocket bağlantısı; kopunca kendiliğinden yeniden bağlanır ve odaya geri döner. */
 export class Connection {
+  private target: Target | null = null;
   private ws: WebSocket | null = null;
   private listeners = new Set<Listener>();
   private statusListeners = new Set<StatusListener>();
@@ -78,13 +87,47 @@ export class Connection {
     for (const l of this.statusListeners) l(s);
   }
 
+  /** Yeni oda kurmak için bağlan. */
+  openNew() {
+    this.retarget({ kind: 'new' });
+  }
+
+  /** Var olan odaya (katılma / geri dönme) bağlan. */
+  openRoom(code: string) {
+    this.retarget({ kind: 'code', code });
+  }
+
+  private retarget(t: Target) {
+    const same = this.target && JSON.stringify(this.target) === JSON.stringify(t);
+    this.target = t;
+    if (this.ws && !same) {
+      // başka odaya geçiliyor: eski bağlantıyı kapat, yenisini aç
+      const old = this.ws;
+      this.ws = null;
+      old.onclose = null;
+      old.close();
+      if (this.pingTimer) clearInterval(this.pingTimer);
+      this.pingTimer = null;
+    }
+    this.connect();
+  }
+
+  private url(): string | null {
+    if (!SERVER_URL) return null;
+    const t = this.target ?? (this.session ? ({ kind: 'code', code: this.session.code } as Target) : null);
+    if (!t) return null;
+    const base = SERVER_URL.replace(/\/+$/, '');
+    return t.kind === 'new' ? `${base}/ws?new=1` : `${base}/ws?code=${encodeURIComponent(t.code)}`;
+  }
+
   connect() {
     this.wanted = true;
-    if (!SERVER_URL || this.ws) return;
+    const url = this.url();
+    if (!url || this.ws) return;
     this.setStatus('connecting');
     let ws: WebSocket;
     try {
-      ws = new WebSocket(SERVER_URL);
+      ws = new WebSocket(url);
     } catch {
       this.scheduleRetry();
       return;
@@ -94,7 +137,10 @@ export class Connection {
       this.retry = 0;
       this.setStatus('open');
       const s = this.session;
-      if (s) this.rawSend({ t: 'rejoin', code: s.code, token: s.token });
+      // Aynı odaya dönülüyorsa koltuğu jetonla geri al
+      if (s && this.target?.kind !== 'new' && (!this.target || this.target.code === s.code)) {
+        this.rawSend({ t: 'rejoin', code: s.code, token: s.token });
+      }
       const q = this.queue;
       this.queue = [];
       q.forEach((m) => this.rawSend(m));
@@ -107,7 +153,10 @@ export class Connection {
       } catch {
         return;
       }
-      if (m.t === 'joined') this.setSession({ code: m.code, token: m.token });
+      if (m.t === 'joined') {
+        this.setSession({ code: m.code, token: m.token });
+        this.target = { kind: 'code', code: m.code }; // yeniden bağlanırsa aynı odaya
+      }
       if (m.t === 'left') this.setSession(null);
       if (m.t === 'error' && m.fatal) this.setSession(null);
       for (const l of this.listeners) l(m);
@@ -144,13 +193,27 @@ export class Connection {
     }
   }
 
+  /** Bağlantıyı kapat (yeniden bağlanma yok). */
+  close() {
+    this.wanted = false;
+    this.target = null;
+    this.queue = [];
+    const ws = this.ws;
+    this.ws = null;
+    if (ws) {
+      ws.onclose = null;
+      ws.close();
+    }
+    if (this.pingTimer) clearInterval(this.pingTimer);
+    this.pingTimer = null;
+    this.setStatus('closed');
+  }
+
   /** Odadan çık ve bağlantıyı kapat. */
   leave() {
     this.rawSend({ t: 'leave' });
     this.setSession(null);
-    this.wanted = false;
-    this.queue = [];
-    setTimeout(() => this.ws?.close(), 150);
+    setTimeout(() => this.close(), 150);
   }
 }
 

@@ -18,7 +18,8 @@ npm install
 npm run dev      # http://localhost:5173 (aynı ağdaki telefondan da açılır)
 npm test         # kural motoru testleri
 npm run build    # apps/client/dist içine yayın çıktısı
-npm run server   # online oyun sunucusu: ws://localhost:2567
+npm run server   # online oyun sunucusu (Node): ws://localhost:2567
+npm run worker   # online oyun sunucusu (Cloudflare yerel): ws://localhost:8787
 ```
 
 **Modlar:** Tekli (1 + 3 bot) ya da Takım (2'ye 2). Menüdeki **Kurallar** seçimiyle **Sıralı** (1 → 11) ya da **🎲 Rastgele Mod** (her elin kuralı oranlarla çekilir; oranlar menüde ve [docs/ISTISARE.md](docs/ISTISARE.md) içinde).
@@ -43,16 +44,15 @@ Deneme parametreleri: `?mod=rastgele` → rastgele mod seçili açılır · `?el
 - **Yerelde deneme:** bir terminalde `npm run server`, diğerinde `npm run dev`. Aynı Wi-Fi'deki telefonlar `http://<bilgisayarın-IP>:5173` adresinden girip **Online Oda**'dan oda kurar/katılır.
 - **Akış:** Oda Kur → 4 harfli kod (ya da **Davet Et** linki) → arkadaşlar katılır → kurucu **Başlat** der; boş koltuklarda bot oynar.
 - **Kopma:** sayfa yenilense ya da bağlantı kopsa oyuncu 15 sn içinde aynı koltuğa döner; dönmezse sırasını bot oynar. Sırada 45 sn içinde oynanmazsa otomatik hamle yapılır.
-- **Yayına alma (bir kez):**
-  1. [Render](https://render.com) hesabıyla **New → Blueprint** → bu depo. `render.yaml` sunucuyu kurar.
-  2. Çıkan adresi (ör. `kut-server.onrender.com`) GitHub deposunda **Settings → Secrets and variables → Actions → Variables** altına `VITE_SERVER_URL = wss://kut-server.onrender.com` olarak ekle.
-  3. Actions'tan yayını yeniden çalıştır. Ücretsiz planda sunucu 15 dk boşta kalınca uyur; ilk girişte ~1 dk sürebilir.
+- **Yerelde Cloudflare sürümü:** `npm run worker` (ws://localhost:8787). İstemciyi ona bağlamak için `apps/client/.env.local` içine `VITE_SERVER_URL=ws://localhost:8787` yaz.
+- **Yayın:** sunucu Cloudflare Workers + Durable Objects üzerinde çalışır (her oda ayrı bir Durable Object; ücretsiz plan, uyumaz). Ayarlar depo kökündeki `wrangler.jsonc` dosyasında. Kurulum: Cloudflare panelinde **Workers & Pages → Create → Import a repository** → bu depo → ad `kut-server` → Deploy. Çıkan `https://kut-server.<hesap>.workers.dev` adresi istemciye `wss://…` olarak verilir.
 
 ## Yapı
 
 ```
 packages/core/   kural motoru (TypeScript, UI'dan bağımsız) + botlar + testler
 apps/client/     Phaser 3 + Vite oyun istemcisi
-apps/server/     WebSocket oyun sunucusu (oda, botlar, yeniden bağlanma)
+apps/server/     Node WebSocket sunucusu (yerel geliştirme ve testler)
+apps/worker/     Cloudflare Worker + Durable Object sunucusu (yayın)
 docs/            istişare ve kural dokümanı
 ```

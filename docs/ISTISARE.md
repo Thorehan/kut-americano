@@ -115,7 +115,7 @@ Puanlar ceza mantığındadır; **11 el sonunda en düşük puan kazanır** (bit
 - **Dil:** TypeScript
 - **Kural motoru:** `packages/core` — saf TypeScript, UI'dan bağımsız, Vitest ile test edilir. İstemci, botlar ve online sunucu **aynı motoru** kullanır (hile koruması için sunucu otoriter olur).
 - **Oyun ekranı:** Phaser 3 + Vite (masa, ıstaka, sürükle-bırak, animasyon)
-- **Online (Faz 3):** Node.js + `ws` (WebSocket) üzerinde kendi küçük oda protokolümüz (`packages/core/src/protocol.ts`). Colyseus yerine bu seçildi: kural motoru zaten sunucuda otoriter çalışıyor, gizli bilgi (rakip elleri) her oyuncuya ayrı görünümle (`viewFor`) gönderiliyor; Colyseus'un durum eşitleme katmanına ihtiyaç kalmadı.
+- **Online (Faz 3):** Node.js + `ws` (WebSocket) üzerinde kendi küçük oda protokolümüz (`packages/core/src/protocol.ts`). Colyseus yerine bu seçildi: kural motoru zaten sunucuda otoriter çalışıyor, gizli bilgi (rakip elleri) her oyuncuya ayrı görünümle (`viewFor`) gönderiliyor; Colyseus'un durum eşitleme katmanına ihtiyaç kalmadı. Oda mantığı (`packages/core/src/room.ts`) platformdan bağımsızdır: yerelde Node sunucusu (`apps/server`), yayında Cloudflare Durable Object (`apps/worker`, her oda = bir Durable Object) aynı kodu çalıştırır.
 - **Mobil paket (Faz 4):** Capacitor
 - **Yayın:** GitHub Actions → GitHub Pages
 
@@ -144,7 +144,7 @@ kut-americano/
 | 0 | İstişare | Bu doküman, kuralların netleşmesi |
 | 1 ✅ | **Deneme sürümü** | Tarayıcıda 1 kişi + 3 bot, tekli + takım modu, 11 el, puan tablosu |
 | 2 | **GitHub prototipi** | GitHub reposu + Pages linki, telefonda açılır, takım modu |
-| 3 ✅ | Online | Oda kodu / davet linki, 1–4 insan + bot, yeniden bağlanma, süre aşımı. Sunucu yayına alınmayı bekliyor (render.yaml hazır) |
+| 3 ✅ | Online | Oda kodu / davet linki, 1–4 insan + bot, yeniden bağlanma, süre aşımı. Yayın: Cloudflare Workers + Durable Objects (Render ücretsiz planda bile kart istediği için) |
 | 4 | Mobil uygulama | Capacitor ile Android (sonra iOS) |
 | 5 | PC web | Masaüstü düzeni ve klavye/fare iyileştirmeleri |
 

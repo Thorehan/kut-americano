@@ -96,17 +96,17 @@ export class LobbyScene extends Phaser.Scene {
     );
 
     const code = data?.join ? normalizeCode(data.join) : '';
-    if (connection.session) {
-      // Yarım kalan oda: yeniden bağlan
+    const session = connection.session;
+    if (session) {
+      // Yarım kalan oda: aynı odaya bağlan, koltuğu jetonla geri al
       this.setStatus('Odaya geri dönülüyor…');
-      connection.connect();
-      if (connection.status === 'open') connection.send({ t: 'rejoin', ...connection.session });
+      if (connection.status === 'open') connection.send({ t: 'rejoin', ...session });
+      else connection.openRoom(session.code);
     } else if (code.length === 4) {
       this.showHome();
       this.join(code);
     } else {
       this.showHome();
-      connection.connect();
     }
   }
 
@@ -228,6 +228,7 @@ export class LobbyScene extends Phaser.Scene {
     save('kut-rule-order', this.createOrder);
     save('kut-last-mode', this.createMode);
     this.setStatus('Oda kuruluyor…');
+    connection.openNew();
     connection.send({ t: 'create', name: playerName(), mode: this.createMode, ruleOrder: this.createOrder });
   }
 
@@ -243,6 +244,7 @@ export class LobbyScene extends Phaser.Scene {
       return;
     }
     this.setStatus(`${code} odasına katılınıyor…`);
+    connection.openRoom(code);
     connection.send({ t: 'join', code, name: playerName() });
   }
 
@@ -316,8 +318,7 @@ export class LobbyScene extends Phaser.Scene {
   }
 
   private leaveRoom() {
-    connection.send({ t: 'leave' });
-    connection.clearSession();
+    connection.leave();
     this.lobby = null;
     this.showHome();
   }

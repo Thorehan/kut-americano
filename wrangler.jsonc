@@ -1,0 +1,18 @@
+{
+  // Küt oyun sunucusu — Cloudflare Worker + Durable Objects (her oda = bir Durable Object).
+  // Depo kökünde durur ki Cloudflare panelindeki varsayılan "npx wrangler deploy" doğrudan çalışsın.
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "kut-server",
+  "main": "apps/worker/src/index.ts",
+  "compatibility_date": "2025-09-01",
+  "durable_objects": {
+    "bindings": [{ "name": "ROOMS", "class_name": "RoomDO" }]
+  },
+  // Ücretsiz planda sadece SQLite tabanlı Durable Object kullanılabilir
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["RoomDO"] }],
+  "vars": {
+    // Virgülle ayrılmış izinli kökenler (boşsa hepsi). Yerel geliştirme için localhost da açık.
+    "ALLOWED_ORIGINS": "https://thorehan.github.io,http://localhost:5173"
+  },
+  "observability": { "enabled": true }
+}

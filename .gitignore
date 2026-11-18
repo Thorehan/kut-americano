@@ -5,3 +5,5 @@ dist/
 .vite/
 coverage/
 .claude/settings.local.json
+.env.local
+.wrangler/

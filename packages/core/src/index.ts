@@ -7,3 +7,4 @@ export * from './bot';
 export * from './rng';
 export * from './view';
 export * from './protocol';
+export * from './room';
