@@ -10,6 +10,8 @@ export const FINISH_BONUS = -50;
 export const OKEY_SWAP_PENALTY = 50;
 /** İşlek taşı (okeyin yerine geçebilecek taşı) yere atan oyuncuya yazılan ceza. */
 export const ISLEK_PENALTY = 50;
+/** El bittiğinde elinde okey kalan oyuncuya okey başına yazılan ek ceza (taş değeri 25'e ek). */
+export const OKEY_HELD_PENALTY = 50;
 
 export type GameMode = 'solo' | 'team';
 export type Phase = 'draw' | 'claim' | 'action' | 'roundOver' | 'gameOver';
@@ -118,6 +120,7 @@ export type GameEventType =
   | 'addToMeld'
   | 'swapJoker'
   | 'islek'
+  | 'okeyHeld'
   | 'discard'
   | 'roundEnd'
   | 'gameEnd';
@@ -609,6 +612,19 @@ export class Game {
     const multiplier = winner === null || !ft ? 1 : FINISH_MULT[ft] * (c.mode === 'ciftEli' ? 2 : 1);
     const deltas = [0, 0, 0, 0];
 
+    // Elinde okey kalan (cezası yazılan) her oyuncuya okey başına +50, herkese duyurulur.
+    const heldEvents: GameEvent[] = [];
+    s.players.forEach((p, i) => {
+      const counted = winner === null || (s.mode === 'solo' ? i !== winner : teamOf(i) !== teamOf(winner));
+      const jokers = p.hand.filter((t) => t.joker).length;
+      if (!counted || !jokers) return;
+      s.extraPenalties[i] += OKEY_HELD_PENALTY * jokers;
+      heldEvents.push({
+        type: 'okeyHeld',
+        seat: i,
+        text: `${p.name} elinde ${jokers > 1 ? jokers + ' okey' : 'okey'} kaldı: +${OKEY_HELD_PENALTY * jokers} ceza!`,
+      });
+    });
     const extras = s.extraPenalties.slice();
     if (s.mode === 'solo') {
       for (let i = 0; i < SEATS; i++) deltas[i] = (i === winner ? FINISH_BONUS * multiplier : penalties[i] * multiplier) + extras[i];
@@ -643,7 +659,7 @@ export class Game {
       winner === null
         ? 'Ortada taş kalmadı, el berabere bitti.'
         : `${s.players[winner].name} eli bitirdi! (${FINISH_NAMES[ft!]}${multiplier > 1 ? `, ×${multiplier}` : ''})`;
-    const events: GameEvent[] = [{ type: 'roundEnd', seat: winner ?? -1, text }];
+    const events: GameEvent[] = [{ type: 'roundEnd', seat: winner ?? -1, text }, ...heldEvents];
     if (last) events.push({ type: 'gameEnd', seat: -1, text: 'Oyun bitti!' });
     return events;
   }

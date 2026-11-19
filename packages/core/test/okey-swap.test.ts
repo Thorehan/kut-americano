@@ -186,3 +186,29 @@ describe('işlek taş', () => {
     expect(h.deltas).toEqual([-50 + 50, 5, 3 + 50, 4]);
   });
 });
+
+describe('elde kalan okey', () => {
+  it('el bitince elinde okey kalan rakibe okey başına +50 yazılır ve duyurulur', () => {
+    const g = setup({ hand: 'b9', melds: [] });
+    const s = g.state;
+    s.players[1].hand = tiles('J r3');
+    s.players[2].hand = tiles('J J k1');
+    s.players[3].hand = tiles('y4');
+    const r = ok(g.act(0, { type: 'discard', tileId: s.players[0].hand[0].id }));
+    const held = r.events.filter((e) => e.type === 'okeyHeld');
+    expect(held.map((e) => e.seat)).toEqual([1, 2]);
+    expect(s.history[0].extras).toEqual([0, 50, 100, 0]);
+    // okey taşı değeri (25) de ceza olarak sayılır
+    expect(s.history[0].deltas[1]).toBe(25 + 3 + 50);
+  });
+
+  it('takım modunda bitiren takımın okeyi cezalanmaz', () => {
+    const g = setup({ mode: 'team', hand: 'b9', melds: [] });
+    const s = g.state;
+    s.players[2].hand = tiles('J'); // ortak
+    s.players[1].hand = tiles('J'); // rakip
+    s.players[3].hand = tiles('y4');
+    ok(g.act(0, { type: 'discard', tileId: s.players[0].hand[0].id }));
+    expect(s.history[0].extras).toEqual([0, 50, 0, 0]);
+  });
+});

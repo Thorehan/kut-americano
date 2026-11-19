@@ -87,7 +87,7 @@ export class TileLayer {
     targets: Map<number, Target>,
     origin: (t: Target) => Origin | null,
     depart: (id: number) => Point | null,
-    dur = 300,
+    dur = 380,
   ) {
     const tw = this.scene.tweens;
 

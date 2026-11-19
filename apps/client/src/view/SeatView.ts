@@ -135,14 +135,14 @@ export class SeatView {
 }
 
 export function showBubble(scene: Phaser.Scene, x: number, y: number, text: string, color: number = UI.gold, dark = true) {
-  const t = txt(scene, 0, 0, text, 15, dark ? '#1b1405' : '#fff', 900).setOrigin(0.5);
-  const w = t.width + 26;
+  const t = txt(scene, 0, 0, text, 17, dark ? '#1b1405' : '#fff', 900).setOrigin(0.5);
+  const w = t.width + 30;
   const g = scene.add.graphics();
   g.fillStyle(0x000000, 0.3);
-  g.fillRoundedRect(-w / 2, -14 + 3, w, 28, 14);
+  g.fillRoundedRect(-w / 2, -16 + 3, w, 32, 16);
   g.fillStyle(color, 1);
-  g.fillRoundedRect(-w / 2, -14, w, 28, 14);
+  g.fillRoundedRect(-w / 2, -16, w, 32, 16);
   const c = scene.add.container(Phaser.Math.Clamp(x, w / 2 + 6, 1280 - w / 2 - 6), y, [g, t]).setDepth(3000).setScale(0.4).setAlpha(0);
   scene.tweens.add({ targets: c, scale: 1, alpha: 1, duration: 220, ease: 'Back.easeOut' });
-  scene.tweens.add({ targets: c, y: y - 14, alpha: 0, delay: 1500, duration: 380, onComplete: () => c.destroy() });
+  scene.tweens.add({ targets: c, y: y - 14, alpha: 0, delay: 2600, duration: 450, onComplete: () => c.destroy() });
 }

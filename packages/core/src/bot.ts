@@ -1,9 +1,65 @@
 import { Action, Game } from './game';
-import { addPosition, jokerSwapIndex } from './melds';
-import { findContractMelds, findFullPartition, findGreedyMelds, findPairPartition } from './solver';
+import { MeldShape, addPosition, asAnyMeld, jokerSwapIndex, withTile } from './melds';
+import { findContractMelds, findFullPartition, findGreedyMelds, findPairPartition, without } from './solver';
 import { Tile, tilePenalty } from './tiles';
 
-/** Basit kural tabanlı bot. Her çağrıda tek bir hamle döndürür. */
+/**
+ * Bot: sadece açık bilgiyle (kendi eli, masa, atılan taşlar, rakiplerin taş sayısı) oynar.
+ * - Kuralı fırsat bulur bulmaz açar (zor kuralda kimse açamamışken öne geçmek için).
+ * - Okeyi elde saklar; bu sıra bitebilecekse ya da bir rakip bitmeye yaklaştıysa
+ *   (elde kalan okey +50 ceza) okeyi pere koyar.
+ * - Tehlikede yüksek değerli taşlardan kurtulur.
+ * Her botun temkin düzeyi biraz farklıdır (koltuğa göre), böylece hepsi aynı oynamaz.
+ */
+
+/** Bu koltuğun "tehlike" eşiği: rakip bu kadar ya da daha az taşa inince okeyini döker. */
+function caution(seat: number): number {
+  return [4, 3, 5, 4][seat % 4];
+}
+
+/** Bir rakip bitmeye yakın mı? (kuralı açmış ve az taşı kalmış ya da deste bitiyor) */
+export function inDanger(game: Game, seat: number): boolean {
+  const s = game.state;
+  if (s.deck.length <= 8) return true;
+  // Kuralı açmış rakip bir sırada birkaç per dizip bitebilir: eşik taş sayısının biraz üstü.
+  return s.players.some((q) => game.isOpponent(seat, q.seat) && q.opened && !q.openedThisTurn && q.hand.length <= caution(seat) + 3);
+}
+
+/**
+ * Bu sıra per dizip işleyerek bitilebiliyor mu?
+ * reserve > 0: o kadar okey kenara ayrılır (son taş olarak ortaya vurulacak → okeyle bitiş);
+ * bu durumda geri kalan her şeyin yere inmesi gerekir.
+ */
+export function canFinishThisTurn(game: Game, seat: number, reserve = 0): boolean {
+  const s = game.state;
+  const p = s.players[seat];
+  if (game.contract.mode !== 'normal' || !p.opened || p.openedThisTurn) return false;
+  const allJokers = p.hand.filter((t) => t.joker);
+  if (allJokers.length < reserve) return false;
+  const kept = allJokers.slice(0, reserve);
+  const hand = without(p.hand, kept);
+  const jokers = allJokers.length - reserve;
+  const melds = findGreedyMelds(hand, jokers);
+  let pool = without(hand, melds.flat());
+  const table: MeldShape[] = [...s.melds, ...melds.map((m) => asAnyMeld(m)).filter((m): m is MeldShape => !!m)];
+  let changed = true;
+  while (changed && pool.length > 1) {
+    changed = false;
+    for (const t of [...pool].sort((a, b) => Number(a.joker) - Number(b.joker))) {
+      const i = table.findIndex((m) => addPosition(m, t));
+      if (i < 0) continue;
+      const next = withTile(table[i], t);
+      if (!next) continue;
+      table[i] = next;
+      pool = pool.filter((x) => x !== t);
+      changed = true;
+      break;
+    }
+  }
+  return reserve > 0 ? pool.length === 0 : pool.length <= 1;
+}
+
+/** Her çağrıda tek bir hamle döndürür. */
 export function decideBotAction(game: Game, seat: number): Action {
   const s = game.state;
   const p = s.players[seat];
@@ -30,11 +86,19 @@ export function decideBotAction(game: Game, seat: number): Action {
         const m = s.melds.find((m) => jokerSwapIndex(m, t) !== null);
         if (m) return { type: 'swapJoker', tileId: t.id, meldId: m.id };
       }
-      const jokers = p.hand.filter((t) => t.joker).length;
-      const extra = findGreedyMelds(p.hand, jokers);
+      // Okey planı:
+      //  - okeyi son taş bırakıp okeyle bitebiliyorsa: bir okeyi sakla, gerisini kullan (rakiplere ×2)
+      //  - normal bitebiliyorsa ya da bir rakip bitmeye yakınsa: okeyleri pere koy (elde kalan okey +50)
+      //  - aksi halde okeyi elde sakla
+      const allJokers = p.hand.filter((t) => t.joker);
+      const okeyFinish = allJokers.length > 0 && canFinishThisTurn(game, seat, 1);
+      const useAll = !okeyFinish && (canFinishThisTurn(game, seat) || inDanger(game, seat));
+      const reserved = okeyFinish ? allJokers[0] : null;
+      const usable = p.hand.filter((t) => t !== reserved && (useAll || okeyFinish || !t.joker));
+      const extra = findGreedyMelds(usable, usable.filter((t) => t.joker).length);
       if (extra.length) return { type: 'lay', melds: ids(extra) };
       if (game.canAddToMelds(seat)) {
-        const ordered = [...p.hand].sort((a, b) => Number(a.joker) - Number(b.joker));
+        const ordered = [...usable].sort((a, b) => Number(a.joker) - Number(b.joker));
         for (const t of ordered) {
           const m = s.melds.find((m) => addPosition(m, t));
           if (m) return { type: 'addToMeld', tileId: t.id, meldId: m.id };
@@ -93,7 +157,9 @@ export function usefulness(game: Game, seat: number, hand: Tile[], t: Tile, inMe
     }
   }
   if (p.opened && c.mode === 'normal' && game.state.melds.some((m) => addPosition(m, t))) score += 12;
-  return score - tilePenalty(t) * 0.15;
+  // Rakip bitmeye yakınsa yüksek değerli taşlardan önce kurtul.
+  const weight = inDanger(game, seat) ? 1.2 : 0.15;
+  return score - tilePenalty(t) * weight;
 }
 
 export function chooseDiscard(game: Game, seat: number): Tile {

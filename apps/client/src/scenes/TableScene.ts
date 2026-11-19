@@ -370,6 +370,9 @@ export class TableScene extends Phaser.Scene {
           sfx.swap();
           haptic(25);
           break;
+        case 'okeyHeld':
+          this.time.delayedCall(700, () => this.bubble(e.seat, 'Elinde okey kaldı! +50', UI.red, false));
+          break;
         case 'islek':
           this.bubble(e.seat, `İŞLEK! Geri aldı +1 · +${ISLEK_PENALTY}`, UI.red, false);
           if (e.seat !== 0) this.tiles.flyBack(DECK, this.anchor(e.seat), 120);

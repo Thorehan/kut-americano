@@ -101,7 +101,8 @@ export class LocalController implements GameController {
     if (s.phase === 'claim') seat = s.claim!.queue[0];
     else if (s.phase === 'draw' || s.phase === 'action') seat = s.current;
     if (seat === null || !s.players[seat].isBot) return;
-    const base = s.phase === 'claim' ? 420 : s.phase === 'draw' ? 650 : 560;
+    // Tempo: hamleler okunabilsin diye ölçülü (yan taş sorusu < çekme < oynama)
+    const base = s.phase === 'claim' ? 650 : s.phase === 'draw' ? 950 : 850;
     const hold = Math.max(0, this.holdUntil - Date.now());
     const who = seat;
     this.timer = setTimeout(() => {

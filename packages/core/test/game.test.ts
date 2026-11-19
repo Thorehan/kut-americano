@@ -149,32 +149,32 @@ describe('puanlama', () => {
     s.turnJokers = p.hand.filter((x) => x.joker).length;
     s.players[1].hand = tiles('r10 b3'); // 13
     s.players[2].hand = tiles('k13'); // 10
-    s.players[3].hand = tiles('J y2'); // 27
+    s.players[3].hand = tiles('J y2'); // 27 + elde kalan okey +50 (çarpansız)
     ok(g.act(0, { type: 'discard', tileId: p.hand[0].id }));
     return g;
   }
 
   it('tekli normal bitiş: biten −50, diğerleri elde kalan', () => {
     const g = finishWith('solo', 'r4');
-    expect(g.state.history[0].deltas).toEqual([-50, 13, 10, 27]);
+    expect(g.state.history[0].deltas).toEqual([-50, 13, 10, 27 + 50]);
     expect(g.state.phase).toBe('roundOver');
   });
 
   it('okey ile bitiş: −100 ve cezalar ×2', () => {
     const g = finishWith('solo', 'J');
     expect(g.state.history[0].finishType).toBe('okey');
-    expect(g.state.history[0].deltas).toEqual([-100, 26, 20, 54]);
+    expect(g.state.history[0].deltas).toEqual([-100, 26, 20, 54 + 50]);
   });
 
   it('takım modu: karşı takım iki elin toplamını yazar', () => {
     const g = finishWith('team', 'r4');
     // takım 0 = koltuk 0 ve 2, takım 1 = koltuk 1 ve 3
-    expect(g.state.history[0].deltas).toEqual([-50, 40, -50, 40]);
+    expect(g.state.history[0].deltas).toEqual([-50, 40 + 50, -50, 40 + 50]);
   });
 
   it('çift eli: puanlar ×2 (normal bitiş −100)', () => {
     const g = finishWith('solo', 'r4', 10);
-    expect(g.state.history[0].deltas).toEqual([-100, 26, 20, 54]);
+    expect(g.state.history[0].deltas).toEqual([-100, 26, 20, 54 + 50]);
     expect(g.state.phase).toBe('gameOver');
   });
 });

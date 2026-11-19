@@ -39,6 +39,7 @@ Her el sıradaki kural geçerlidir. UI'da sabit bir **Kural Paneli** o elin kura
 - Okeyin yerini tutan taşı elinde tutan oyuncu, sırasında o taşı okeyin yerine koyup **okeyi eline alabilir**. Okeyi alınan **rakibe +50 ceza** yazılır.
 - **Kütte okey ancak 4'lü kütte alınır:** 4'lü kütte okey tek eksik rengin yerindedir (ör. kırmızı–sarı–mavi 7 + okey → siyah 7 ile alınır). 3'lü kütte (kırmızı 7 – sarı 7 – okey) okeyin hangi rengin yerine geçtiği belli olmadığından **alınamaz**; eksik renk yine işlenebilir.
 - İşlemek zorunlu değildir; oyuncu işleği elinde bekletebilir. Ama **işlek taşı yere atarsa:** attığı taşı **geri alır, ortadan 1 taş daha çeker, kendisine +50 ceza** yazılır ve **sıra sonraki oyuncuya geçer** (o sırada taş atılmamış sayılır).
+- **Elde kalan okey:** el bittiğinde cezası yazılan bir oyuncunun elinde okey kalmışsa, taş değerine (25) ek olarak okey başına **+50 ceza** yazılır ve herkese duyurulur. Bitiren (takım modunda bitiren takım) bu cezayı almaz.
 - **İpucu yok:** gerçek oyunda işlek taşlar gösterilmez, işlenebilir perler parlamaz ve işlek atmadan önce uyarı gelmez — atan doğrudan cezayı yer. Bu ipuçları sadece **öğreticide** açıktır.
 - **Bitiş taşı:** elde tek taş kalınca o taş **yana atılmaz, ortaya (destenin üstüne) vurulur ve el biter** — işlek olsa bile ceza yazılmaz.
 - *Varsayımlar (onay bekliyor):* okey almak için kuralın açılmış olması gerekir ve kuralın açıldığı sırada okey alınmaz (işleme ile aynı). Kendi ya da takım arkadaşının perindeki okeyi almak serbesttir, ceza yazılmaz. +50 cezalar el sonunda puana çarpansız eklenir.
@@ -238,3 +239,15 @@ Hiçbiri oyun avantajı satmaz; KP satılmaz.
 - **Kısa video içerik:** "okeyi aldım +50" anları, kural anlatan 15 sn videolar (TikTok/Reels/Shorts).
 - **Mağaza (ASO):** anahtar kelimeler okey, 101, küt, amerikano, kontrat okey; ekran görüntülerinde kural paneli ve rastgele mod çarkı.
 - **Topluluk:** kahvehane/okey grupları, arkadaş turnuvası (online oda kodu ile).
+
+## 12. Bot davranışı
+
+Botlar sadece açık bilgiyle (kendi eli, masa, atılan taşlar, rakiplerin taş sayısı) oynar:
+- Kuralı fırsat bulur bulmaz açar; okeyi kural için gerekmedikçe kullanmaz.
+- Kural açıldıktan sonra **okeyi elde saklar**; şu durumlarda kullanır:
+  - bu sıra okeyle bitebiliyorsa: bir okeyi son taş olarak ayırır, gerisini dizer ve **okeyle biter** (rakiplere ×2),
+  - normal bitebiliyorsa,
+  - bir rakip bitmeye yaklaştıysa (kuralı açık ve az taşı kalmış, ya da deste bitiyor) — elde kalan okey +50 ceza olduğu için okeyi pere koyar.
+- Rakip bitmeye yakınken yüksek değerli taşlardan önce kurtulur; işlek taş atmaz; fırsat buldukça rakipten okey alır.
+- Botların temkin düzeyi koltuğa göre biraz farklıdır, hepsi aynı oynamaz.
+- 20 oyunluk simülasyon (220 el): 199 el bitti, 3 okeyle bitiş, 180 okey alma, 69 kez elde okey kaldı (çoğu kuralı açamayan botlarda), işlek cezası 0.

@@ -239,7 +239,7 @@ export class Room {
       // kısa kopmalarda (sayfa yenileme, tünel) hemen bot oynamasın
       delay = hold + (s.phase === 'claim' ? this.timing.claimMs : this.timing.disconnectGraceMs) * sc;
     } else {
-      delay = hold + (s.phase === 'claim' ? 420 : s.phase === 'draw' ? 650 : 560) * sc;
+      delay = hold + (s.phase === 'claim' ? 650 : s.phase === 'draw' ? 950 : 850) * sc;
     }
     this.timer = setTimeout(() => this.autoPlay(seat), delay);
   }
