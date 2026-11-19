@@ -147,7 +147,7 @@ kut-americano/
 | 1 ✅ | **Deneme sürümü** | Tarayıcıda 1 kişi + 3 bot, tekli + takım modu, 11 el, puan tablosu |
 | 2 | **GitHub prototipi** | GitHub reposu + Pages linki, telefonda açılır, takım modu |
 | 2.5 ✅ | Öğretici | ~2 dk rehberli tek el: kural aç, taş at, çek, per diz, işle, okeyi al, son taşla bit |
-| 3 ✅ | Online | Oda kodu / davet linki, 1–4 insan + bot, yeniden bağlanma, süre aşımı. Yayın: Cloudflare Workers + Durable Objects (Render ücretsiz planda bile kart istediği için) |
+| 3 ✅ | Online | Oda kodu / davet linki, 1–4 insan + bot, yeniden bağlanma, süre aşımı. Yayında: Cloudflare Workers + Durable Objects (kut-americano.*.workers.dev; Render ücretsiz planda bile kart istediği için) |
 | 4 | Mobil uygulama | Capacitor ile Android (sonra iOS) |
 | 5 | PC web | Masaüstü düzeni ve klavye/fare iyileştirmeleri |
 

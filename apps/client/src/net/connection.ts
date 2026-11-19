@@ -1,15 +1,20 @@
 import { ClientMsg, ServerMsg } from '@kut/core';
 
+/** Yayındaki oyun sunucusu (Cloudflare Worker + Durable Objects). */
+export const PROD_SERVER_URL = 'wss://kut-americano.torehan-anbarli.workers.dev';
+
 /**
- * Sunucu adresi: yayında VITE_SERVER_URL ile verilir (ör. wss://kut-server.onrender.com).
- * Yerelde (localhost / aynı ağdaki IP) otomatik olarak ws://<adres>:2567 kullanılır.
+ * Sunucu adresi önceliği:
+ * 1. VITE_SERVER_URL (derleme sırasında verilirse)
+ * 2. Yerelde (localhost / aynı ağdaki IP) ws://<adres>:2567 — Node geliştirme sunucusu
+ * 3. Diğer her yerde (GitHub Pages vb.) yayındaki Cloudflare sunucusu
  */
 function resolveServerUrl(): string {
   const env = import.meta.env.VITE_SERVER_URL as string | undefined;
   if (env) return env;
   const h = location.hostname;
   const local = h === 'localhost' || h === '127.0.0.1' || /^(\d{1,3}\.){3}\d{1,3}$/.test(h) || h.endsWith('.local');
-  return local ? `ws://${h}:2567` : '';
+  return local ? `ws://${h}:2567` : PROD_SERVER_URL;
 }
 
 export const SERVER_URL = resolveServerUrl();
