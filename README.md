@@ -46,7 +46,7 @@ Deneme parametreleri: `?mod=rastgele` → rastgele mod seçili açılır · `?el
 - **Akış:** Oda Kur → 4 harfli kod (ya da **Davet Et** linki) → arkadaşlar katılır → kurucu **Başlat** der; boş koltuklarda bot oynar.
 - **Kopma:** sayfa yenilense ya da bağlantı kopsa oyuncu 15 sn içinde aynı koltuğa döner; dönmezse sırasını bot oynar. Sırada 45 sn içinde oynanmazsa otomatik hamle yapılır.
 - **Yerelde Cloudflare sürümü:** `npm run worker` (ws://localhost:8787). İstemciyi ona bağlamak için `apps/client/.env.local` içine `VITE_SERVER_URL=ws://localhost:8787` yaz.
-- **Yayın:** sunucu Cloudflare Workers + Durable Objects üzerinde çalışır (her oda ayrı bir Durable Object; ücretsiz plan, uyumaz). Ayarlar depo kökündeki `wrangler.jsonc` dosyasında. Kurulum: Cloudflare panelinde **Workers & Pages → Create → Import a repository** → bu depo → ad `kut-server` → Deploy. Çıkan `https://kut-server.<hesap>.workers.dev` adresi istemciye `wss://…` olarak verilir.
+- **Yayın:** sunucu Cloudflare Workers + Durable Objects üzerinde çalışır (her oda ayrı bir Durable Object; ücretsiz plan, uyumaz). Ayarlar depo kökündeki `wrangler.jsonc` dosyasında. Kurulum: Cloudflare panelinde **Workers & Pages → Create → Import a repository** → bu depo → proje adı `kut-americano` (wrangler.jsonc içindeki "name" ile aynı olmalı) → Deploy. Çıkan `https://kut-americano.<hesap>.workers.dev` adresi istemciye `wss://…` olarak verilir.
 
 ## Yapı
 
