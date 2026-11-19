@@ -1,6 +1,59 @@
 import Phaser from 'phaser';
 import { COLORS, Color, Tile } from '@kut/core';
 import { FONT, GAME_H, GAME_W, RACK, RENDER_SCALE, TABLE } from './layout';
+import { profile } from './profile';
+
+/** Taş yüzü temaları (profilde KP ile açılır). */
+interface TileStyle {
+  body: string;
+  face: [string, string, string];
+  stroke: string;
+  shine: number;
+  colors: Record<Color, string>;
+  okey: string;
+  vein?: string;
+}
+
+const BASE_COLORS: Record<Color, string> = { red: '#d0352b', yellow: '#d89a00', blue: '#1f63c4', black: '#1d1d1f' };
+
+export const TILE_STYLES: Record<string, TileStyle> = {
+  'tile-klasik': { body: '#b39a6a', face: ['#fffdf7', '#f6edd6', '#ecdfbf'], stroke: 'rgba(140,115,70,0.55)', shine: 0.55, colors: BASE_COLORS, okey: '#18924f' },
+  'tile-gece': {
+    body: '#0b0f14',
+    face: ['#33404e', '#26313d', '#1c242d'],
+    stroke: 'rgba(255,255,255,0.18)',
+    shine: 0.1,
+    colors: { red: '#ff6b5e', yellow: '#ffc93d', blue: '#62b0ff', black: '#eef2f6' },
+    okey: '#3ddc84',
+  },
+  'tile-mermer': {
+    body: '#8f99a3',
+    face: ['#ffffff', '#f3f5f7', '#e4e8ec'],
+    stroke: 'rgba(90,100,110,0.45)',
+    shine: 0.6,
+    colors: BASE_COLORS,
+    okey: '#18924f',
+    vein: 'rgba(120,130,140,0.22)',
+  },
+  'tile-altin': {
+    body: '#9c7417',
+    face: ['#fff2bf', '#f4d576', '#e2b84a'],
+    stroke: 'rgba(120,80,0,0.6)',
+    shine: 0.5,
+    colors: { red: '#b8231a', yellow: '#7a4b00', blue: '#16489a', black: '#2a1d02' },
+    okey: '#0f6e3a',
+  },
+};
+
+/** Masa çuhası renkleri: [orta, ara, kenar]. */
+export const FELT_STYLES: Record<string, [string, string, string]> = {
+  'felt-yesil': ['#27935f', '#1b7349', '#125536'],
+  'felt-lacivert': ['#2f6bb0', '#1f4c84', '#13315a'],
+  'felt-bordo': ['#a83a4a', '#7a2333', '#4d1220'],
+  'felt-mor': ['#7a4cb5', '#58338a', '#371f5a'],
+};
+
+let style: TileStyle = TILE_STYLES['tile-klasik'];
 
 /** Taş dokuları büyük çizilir, ekranda küçültülerek gösterilir (keskinlik için). */
 export const TILE_W = 104;
@@ -40,22 +93,37 @@ function tileBody(ctx: CanvasRenderingContext2D) {
   const h = TILE_H;
   // gövde kalınlığı
   roundRect(ctx, 4, 9, w - 8, h - 11, 14);
-  ctx.fillStyle = '#b39a6a';
+  ctx.fillStyle = style.body;
   ctx.fill();
   // yüz
   roundRect(ctx, 4, 3, w - 8, h - 14, 14);
   const g = ctx.createLinearGradient(0, 0, 0, h);
-  g.addColorStop(0, '#fffdf7');
-  g.addColorStop(0.7, '#f6edd6');
-  g.addColorStop(1, '#ecdfbf');
+  g.addColorStop(0, style.face[0]);
+  g.addColorStop(0.7, style.face[1]);
+  g.addColorStop(1, style.face[2]);
   ctx.fillStyle = g;
   ctx.fill();
   ctx.lineWidth = 2;
-  ctx.strokeStyle = 'rgba(140,115,70,0.55)';
+  ctx.strokeStyle = style.stroke;
   ctx.stroke();
+  if (style.vein) {
+    // mermer damarları (her taşta aynı desen — sabit tohum)
+    ctx.save();
+    roundRect(ctx, 4, 3, w - 8, h - 14, 14);
+    ctx.clip();
+    ctx.strokeStyle = style.vein;
+    ctx.lineWidth = 1.5;
+    for (let i = 0; i < 4; i++) {
+      ctx.beginPath();
+      ctx.moveTo(4, 20 + i * 32);
+      ctx.bezierCurveTo(40, 10 + i * 30, 60, 50 + i * 25, w - 4, 30 + i * 30);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
   // üst parlama
   roundRect(ctx, 10, 7, w - 20, 18, 9);
-  ctx.fillStyle = 'rgba(255,255,255,0.55)';
+  ctx.fillStyle = `rgba(255,255,255,${style.shine})`;
   ctx.fill();
 }
 
@@ -80,14 +148,22 @@ function drawRosette(ctx: CanvasRenderingContext2D, cx: number, cy: number, r: n
   ctx.restore();
 }
 
+/** Çizili dokuların hangi temayla çizildiği; tema değişince yeniden çizilir. */
+let drawnSig = '';
+
 export function createTextures(scene: Phaser.Scene) {
-  if (scene.textures.exists('tile-back')) return;
+  const p = profile();
+  const sig = `${p.tileTheme}|${p.feltTheme}`;
+  if (scene.textures.exists('tile-back') && sig === drawnSig) return;
+  drawnSig = sig;
+  style = TILE_STYLES[p.tileTheme] ?? TILE_STYLES['tile-klasik'];
+  const felt = FELT_STYLES[p.feltTheme] ?? FELT_STYLES['felt-yesil'];
 
   for (const color of COLORS) {
     for (let v = 1; v <= 13; v++) {
       canvas(scene, `tile-${color}-${v}`, TILE_W, TILE_H, (ctx) => {
         tileBody(ctx);
-        ctx.fillStyle = COLOR_HEX[color];
+        ctx.fillStyle = style.colors[color];
         ctx.font = `900 ${v >= 10 ? 62 : 72}px ${FONT}`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
@@ -107,8 +183,8 @@ export function createTextures(scene: Phaser.Scene) {
   // Okey = sahte okey simgeli taş
   canvas(scene, 'tile-joker', TILE_W, TILE_H, (ctx) => {
     tileBody(ctx);
-    drawRosette(ctx, TILE_W / 2, 60, 42, '#18924f');
-    ctx.fillStyle = '#18924f';
+    drawRosette(ctx, TILE_W / 2, 60, 42, style.okey, style.face[0]);
+    ctx.fillStyle = style.okey;
     ctx.font = `900 19px ${FONT}`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
@@ -130,6 +206,41 @@ export function createTextures(scene: Phaser.Scene) {
     roundRect(ctx, 15, 14, TILE_W - 30, TILE_H - 38, 9);
     ctx.stroke();
     drawRosette(ctx, TILE_W / 2, TILE_H / 2 - 6, 24, 'rgba(255,255,255,0.32)', 'rgba(0,0,0,0)');
+  });
+
+  // Küt Puanı jetonu
+  canvas(scene, 'coin', 64, 64, (ctx) => {
+    const g = ctx.createRadialGradient(24, 22, 4, 32, 32, 30);
+    g.addColorStop(0, '#fff3b0');
+    g.addColorStop(0.55, '#f5c451');
+    g.addColorStop(1, '#b8860b');
+    ctx.beginPath();
+    ctx.arc(32, 32, 29, 0, Math.PI * 2);
+    ctx.fillStyle = g;
+    ctx.fill();
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = '#8a6200';
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(32, 32, 21, 0, Math.PI * 2);
+    ctx.strokeStyle = 'rgba(138,98,0,0.6)';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.fillStyle = '#7a5200';
+    ctx.font = `900 26px ${FONT}`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('K', 32, 34);
+  });
+
+  // Kıvılcım (okeyle bitiş kutlaması)
+  canvas(scene, 'spark', 32, 32, (ctx) => {
+    const g = ctx.createRadialGradient(16, 16, 0, 16, 16, 16);
+    g.addColorStop(0, 'rgba(255,255,255,1)');
+    g.addColorStop(0.35, 'rgba(255,214,102,0.95)');
+    g.addColorStop(1, 'rgba(255,170,0,0)');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, 32, 32);
   });
 
   // Gölge (sürüklenen / uçan taşın altında)
@@ -167,11 +278,11 @@ export function createTextures(scene: Phaser.Scene) {
     ctx.restore();
     // çuha
     roundRect(ctx, x, y, w, h, r);
-    const felt = ctx.createRadialGradient(GAME_W / 2, y + h / 2, 40, GAME_W / 2, y + h / 2, w * 0.62);
-    felt.addColorStop(0, '#27935f');
-    felt.addColorStop(0.65, '#1b7349');
-    felt.addColorStop(1, '#125536');
-    ctx.fillStyle = felt;
+    const feltG = ctx.createRadialGradient(GAME_W / 2, y + h / 2, 40, GAME_W / 2, y + h / 2, w * 0.62);
+    feltG.addColorStop(0, felt[0]);
+    feltG.addColorStop(0.65, felt[1]);
+    feltG.addColorStop(1, felt[2]);
+    ctx.fillStyle = feltG;
     ctx.fill();
     ctx.save();
     ctx.clip();
@@ -252,4 +363,42 @@ export function createTextures(scene: Phaser.Scene) {
     roundRect(ctx, 1, 1, B.w - 2, B.h - 2, 20);
     ctx.stroke();
   });
+}
+
+/** Mağaza önizlemeleri: her taş teması için kırmızı 7, her masa rengi için bir çuha parçası. */
+export function createThemePreviews(scene: Phaser.Scene) {
+  for (const [id, st] of Object.entries(TILE_STYLES)) {
+    const key = `preview-${id}`;
+    if (scene.textures.exists(key)) continue;
+    canvas(scene, key, TILE_W, TILE_H, (ctx) => {
+      const prev = style;
+      style = st;
+      tileBody(ctx);
+      ctx.fillStyle = st.colors.red;
+      ctx.font = `900 72px ${FONT}`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('7', TILE_W / 2, 60);
+      ctx.beginPath();
+      ctx.arc(TILE_W / 2, 108, 9.5, 0, Math.PI * 2);
+      ctx.fill();
+      style = prev;
+    });
+  }
+  for (const [id, f] of Object.entries(FELT_STYLES)) {
+    const key = `preview-${id}`;
+    if (scene.textures.exists(key)) continue;
+    canvas(scene, key, 200, 120, (ctx) => {
+      roundRect(ctx, 0, 0, 200, 120, 16);
+      ctx.fillStyle = '#5c3416';
+      ctx.fill();
+      roundRect(ctx, 8, 8, 184, 104, 12);
+      const g = ctx.createRadialGradient(100, 60, 10, 100, 60, 110);
+      g.addColorStop(0, f[0]);
+      g.addColorStop(0.65, f[1]);
+      g.addColorStop(1, f[2]);
+      ctx.fillStyle = g;
+      ctx.fill();
+    });
+  }
 }

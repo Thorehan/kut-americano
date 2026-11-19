@@ -50,6 +50,8 @@ export class SeatView {
     av.strokeCircle(ax, ay, 20);
     const initial = txt(scene, ax, ay, '', 20, '#fff', 900).setOrigin(0.5);
     this.root.setData('initial', initial);
+    this.root.setData('av', av);
+    this.root.setData('avPos', { x: ax, y: ay });
 
     if (vertical) {
       this.nameT = txt(scene, 0, -h / 2 + 56, '', 16, '#fff', 800).setOrigin(0.5, 0);
@@ -70,6 +72,16 @@ export class SeatView {
     this.root.add([this.ring, this.bg, av, initial, this.nameT, this.countT, ...this.backs, this.badgeBg, this.badgeT, this.scoreT, this.thinkT]);
   }
 
+  private paintAvatar(color: number) {
+    const av = this.root.getData('av') as Phaser.GameObjects.Graphics;
+    const { x, y } = this.root.getData('avPos') as { x: number; y: number };
+    av.clear();
+    av.fillStyle(color, 1);
+    av.fillCircle(x, y, 20);
+    av.lineStyle(2, 0xffffff, 0.6);
+    av.strokeCircle(x, y, 20);
+  }
+
   get anchor() {
     return { x: this.root.x, y: this.root.y };
   }
@@ -81,8 +93,9 @@ export class SeatView {
     this.last = sig;
 
     (this.root.getData('initial') as Phaser.GameObjects.Text).setText(
-      /\d$/.test(p.name) ? p.name.slice(-1) : (p.name.startsWith('Bot ') ? p.name.slice(4) : p.name).slice(0, 1).toUpperCase(),
+      p.avatar ?? (/\d$/.test(p.name) ? p.name.slice(-1) : (p.name.startsWith('Bot ') ? p.name.slice(4) : p.name).slice(0, 1).toUpperCase()),
     );
+    if (p.color !== undefined) this.paintAvatar(p.color);
     this.nameT.setText(p.name);
     this.countT.setText(`${p.hand.length}`);
     this.scoreT.setText(`${team ? `Takım ${team} · ` : ''}${p.score} puan`);

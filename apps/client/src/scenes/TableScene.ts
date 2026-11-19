@@ -45,6 +45,9 @@ import { SeatView, showBubble } from '../view/SeatView';
 import { Origin, Point, Target, TileKind, TileLayer } from '../view/TileLayer';
 import type { TableData } from './MenuScene';
 import { TutorialRunner } from '../tutorial';
+import { Badge, Gain, KP, PLACE_KP, PLACE_XP, ROUND_WIN_KP, ROUND_WIN_OKEY_KP, award, grant, profile, saveProfile } from '../profile';
+import { fmt, showBadge, showGain } from '../ui/rewards';
+import { playRewardedVideo } from '../ui/videoAd';
 
 type Obj = Phaser.GameObjects.GameObject;
 type Rect = Phaser.Geom.Rectangle;
@@ -100,6 +103,10 @@ export class TableScene extends Phaser.Scene {
   private tutorial: TutorialRunner | null = null;
   /** Rastgele modda kural çarkı dönerken kural gizli kalır. */
   private spinning = false;
+  /** El sonu ekranının gecikmesi (okeyle bitişte kutlama bitene kadar). */
+  private resultDelay = 1100;
+  /** Oyun sonu ödülü (video ile 2 katlanabilir). */
+  private finalGain: { kp: number; xp: number; doubled: boolean } | null = null;
 
   private overlay: Phaser.GameObjects.Container | null = null;
   private overlayKind: OverlayKind = 'none';
@@ -127,6 +134,7 @@ export class TableScene extends Phaser.Scene {
     this.dragging = false;
     this.wasMyTurn = false;
     this.spinning = false;
+    this.finalGain = null;
     this.islekConfirm = -1;
     this.overlay = null;
     this.overlayKind = 'none';
@@ -312,6 +320,7 @@ export class TableScene extends Phaser.Scene {
 
   private onEvents(events: GameEvent[]) {
     for (const e of events) {
+      if (!this.tutorial) this.track(e);
       this.actor = e.seat;
       switch (e.type) {
         case 'roundStart':
@@ -373,8 +382,16 @@ export class TableScene extends Phaser.Scene {
           break;
         case 'roundEnd': {
           const winner = e.seat;
-          if (winner === 0 || (this.s.mode === 'team' && winner >= 0 && teamOf(winner) === 0)) sfx.win();
-          else sfx.lose();
+          const h = this.s.history[this.s.history.length - 1];
+          const okey = winner >= 0 && !!h && (h.finishType === 'okey' || h.finishType === 'ciftOkey');
+          if (okey) {
+            this.resultDelay = 4200;
+            this.time.delayedCall(450, () => this.okeyCelebration(winner, h!.finishType === 'ciftOkey', h!.multiplier));
+          } else {
+            this.resultDelay = 1100;
+            if (winner === 0 || (this.s.mode === 'team' && winner >= 0 && teamOf(winner) === 0)) sfx.win();
+            else sfx.lose();
+          }
           if (winner >= 0) this.bubble(winner, 'BİTTİ!', UI.gold);
           break;
         }
@@ -941,7 +958,7 @@ export class TableScene extends Phaser.Scene {
     // benim çipim
     const lock = c.mode === 'normal' ? (me.opened ? 'Kural açık ✓' : 'Kural kapalı') : me.opened ? 'Açtın ✓' : c.mode === 'eldenBitme' ? 'Tek seferde bit' : '7 çift aç';
     const team = s.mode === 'team' ? ' · Takım A' : '';
-    this.meChipT.setText(`Sen · ${me.score} puan${team}  ·  ${lock}`);
+    this.meChipT.setText(`${me.avatar ?? ''} Sen · ${me.score} puan${team}  ·  ${lock}`);
     const mw = this.meChipT.width + 24;
     const mx = Math.max(158, STATUS.x - 300 - mw);
     this.meChipT.setX(mx + 12);
@@ -1058,7 +1075,7 @@ export class TableScene extends Phaser.Scene {
     }
     if ((s.phase === 'roundOver' || s.phase === 'gameOver') && this.roundShown < s.history.length) {
       this.roundShown = s.history.length;
-      this.time.delayedCall(1100, () => (this.tutorial ? this.tutorial.complete() : this.showRoundResult()));
+      this.time.delayedCall(this.resultDelay, () => (this.tutorial ? this.tutorial.complete() : this.showRoundResult()));
     }
   }
 
@@ -1224,11 +1241,151 @@ export class TableScene extends Phaser.Scene {
     );
   }
 
+  // ================================================================ okeyle bitiş kutlaması
+
+  /** Okeyle (ya da çift okeyle) bitince: karartma, dönen altın ışınlar, büyüyen okey, kıvılcım, fanfar. */
+  private okeyCelebration(winner: number, double: boolean, mult: number) {
+    const cx = GAME_W / 2;
+    const cy = 300;
+    const c = this.add.container(0, 0).setDepth(3800);
+    const dim = this.add.rectangle(0, 0, GAME_W, GAME_H, 0x000000, 1).setOrigin(0).setAlpha(0);
+    c.add(dim);
+    this.tweens.add({ targets: dim, alpha: 0.74, duration: 260 });
+
+    // dönen ışık huzmeleri
+    const rays = this.add.graphics({ x: cx, y: cy });
+    const n = 18;
+    for (let i = 0; i < n; i++) {
+      const a = (i / n) * Math.PI * 2;
+      rays.fillStyle(i % 2 ? 0xffd56b : 0xfff1c2, i % 2 ? 0.16 : 0.1);
+      rays.beginPath();
+      rays.moveTo(0, 0);
+      rays.lineTo(Math.cos(a - 0.09) * 760, Math.sin(a - 0.09) * 760);
+      rays.lineTo(Math.cos(a + 0.09) * 760, Math.sin(a + 0.09) * 760);
+      rays.closePath();
+      rays.fillPath();
+    }
+    rays.setScale(0.1).setAlpha(0);
+    c.add(rays);
+    this.tweens.add({ targets: rays, scale: 1, alpha: 1, duration: 420, ease: 'Cubic.easeOut' });
+    this.tweens.add({ targets: rays, angle: 60, duration: 4200, ease: 'Linear' });
+
+    // altın hale
+    const halo = this.add.graphics({ x: cx, y: cy });
+    halo.fillStyle(0xffd56b, 0.25);
+    halo.fillCircle(0, 0, 120);
+    halo.fillStyle(0xffe9a8, 0.3);
+    halo.fillCircle(0, 0, 80);
+    halo.setScale(0);
+    c.add(halo);
+    this.tweens.add({ targets: halo, scale: 1, duration: 500, ease: 'Back.easeOut' });
+    this.tweens.add({ targets: halo, scale: 1.12, duration: 700, delay: 500, yoyo: true, repeat: 2, ease: 'Sine.easeInOut' });
+
+    // okey taş(lar)ı dönerek büyür
+    const offs = double ? [-80, 80] : [0];
+    offs.forEach((dx, i) => {
+      const img = this.add.image(cx + dx, cy, 'tile-joker').setScale(0).setAngle(-540);
+      img.preFX?.addGlow(0xffd35c, 8, 0, false, 0.12, 18);
+      c.add(img);
+      this.tweens.add({ targets: img, scale: 1.3, angle: (i - (offs.length - 1) / 2) * 10, duration: 750, delay: 120 + i * 140, ease: 'Back.easeOut' });
+      this.tweens.add({ targets: img, y: cy - 10, duration: 900, delay: 900, yoyo: true, repeat: 1, ease: 'Sine.easeInOut' });
+    });
+
+    // kıvılcım patlaması
+    this.time.delayedCall(520, () => {
+      const burst = this.add.particles(cx, cy, 'spark', {
+        speed: { min: 180, max: 620 },
+        angle: { min: 0, max: 360 },
+        lifespan: { min: 700, max: 1500 },
+        scale: { start: 0.9, end: 0 },
+        gravityY: 260,
+        blendMode: 'ADD',
+        emitting: false,
+      });
+      burst.setDepth(3801);
+      burst.explode(double ? 160 : 110);
+      this.time.delayedCall(1300, () => burst.explode(60, cx + Phaser.Math.Between(-220, 220), cy - 80));
+      this.time.delayedCall(4000, () => burst.destroy());
+      this.cameras.main.flash(260, 255, 225, 140);
+      this.cameras.main.shake(320, 0.004);
+    });
+
+    // yazılar
+    const name = this.s.players[winner]?.name ?? '';
+    const title = txt(this, cx, cy + 128, double ? 'ÇİFT OKEY!' : 'OKEY İLE BİTTİ!', 56, '#ffd56b', 900, {
+      stroke: '#5a3a00',
+      strokeThickness: 10,
+    })
+      .setOrigin(0.5)
+      .setScale(0)
+      .setShadow(0, 6, 'rgba(0,0,0,0.6)', 12);
+    const sub = txt(this, cx, cy + 186, `${winner === 0 ? 'Sen' : name} bitirdi · cezalar ×${mult}`, 22, '#ffffff', 900).setOrigin(0.5).setAlpha(0);
+    c.add([title, sub]);
+    this.tweens.add({ targets: title, scale: 1, duration: 420, delay: 560, ease: 'Back.easeOut' });
+    this.tweens.add({ targets: sub, alpha: 1, duration: 300, delay: 900 });
+
+    sfx.fanfare();
+    haptic(60);
+    this.time.delayedCall(3700, () =>
+      this.tweens.add({ targets: c, alpha: 0, duration: 450, onComplete: () => c.destroy() }),
+    );
+  }
+
+  // ================================================================ profil / ödüller
+
+  /** Oyundaki olaylardan istatistik, XP, Küt Puanı ve rozet üretir. */
+  private track(e: GameEvent) {
+    const p = profile();
+    const st = p.stats;
+    const badges: (Badge | null)[] = [];
+    if (e.type === 'roundEnd') {
+      st.roundsPlayed++;
+      const h = this.s.history[this.s.history.length - 1];
+      const won = !!h && h.winner === 0;
+      const okey = won && (h.finishType === 'okey' || h.finishType === 'ciftOkey');
+      let g: Gain;
+      if (won) {
+        st.roundsWon++;
+        if (okey) st.okeyFinishes++;
+        g = grant(okey ? ROUND_WIN_OKEY_KP : ROUND_WIN_KP, 40);
+        badges.push(award('roundWin'));
+        if (okey) badges.push(award('okeyFinish'));
+      } else {
+        g = grant(0, 10);
+      }
+      this.time.delayedCall(okey ? 3600 : 400, () => showGain(this, g, GAME_W / 2, 200));
+    } else if (e.type === 'swapJoker' && e.seat === 0 && e.target !== undefined && this.ctrl.game.isOpponent(0, e.target)) {
+      st.jokersTaken++;
+      badges.push(award('jokerThief'));
+    } else if (e.type === 'islek' && e.seat === 0) {
+      st.islekPenalties++;
+    } else if (e.type === 'gameEnd') {
+      const s = this.s;
+      const my = s.players[0].score;
+      const place = s.mode === 'team' ? (my <= s.players[1].score ? 0 : 2) : s.players.filter((x) => x.seat !== 0 && x.score < my).length;
+      st.gamesPlayed++;
+      if (place === 0) {
+        st.gamesWon++;
+        badges.push(award('firstWin'));
+      }
+      st.bestScore = st.bestScore === null ? my : Math.min(st.bestScore, my);
+      if (this.ctrl.online) {
+        st.onlineGames++;
+        badges.push(award('online'));
+      }
+      if (st.gamesPlayed >= 10) badges.push(award('games10'));
+      grant(PLACE_KP[place], PLACE_XP[place]);
+      this.finalGain = { kp: PLACE_KP[place], xp: PLACE_XP[place], doubled: false };
+    }
+    saveProfile();
+    badges.filter((b): b is Badge => !!b).forEach((b, i) => this.time.delayedCall(1500 + i * 2800, () => showBadge(this, b)));
+  }
+
   private showFinal() {
     const s = this.s;
     const cx = GAME_W / 2;
     const cy = GAME_H / 2;
-    const c = this.openOverlay('final', 640, 440, true);
+    const c = this.openOverlay('final', 680, 500, true);
     type Entry = { name: string; score: number; mine: boolean };
     const entries: Entry[] =
       s.mode === 'solo'
@@ -1247,12 +1404,28 @@ export class TableScene extends Phaser.Scene {
       c.add(txt(this, cx - 250, y, `${i + 1}.  ${e.name}`, 22, e.mine ? UI.goldHex : '#fff', 900));
       c.add(txt(this, cx + 250, y, `${e.score}`, 22, '#fff', 900).setOrigin(1, 0));
     });
-    if (this.ctrl.online) {
-      c.add(new Button(this, cx - 120, cy + 160, 210, 56, 'Lobiye Dön', () => this.scene.start('lobby', {}), UI.green, 20));
-    } else {
-      c.add(new Button(this, cx - 120, cy + 160, 210, 56, 'Yeni Oyun', () => this.scene.restart({ mode: this.mode.mode, ruleOrder: this.mode.ruleOrder }), UI.green, 20));
+    const fg = this.finalGain;
+    if (fg) {
+      const rt = txt(this, cx - 250, cy + 100, `Ödülün: +${fmt(fg.kp)} ${KP}   +${fg.xp} XP`, 20, UI.goldHex, 900).setOrigin(0, 0.5);
+      c.add(rt);
+      const dbl = new Button(this, cx + 170, cy + 100, 230, 52, `🎬 2 Kat Al · +${fmt(fg.kp)} ${KP}`, async () => {
+        if (fg.doubled) return;
+        const ok = await playRewardedVideo(this, `+${fmt(fg.kp)} ${KP}`);
+        if (!ok) return;
+        fg.doubled = true;
+        showGain(this, grant(fg.kp));
+        rt.setText(`Ödülün: +${fmt(fg.kp * 2)} ${KP}   +${fg.xp} XP  (2 kat ✓)`);
+        dbl.setEnabled(false).setPulse(false);
+      }, UI.green, 16);
+      dbl.setEnabled(!fg.doubled).setPulse(!fg.doubled);
+      c.add(dbl);
     }
-    c.add(new Button(this, cx + 120, cy + 160, 210, 56, 'Menü', () => this.exitToMenu(), UI.slate, 20));
+    if (this.ctrl.online) {
+      c.add(new Button(this, cx - 120, cy + 185, 210, 56, 'Lobiye Dön', () => this.scene.start('lobby', {}), UI.green, 20));
+    } else {
+      c.add(new Button(this, cx - 120, cy + 185, 210, 56, 'Yeni Oyun', () => this.scene.restart({ mode: this.mode.mode, ruleOrder: this.mode.ruleOrder }), UI.green, 20));
+    }
+    c.add(new Button(this, cx + 120, cy + 185, 210, 56, 'Menü', () => this.exitToMenu(), UI.slate, 20));
   }
 
   private showScores() {

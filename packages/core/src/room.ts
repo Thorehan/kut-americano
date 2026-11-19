@@ -16,6 +16,8 @@ export interface Client {
 
 interface Seat {
   name: string;
+  avatar?: string;
+  color?: number;
   token: string;
   client: Client | null;
   /** Bağlantısı kopsa da koltuk bu oyuncunun (yeniden bağlanabilir). */
@@ -85,12 +87,12 @@ export class Room {
   }
 
   /** Lobiye katıl: ilk boş koltuğa oturur. */
-  join(client: Client, name: string): number | string {
+  join(client: Client, name: string, look: { avatar?: unknown; color?: unknown } = {}): number | string {
     if (this.game) return 'Bu odada oyun başladı.';
     const seat = this.seats.findIndex((s) => s === null);
     if (seat < 0) return 'Oda dolu.';
     const token = newToken();
-    this.seats[seat] = { name: cleanName(name, seat), token, client, human: true };
+    this.seats[seat] = { name: cleanName(name, seat), token, client, human: true, ...cleanLook(look) };
     if (this.humans === 1) this.hostSeat = seat;
     client.send({ t: 'joined', code: this.code, token, seat });
     this.touch();
@@ -189,7 +191,8 @@ export class Room {
     let b = 0;
     const names = this.seats.map((s) => (s?.human ? s.name : BOT_NAMES[b++ % BOT_NAMES.length]));
     const bots = this.seats.map((s) => !s?.human);
-    this.game = new Game({ mode: this.mode, ruleOrder: this.ruleOrder, names, bots });
+    const profiles = this.seats.map((s, i) => (s?.human ? { avatar: s.avatar, color: s.color } : { avatar: BOT_AVATARS[i % BOT_AVATARS.length], color: 0x4a4f57 }));
+    this.game = new Game({ mode: this.mode, ruleOrder: this.ruleOrder, names, bots, profiles });
     this.holdUntil = Date.now() + this.timing.roundHoldMs * this.timing.scale;
     this.broadcastLobby();
     this.broadcast(this.game.state.log.slice(-1));
@@ -301,6 +304,8 @@ export class Room {
       code: this.code,
       seats: this.seats.map((s, i) => ({
         name: s?.human ? s.name : '',
+        avatar: s?.human ? s.avatar : undefined,
+        color: s?.human ? s.color : undefined,
         human: !!s?.human,
         connected: !!s?.client,
         you: i === seat,
@@ -330,6 +335,14 @@ export class Room {
   static actualSeat(view: number, me: number): number {
     return view < 0 ? view : (view + me) % SEATS;
   }
+}
+
+const BOT_AVATARS = ['🤖', '👾', '🎲', '🎮'];
+
+function cleanLook(look: { avatar?: unknown; color?: unknown }): { avatar?: string; color?: number } {
+  const avatar = typeof look.avatar === 'string' && look.avatar.length <= 8 && !/[<>]/.test(look.avatar) ? look.avatar : undefined;
+  const color = typeof look.color === 'number' && Number.isInteger(look.color) && look.color >= 0 && look.color <= 0xffffff ? look.color : undefined;
+  return { avatar, color };
 }
 
 function cleanName(name: string, seat: number): string {

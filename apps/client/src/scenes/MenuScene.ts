@@ -7,6 +7,9 @@ import { Button } from '../ui/Button';
 import { panel, txt } from '../ui/text';
 import { GAME_H, GAME_W, RENDER_SCALE, UI } from '../layout';
 import { haptic, sfx } from '../sfx';
+import { KP, VIDEO_REWARD, grant, levelOf, profile, videosLeft, xpForLevel } from '../profile';
+import { fmt, showDailyPopup, showGain } from '../ui/rewards';
+import { playRewardedVideo } from '../ui/videoAd';
 import { showBubble } from '../view/SeatView';
 
 export interface TableData {
@@ -109,21 +112,44 @@ export class MenuScene extends Phaser.Scene {
       return;
     }
     if (load('kut-seen-howto') !== '1') this.time.delayedCall(900, () => this.showHowTo());
+    else this.time.delayedCall(900, () => showDailyPopup(this, () => this.refreshVideo()));
   }
 
   // ------------------------------------------------------------ üst çubuk
 
+  private kpText!: Phaser.GameObjects.Text;
+  private videoBtn!: Button;
+
   private buildTopBar() {
+    const p = profile();
+    const lvl = levelOf(p.xp);
+    // profil çipi → profil ekranı
     const g = this.add.graphics();
-    panel(g, 16, 12, 250, 56, 28, UI.panel, 0.9, UI.stroke, 1);
+    panel(g, 16, 12, 270, 56, 28, UI.panel, 0.9, UI.stroke, 1);
     const av = this.add.graphics();
-    av.fillStyle(0x3b8fe6, 1);
-    av.fillCircle(44, 40, 20);
-    av.lineStyle(2, 0xffffff, 0.6);
-    av.strokeCircle(44, 40, 20);
-    txt(this, 44, 40, 'S', 20, '#fff', 900).setOrigin(0.5);
-    txt(this, 74, 22, 'Misafir', 17, '#fff', 900);
-    txt(this, 74, 43, 'Çevrimdışı · botlarla', 13, UI.muted, 800);
+    av.fillStyle(p.color, 1);
+    av.fillCircle(44, 40, 21);
+    av.lineStyle(2, 0xffffff, 0.7);
+    av.strokeCircle(44, 40, 21);
+    txt(this, 44, 41, p.avatar, 22, '#fff', 900).setOrigin(0.5);
+    txt(this, 74, 19, p.name, 16, '#fff', 900);
+    txt(this, 74, 40, `Seviye ${lvl}`, 12, UI.goldHex, 900);
+    const xb = this.add.graphics();
+    const frac = (p.xp - xpForLevel(lvl)) / (xpForLevel(lvl + 1) - xpForLevel(lvl));
+    xb.fillStyle(0x000000, 0.35);
+    xb.fillRoundedRect(140, 45, 130, 8, 4);
+    xb.fillStyle(UI.gold, 1);
+    xb.fillRoundedRect(140, 45, Math.max(6, 130 * frac), 8, 4);
+    this.add.zone(151, 40, 270, 56).setInteractive({ useHandCursor: true }).on('pointerdown', () => this.scene.start('profile', { tab: 0 }));
+
+    // Küt Puanı çipi + video
+    const kg = this.add.graphics();
+    panel(kg, 298, 12, 190, 56, 28, UI.panel, 0.9, UI.gold, 0.8);
+    this.add.image(328, 40, 'coin').setScale(0.5);
+    this.kpText = txt(this, 350, 40, fmt(p.kp), 21, UI.goldHex, 900).setOrigin(0, 0.5);
+    this.add.zone(393, 40, 190, 56).setInteractive({ useHandCursor: true }).on('pointerdown', () => this.scene.start('profile', { tab: 2 }));
+    this.videoBtn = new Button(this, 572, 40, 150, 56, '', () => this.watchVideo(), UI.green, 15);
+    this.refreshVideo();
 
     const soundBtn = new Button(this, 1012, 40, 120, 56, sfx.muted ? 'Ses ✗' : 'Ses ✓', () => {
       sfx.setMuted(!sfx.muted);
@@ -131,16 +157,21 @@ export class MenuScene extends Phaser.Scene {
       soundBtn.setLabel(sfx.muted ? 'Ses ✗' : 'Ses ✓');
     }, UI.slate, 16);
     new Button(this, 1150, 40, 140, 56, 'Nasıl Oynanır', () => this.showHowTo(), UI.amber, 15);
-    const shop = new Button(this, 872, 40, 140, 56, 'Mağaza', () => {
-      showBubble(this, 872, 92, 'Yakında', UI.gold);
-      haptic(10);
-    }, 0x5b3f8f, 16);
-    const soon = txt(this, 930, 18, 'YAKINDA', 9, '#2a1d02', 900).setOrigin(0.5);
-    const sg = this.add.graphics();
-    sg.fillStyle(UI.gold, 1);
-    sg.fillRoundedRect(930 - 26, 18 - 8, 52, 16, 8);
-    this.children.bringToTop(soon);
-    void shop;
+    new Button(this, 872, 40, 140, 56, 'Mağaza', () => this.scene.start('profile', { tab: 2 }), 0x5b3f8f, 16);
+  }
+
+  private refreshVideo() {
+    const left = videosLeft();
+    this.videoBtn.setLabel(left > 0 ? `🎬 +${VIDEO_REWARD} ${KP}
+${left}/5 bugün` : '🎬 Yarın').setEnabled(left > 0);
+    this.kpText.setText(fmt(profile().kp));
+  }
+
+  private async watchVideo() {
+    if (videosLeft() <= 0) return;
+    const ok = await playRewardedVideo(this, `+${VIDEO_REWARD} ${KP}`);
+    if (ok) showGain(this, grant(VIDEO_REWARD));
+    this.refreshVideo();
   }
 
   // ------------------------------------------------------------ başlık

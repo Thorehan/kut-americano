@@ -37,7 +37,7 @@ Her el sıradaki kural geçerlidir. UI'da sabit bir **Kural Paneli** o elin kura
 
 **Okeyi alma ve işlek taş:** Yerdeki herhangi bir pere **işlenebilen** (uca eklenebilen, ör. `1-2-3` serisine `4`; `kırmızı-sarı-siyah 7` kütüne `mavi 7`) ya da bir perdeki **okeyin yerini tutan** (ör. `1-okey-3` perinde `2`) taş **işlek taştır**.
 - Okeyin yerini tutan taşı elinde tutan oyuncu, sırasında o taşı okeyin yerine koyup **okeyi eline alabilir**. Okeyi alınan **rakibe +50 ceza** yazılır.
-- Kütte okeyin yerine eksik renklerden herhangi biri geçer (ör. kırmızı 7 – sarı 7 – okey perine mavi 7 ya da siyah 7).
+- **Kütte okey ancak 4'lü kütte alınır:** 4'lü kütte okey tek eksik rengin yerindedir (ör. kırmızı–sarı–mavi 7 + okey → siyah 7 ile alınır). 3'lü kütte (kırmızı 7 – sarı 7 – okey) okeyin hangi rengin yerine geçtiği belli olmadığından **alınamaz**; eksik renk yine işlenebilir.
 - İşlemek zorunlu değildir; oyuncu işleği elinde bekletebilir. Ama **işlek taşı yere atarsa:** attığı taşı **geri alır, ortadan 1 taş daha çeker, kendisine +50 ceza** yazılır ve **sıra sonraki oyuncuya geçer** (o sırada taş atılmamış sayılır).
 - **İpucu yok:** gerçek oyunda işlek taşlar gösterilmez, işlenebilir perler parlamaz ve işlek atmadan önce uyarı gelmez — atan doğrudan cezayı yer. Bu ipuçları sadece **öğreticide** açıktır.
 - **Bitiş taşı:** elde tek taş kalınca o taş **yana atılmaz, ortaya (destenin üstüne) vurulur ve el biter** — işlek olsa bile ceza yazılmaz.
@@ -199,3 +199,42 @@ Okey uygulamaları çoğunlukla ücretsiz + uygulama içi satın alma + reklam k
 **Çip / para birimi:** oyun içi çip sadece oynayarak ve ödüllü reklamla kazanılsın, **satılmasın ve hiçbir şeye bozdurulmasın**. Satılan çiple masaya girilen yapı mağazalarda "kumar simülasyonu" (yaş sınırı yükselir) sayılır ve Türkiye mevzuatı açısından risklidir; böyle bir şey düşünülürse önce hukuki görüş alınmalı.
 
 **Teknik:** mobil uygulama (Faz 4, Capacitor) ile Google Play Billing / App Store IAP ve AdMob eklenir; web sürümünde reklam/satın alma yok.
+
+## 11. Video, kişiselleştirme, gelir ve pazarlama (karar: 2026-11-19)
+
+### Kararlar
+- **Para birimi: Küt Puanı (KP).** Sadece kazanılır (oynayarak, günlük ödül, video). **Satılmaz, gerçek paraya çevrilmez.** Kozmetik açmak için harcanır. Oyundaki ceza puanıyla karışmasın diye her yerde "KP" ve altın jeton simgesiyle gösterilir.
+- **Ödüllü video (ilk gelir kaynağı):** oyuncu isterse izler. Şimdilik **simüle**: 15 sn sayaç, atlanamaz, sonra ödül. Mobil sürümde (Faz 4) aynı yere AdMob ödüllü reklamı bağlanır.
+  - Video ile **+100 KP** (günde en fazla 5)
+  - **Günlük ödülü 2 kat**
+  - **Oyun sonu ödülünü 2 kat**
+- **Profil:** isim, avatar (emoji) ve renk; istatistikler; seviye (XP) ve rozetler; taş ve masa temaları. Şimdilik cihazda saklanır (localStorage); hesap/bulut eşitleme ileride.
+
+### Ekonomi (ilk ayar — oynandıkça dengelenir)
+| Kaynak | KP | XP |
+|---|---|---|
+| Günlük ödül (seri 1→7. gün) | 100 · 150 · 200 · 250 · 300 · 400 · 500 | — |
+| Ödüllü video | 100 (günde 5) | — |
+| Eli bitirmek | 25 (okey ile 50) | 30 |
+| Oynanan her el | — | 10 |
+| Oyun sonu: 1. / 2. / 3. / 4. | 300 / 150 / 75 / 25 | 100 / 50 / 25 / 10 |
+| Rozet | 100–300 | — |
+| Seviye atlamak | 100 × yeni seviye | — |
+
+Temalar: taş teması 1000–3000 KP, masa rengi 800 KP. Yani aktif bir oyuncu birkaç günde bir tema açar; video izleyen daha hızlı açar.
+
+### Gelir modeli (sırasıyla)
+1. **Ödüllü video** (AdMob) — bedava oyunun ana geliri, oyuncu isteğe bağlı izler.
+2. **Reklamsız** tek seferlik satın alma (zorunlu reklam zaten yok; ileride eklenirse kaldırır + ödüllü videoları izlemeden verir).
+3. **Premium kozmetik** (sadece gerçek parayla açılan özel taş/masa temaları, çerçeveler).
+4. **Küt Pass** (aylık sezon görevleri) ve **VIP** (online özel oda ayarları, rozet) — oyuncu sayısı artınca.
+Hiçbiri oyun avantajı satmaz; KP satılmaz.
+
+### Pazarlama fikirleri
+- **Davet et, kazan:** davet linkiyle gelen arkadaş ilk oyununu bitirince ikisine de KP (online altyapı hazır, Faz 4'te hesapla bağlanır).
+- **Paylaşılabilir sonuç kartı:** oyun sonunda "Okey ile bitirdim!" görseli → WhatsApp/Instagram.
+- **Günlük seri ve görevler:** her gün gelme alışkanlığı (günlük ödül serisi hazır).
+- **Sezonluk temalar:** bayram, yılbaşı, futbol sezonu taş/masa temaları.
+- **Kısa video içerik:** "okeyi aldım +50" anları, kural anlatan 15 sn videolar (TikTok/Reels/Shorts).
+- **Mağaza (ASO):** anahtar kelimeler okey, 101, küt, amerikano, kontrat okey; ekran görüntülerinde kural paneli ve rastgele mod çarkı.
+- **Topluluk:** kahvehane/okey grupları, arkadaş turnuvası (online oda kodu ile).

@@ -1,6 +1,7 @@
 import { Action, Game, GameEvent, GameMode, GameState, RuleOrder, ServerMsg, decideBotAction } from '@kut/core';
 import { Connection } from './net/connection';
 import { setupTutorialGame, tutorialBotAction } from './tutorial';
+import { profile } from './profile';
 
 export type ChangeListener = (events: GameEvent[]) => void;
 export type ErrorListener = (message: string) => void;
@@ -44,12 +45,20 @@ export class LocalController implements GameController {
 
   constructor(opts: ControllerOptions) {
     const names = opts.mode === 'team' ? ['Sen', 'Bot 1', 'Ortak', 'Bot 3'] : ['Sen', 'Bot 1', 'Bot 2', 'Bot 3'];
+    const me = profile();
+    const grey = 0x4a4f57;
+    const profiles = [
+      { avatar: me.avatar, color: me.color },
+      { avatar: '🤖', color: grey },
+      opts.mode === 'team' ? { avatar: '🤝', color: me.color } : { avatar: '🎲', color: grey },
+      { avatar: '👾', color: grey },
+    ];
     if (opts.tutorial) {
-      this.game = new Game({ mode: 'solo', names, seed: 7, startRound: 0, endRound: 0 });
+      this.game = new Game({ mode: 'solo', names, seed: 7, startRound: 0, endRound: 0, profiles });
       setupTutorialGame(this.game);
       this.tutorial = true;
     } else {
-      this.game = new Game({ mode: opts.mode, names, seed: opts.seed, startRound: opts.startRound, ruleOrder: opts.ruleOrder });
+      this.game = new Game({ mode: opts.mode, names, seed: opts.seed, startRound: opts.startRound, ruleOrder: opts.ruleOrder, profiles });
     }
     this.speed = opts.speed ?? 1;
   }

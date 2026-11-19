@@ -2,6 +2,8 @@ import Phaser from 'phaser';
 import { Action, Color, Game, GameState, Tile, asKut, asSeri } from '@kut/core';
 import { GAME_W, UI } from './layout';
 import { haptic, sfx } from './sfx';
+import { award } from './profile';
+import { showBadge } from './ui/rewards';
 import { Button } from './ui/Button';
 import { panel, txt } from './ui/text';
 
@@ -218,6 +220,8 @@ export class TutorialRunner {
   /** El bitti: tebrik ve çıkış seçenekleri. */
   complete() {
     this.finished = true;
+    const badge = award('tutorial');
+    if (badge) this.scene.time.delayedCall(900, () => showBadge(this.scene, badge));
     this.highlights.clear();
     this.meldHighlights.clear();
     this.box.destroy();

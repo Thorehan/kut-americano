@@ -100,14 +100,14 @@ export function startServer(opts: ServerOptions): Promise<RunningServer> {
         const room = new Room(code, msg.mode === 'team' ? 'team' : 'solo', msg.ruleOrder === 'random' ? 'random' : 'classic', timing, removeRoom);
         rooms.set(code, room);
         client.room = room;
-        room.join(client, msg.name);
+        room.join(client, msg.name, msg);
         return;
       }
       case 'join': {
         const room = rooms.get(normalizeCode(String(msg.code ?? '')));
         if (!room) return client.send({ t: 'error', message: 'Böyle bir oda yok. Kodu kontrol et.', fatal: true });
         if (client.room && client.room !== room) client.room.leave(client);
-        const r = room.join(client, msg.name);
+        const r = room.join(client, msg.name, msg);
         if (typeof r === 'string') return client.send({ t: 'error', message: r, fatal: true });
         client.room = room;
         return;

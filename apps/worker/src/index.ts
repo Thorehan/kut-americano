@@ -110,12 +110,12 @@ export class RoomDO extends DurableObject<Env> {
         this.room = new Room(this.code, msg.mode === 'team' ? 'team' : 'solo', msg.ruleOrder === 'random' ? 'random' : 'classic', DEFAULT_TIMING, () => {
           /* herkes çıkınca Durable Object kendiliğinden uyur; oda bellekle birlikte gider */
         });
-        this.room.join(client, msg.name);
+        this.room.join(client, msg.name, msg);
         return;
       }
       case 'join': {
         if (!this.room) return client.send({ t: 'error', message: 'Böyle bir oda yok. Kodu kontrol et.', fatal: true });
-        const r = this.room.join(client, msg.name);
+        const r = this.room.join(client, msg.name, msg);
         if (typeof r === 'string') client.send({ t: 'error', message: r, fatal: true });
         return;
       }

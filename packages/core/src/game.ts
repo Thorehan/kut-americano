@@ -26,6 +26,9 @@ export interface PlayerState {
   seat: number;
   name: string;
   isBot: boolean;
+  /** Profil avatarı (emoji) ve rengi — sadece görünüm. */
+  avatar?: string;
+  color?: number;
   hand: Tile[];
   /** Bu elin kuralı açıldı mı (kural kilidi). */
   opened: boolean;
@@ -136,6 +139,8 @@ export interface GameOptions {
   mode?: GameMode;
   names?: string[];
   bots?: boolean[];
+  /** Koltuk başına avatar/renk (görünüm). */
+  profiles?: { avatar?: string; color?: number }[];
   seed?: number;
   jokerCount?: number;
   /** İlk oynanacak el (0 tabanlı) — deneme için ör. 9 = Elden Bitme. */
@@ -207,6 +212,8 @@ export class Game {
         seat,
         name,
         isBot: bots[seat] ?? true,
+        avatar: opts.profiles?.[seat]?.avatar,
+        color: opts.profiles?.[seat]?.color,
         hand: [],
         opened: false,
         openedThisTurn: false,

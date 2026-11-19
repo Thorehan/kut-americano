@@ -5,6 +5,8 @@ import { RuleOrder } from './contracts';
 
 export interface LobbySeat {
   name: string;
+  avatar?: string;
+  color?: number;
   /** Koltukta gerçek bir oyuncu var mı (yoksa bot oynar). */
   human: boolean;
   connected: boolean;
@@ -23,8 +25,8 @@ export interface LobbyInfo {
 }
 
 export type ClientMsg =
-  | { t: 'create'; name: string; mode: GameMode; ruleOrder: RuleOrder }
-  | { t: 'join'; code: string; name: string }
+  | { t: 'create'; name: string; mode: GameMode; ruleOrder: RuleOrder; avatar?: string; color?: number }
+  | { t: 'join'; code: string; name: string; avatar?: string; color?: number }
   | { t: 'rejoin'; code: string; token: string }
   | { t: 'settings'; mode: GameMode; ruleOrder: RuleOrder }
   | { t: 'start' }

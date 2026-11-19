@@ -9,6 +9,7 @@ import { Button } from '../ui/Button';
 import { promptText, shareLink } from '../ui/htmlPrompt';
 import { panel, txt } from '../ui/text';
 import { showBubble } from '../view/SeatView';
+import { profile, saveProfile } from '../profile';
 
 export interface LobbyData {
   /** Davet linkinden gelen oda kodu. */
@@ -31,12 +32,13 @@ function save(key: string, v: string) {
 }
 
 export function playerName(): string {
-  let n = load('kut-name');
-  if (!n) {
-    n = `Oyuncu ${100 + Math.floor(Math.random() * 900)}`;
-    save('kut-name', n);
-  }
-  return n;
+  return profile().name;
+}
+
+/** Online odada görünen avatar ve renk (profilden). */
+function look() {
+  const p = profile();
+  return { avatar: p.avatar, color: p.color };
 }
 
 /** Online lobi: oda kur / koda katıl / odada bekle, kurucu başlatır. */
@@ -73,7 +75,7 @@ export class LobbyScene extends Phaser.Scene {
     panel(g, GAME_W - 296, 12, 280, 56, 28, UI.panel, 0.9, UI.stroke, 1);
     this.nameT = txt(this, GAME_W - 280, 40, '', 17, '#fff', 900).setOrigin(0, 0.5);
     new Button(this, GAME_W - 62, 40, 84, 40, 'Değiştir', () => this.editName(), UI.amber, 13);
-    this.nameT.setText(`👤 ${playerName()}`);
+    this.nameT.setText(`${profile().avatar} ${playerName()}`);
     this.status = txt(this, GAME_W / 2, 700, '', 15, UI.muted, 800).setOrigin(0.5, 1);
 
     this.events.once('shutdown', () => {
@@ -149,8 +151,9 @@ export class LobbyScene extends Phaser.Scene {
   private async editName() {
     const v = await promptText({ title: 'Oyuncu adın', value: playerName(), maxLength: 16, okLabel: 'Kaydet' });
     if (!v) return;
-    save('kut-name', v.slice(0, 16));
-    this.nameT.setText(`👤 ${playerName()}`);
+    profile().name = v.slice(0, 16);
+    saveProfile();
+    this.nameT.setText(`${profile().avatar} ${playerName()}`);
   }
 
   // ---------------------------------------------------------------- görünümler
@@ -229,7 +232,7 @@ export class LobbyScene extends Phaser.Scene {
     save('kut-last-mode', this.createMode);
     this.setStatus('Oda kuruluyor…');
     connection.openNew();
-    connection.send({ t: 'create', name: playerName(), mode: this.createMode, ruleOrder: this.createOrder });
+    connection.send({ t: 'create', name: playerName(), mode: this.createMode, ruleOrder: this.createOrder, ...look() });
   }
 
   private async askCode() {
@@ -245,7 +248,7 @@ export class LobbyScene extends Phaser.Scene {
     }
     this.setStatus(`${code} odasına katılınıyor…`);
     connection.openRoom(code);
-    connection.send({ t: 'join', code, name: playerName() });
+    connection.send({ t: 'join', code, name: playerName(), ...look() });
   }
 
   private showRoom(l: LobbyInfo) {
@@ -273,10 +276,10 @@ export class LobbyScene extends Phaser.Scene {
       panel(g, x - 130, y - 92, 260, 184, 22, you ? 0x173f2e : UI.panel, 0.95, you ? UI.gold : s.human ? UI.green : UI.stroke, 1);
       c.add(g);
       const av = this.add.graphics();
-      av.fillStyle(s.human ? [0x3b8fe6, 0xd9534f, 0x8e5bd6, 0xe0962a][i] : 0x4a4f57, 1);
+      av.fillStyle(s.human ? s.color ?? [0x3b8fe6, 0xd9534f, 0x8e5bd6, 0xe0962a][i] : 0x4a4f57, 1);
       av.fillCircle(x, y - 38, 30);
       c.add(av);
-      c.add(txt(this, x, y - 38, s.human ? s.name.slice(0, 1).toUpperCase() : '🤖', 26, '#fff', 900).setOrigin(0.5));
+      c.add(txt(this, x, y - 38, s.human ? s.avatar ?? s.name.slice(0, 1).toUpperCase() : '🤖', 26, '#fff', 900).setOrigin(0.5));
       c.add(txt(this, x, y + 8, s.human ? s.name : 'Boş koltuk', 20, s.human ? '#fff' : UI.muted, 900).setOrigin(0.5, 0));
       const tag = s.human ? (s.connected ? (you ? 'Sen' : 'Hazır') : 'Bağlantı koptu') : 'Bot oynar';
       c.add(txt(this, x, y + 40, tag, 14, s.human && !s.connected ? UI.redHex : UI.muted, 800).setOrigin(0.5, 0));

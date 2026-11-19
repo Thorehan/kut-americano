@@ -174,6 +174,13 @@ class Sfx {
   win() {
     [523, 659, 784, 1047].forEach((f, i) => this.mallet(f, 0.08, i * 0.1, 0.6));
   }
+  /** Okeyle bitiş fanfarı: yükselen arpej + parlak akor + hafif "parıltı". */
+  fanfare() {
+    [523, 659, 784, 1047, 1319].forEach((f, i) => this.mallet(f, 0.1, i * 0.08, 0.7));
+    [784, 1047, 1568].forEach((f) => this.mallet(f, 0.08, 0.48, 1.3));
+    this.hush(0.7, 0.025, 2500, 7000, 0.35);
+  }
+
   lose() {
     this.mallet(440, 0.06, 0, 0.45);
     this.mallet(349, 0.06, 0.15, 0.55);
