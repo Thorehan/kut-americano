@@ -32,7 +32,7 @@ export function setupTutorialGame(game: Game) {
   const bot1 = s.players[1];
   bot1.opened = true;
   const seri = asSeri(many('r1 r2 r3'))!;
-  const kut = asKut(many('y9 k9 J'))!;
+  const kut = asKut(many('y9 k9 r9 J'))!;
   s.melds = [
     { ...seri, id: 901, owner: 1 },
     { ...kut, id: 902, owner: 1 },
@@ -127,7 +127,7 @@ const STEPS: Step[] = [
   },
   {
     title: '6 · Okeyi al',
-    text: "Bot 1'in kütündeki okey bir 9'un yerini tutuyor. Mavi 9'u seç → küte dokun: okey senin olur, Bot 1'e +50 ceza yazılır.",
+    text: "Bot 1'in 4'lü kütünde okey eksik rengin, yani mavi 9'un yerini tutuyor. Mavi 9'u seç → küte dokun: okey senin olur, Bot 1'e +50. (3'lü kütte okeyin rengi belli olmadığından alınamaz.)",
     tiles: ['b9'],
     melds: [902],
     done: (s) => has(s, 'J'),

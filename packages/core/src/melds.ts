@@ -141,8 +141,11 @@ export function jokerSlots(meld: MeldShape): JokerSlot[] {
     return meld.tiles.flatMap((t, i) => (t.joker ? [{ index: i, value: meld.value + i, colors: [meld.color!] }] : []));
   }
   if (meld.kind === 'kut') {
+    // Kütteki okeyin rengi ancak 4'lü kütte ve tek eksik renk varsa bellidir.
+    // 3'lü kütte (ör. kırmızı 7 – sarı 7 – okey) okey hangi rengin yerine geçti belli değil → alınamaz.
     const present = new Set(meld.tiles.filter((t) => !t.joker).map((t) => t.color));
     const missing = COLORS.filter((c) => !present.has(c));
+    if (meld.tiles.length < 4 || missing.length !== 1) return [];
     return meld.tiles.flatMap((t, i) => (t.joker ? [{ index: i, value: meld.value, colors: missing }] : []));
   }
   return [];

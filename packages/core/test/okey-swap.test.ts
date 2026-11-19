@@ -33,12 +33,17 @@ describe('okeyin yerini tutan taş', () => {
     expect(jokerSwapIndex(m, tiles('r2')[0])).toBe(1);
     expect(jokerSwapIndex(m, tiles('b2')[0])).toBeNull();
   });
-  it('kütte okeyin yerine eksik renklerden biri geçer', () => {
+  it("3'lü kütte okeyin rengi belli değil: alınamaz", () => {
     const m = meld(1, 'r7 y7 J', 'kut');
-    expect(jokerSwapIndex(m, tiles('b7')[0])).not.toBeNull();
+    expect(jokerSlots(m)).toEqual([]);
+    expect(jokerSwapIndex(m, tiles('b7')[0])).toBeNull();
+    expect(jokerSwapIndex(m, tiles('k7')[0])).toBeNull();
+  });
+  it("4'lü kütte okey tek eksik rengin yerindedir: sadece o renkle alınır", () => {
+    const m = meld(1, 'r7 y7 b7 J', 'kut');
     expect(jokerSwapIndex(m, tiles('k7')[0])).not.toBeNull();
     expect(jokerSwapIndex(m, tiles('r7')[0])).toBeNull();
-    expect(jokerSwapIndex(m, tiles('b8')[0])).toBeNull();
+    expect(jokerSwapIndex(m, tiles('k8')[0])).toBeNull();
   });
 });
 
@@ -56,12 +61,18 @@ describe('okeyi alma', () => {
     expect(s.extraPenalties).toEqual([0, 50, 0, 0]);
   });
 
-  it('kütteki okey eksik renkle alınır', () => {
-    const m = meld(2, 'r7 y7 J', 'kut');
-    const g = setup({ hand: 'k7 b1', melds: [m] });
-    ok(g.act(0, { type: 'swapJoker', tileId: g.state.players[0].hand[0].id, meldId: m.id }));
-    expect(g.state.melds[0].tiles.map((t) => t.color)).toEqual(['red', 'yellow', 'black']);
+  it("4'lü kütteki okey eksik renkle alınır, 3'lü kütteki alınamaz", () => {
+    const four = meld(2, 'r7 y7 b7 J', 'kut');
+    const three = meld(3, 'r5 y5 J', 'kut');
+    const g = setup({ hand: 'k7 k5 b1', melds: [four, three] });
+    const [k7, k5] = g.state.players[0].hand;
+    expect(g.act(0, { type: 'swapJoker', tileId: k5.id, meldId: three.id }).ok).toBe(false);
+    ok(g.act(0, { type: 'swapJoker', tileId: k7.id, meldId: four.id }));
+    expect(g.state.melds[0].tiles.map((t) => t.color)).toEqual(['red', 'yellow', 'blue', 'black']);
     expect(g.state.extraPenalties[2]).toBe(50);
+    // 3'lü küte eksik renk yine işlenebilir (4'lü olur)
+    ok(g.act(0, { type: 'addToMeld', tileId: k5.id, meldId: three.id }));
+    expect(g.state.melds[1].tiles).toHaveLength(4);
   });
 
   it('kendi perimdeki okeyi alırsam ceza yok', () => {
