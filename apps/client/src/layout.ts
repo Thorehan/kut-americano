@@ -10,14 +10,14 @@ export const TEXT_RES = 2;
 export const FONT = 'Nunito, "Segoe UI", Roboto, Arial, sans-serif';
 
 export const UI = {
-  bg: 0x0b2a1f,
-  panel: 0x0d2f23,
-  panelHi: 0x14402f,
-  stroke: 0x2f6b51,
+  bg: 0x1a0f07,
+  panel: 0x24170c,
+  panelHi: 0x3a2414,
+  stroke: 0x9c7a34,
   gold: 0xf5c451,
   goldHex: '#f5c451',
   cream: '#f6eeda',
-  muted: '#9fbfae',
+  muted: '#cdb994',
   white: '#ffffff',
   green: 0x2e9a5c,
   greenHex: '#7ee2a0',

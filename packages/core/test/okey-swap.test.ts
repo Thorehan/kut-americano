@@ -166,7 +166,7 @@ describe('işlek taş', () => {
     expect(s.phase).toBe('roundOver');
     expect(s.history[0].winner).toBe(0);
     expect(s.extraPenalties[0]).toBe(0);
-    expect(s.finishTile).toBe(r2);
+    expect(s.finishTiles).toEqual([r2]);
     expect(s.players[0].discards).not.toContain(r2);
     expect(s.pendingDiscard).toBeNull();
   });
@@ -210,5 +210,53 @@ describe('elde kalan okey', () => {
     s.players[3].hand = tiles('y4');
     ok(g.act(0, { type: 'discard', tileId: s.players[0].hand[0].id }));
     expect(s.history[0].extras).toEqual([0, 50, 0, 0]);
+  });
+});
+
+describe('okey ile bitiş türleri', () => {
+  it('son taş tek okeyse: okey ile bitiş ×2 (elde başka okey olsa bile önceki sırada)', () => {
+    const g = setup({ hand: 'J', melds: [] });
+    const s = g.state;
+    s.turnJokers = 2; // eski kural bunu çift okey sayıyordu
+    s.players[1].hand = tiles('r3');
+    ok(g.act(0, { type: 'discard', tileId: s.players[0].hand[0].id }));
+    expect(s.history[0].finishType).toBe('okey');
+    expect(s.history[0].multiplier).toBe(2);
+    expect(s.finishTiles).toHaveLength(1);
+  });
+
+  it('elde sadece iki okey kaldıysa ikisi birden ortaya vurulur: çift okey ×4', () => {
+    const g = setup({ hand: 'J J', melds: [] });
+    const s = g.state;
+    s.players[1].hand = tiles('r3');
+    s.players[2].hand = tiles('k1');
+    s.players[3].hand = tiles('y4');
+    ok(g.act(0, { type: 'finishDoubleOkey' }));
+    const h = s.history[0];
+    expect(h.finishType).toBe('ciftOkey');
+    expect(h.multiplier).toBe(4);
+    expect(h.deltas).toEqual([-200, 12, 4, 16]);
+    expect(s.finishTiles).toHaveLength(2);
+  });
+
+  it('iki okey + başka taş varken çift okey yapılamaz', () => {
+    const g = setup({ hand: 'J J r5', melds: [] });
+    expect(g.act(0, { type: 'finishDoubleOkey' }).ok).toBe(false);
+  });
+
+  it('çift elinde: okey ×4, çift okey ×8', () => {
+    const g1 = new Game({ seed: 3, startRound: 10 });
+    g1.state.players[0].hand = tiles('J');
+    g1.state.players[0].opened = true;
+    g1.state.players[1].hand = tiles('r3');
+    ok(g1.act(0, { type: 'discard', tileId: g1.state.players[0].hand[0].id }));
+    expect(g1.state.history[0].multiplier).toBe(4);
+    const g2 = new Game({ seed: 3, startRound: 10 });
+    g2.state.players[0].hand = tiles('J J');
+    g2.state.players[0].opened = true;
+    g2.state.players[1].hand = tiles('r3');
+    ok(g2.act(0, { type: 'finishDoubleOkey' }));
+    expect(g2.state.history[0].multiplier).toBe(8);
+    expect(g2.state.history[0].deltas[0]).toBe(-400);
   });
 });

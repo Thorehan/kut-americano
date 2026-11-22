@@ -1,7 +1,10 @@
 import Phaser from 'phaser';
 import {
   Action,
+  FINISH_BONUS,
+  FINISH_MULT,
   FINISH_NAMES,
+  RoundResult,
   GameEvent,
   Tile,
   CONTRACTS,
@@ -172,6 +175,7 @@ export class TableScene extends Phaser.Scene {
         startRound: this.mode.startRound,
         ruleOrder: this.mode.ruleOrder,
         tutorial: this.mode.tutorial,
+        preview: this.mode.preview,
       });
     if (this.mode.tutorial) {
       this.tutorial = new TutorialRunner(this, () => this.s, (a) => {
@@ -320,7 +324,7 @@ export class TableScene extends Phaser.Scene {
 
   private onEvents(events: GameEvent[]) {
     for (const e of events) {
-      if (!this.tutorial) this.track(e);
+      if (!this.tutorial && !this.mode.preview) this.track(e);
       this.actor = e.seat;
       switch (e.type) {
         case 'roundStart':
@@ -389,7 +393,7 @@ export class TableScene extends Phaser.Scene {
           const okey = winner >= 0 && !!h && (h.finishType === 'okey' || h.finishType === 'ciftOkey');
           if (okey) {
             this.resultDelay = 4200;
-            this.time.delayedCall(450, () => this.okeyCelebration(winner, h!.finishType === 'ciftOkey', h!.multiplier));
+            this.time.delayedCall(450, () => this.okeyCelebration(winner, h!.finishType === 'ciftOkey', h!.multiplier, !!h!.ciftEli));
           } else {
             this.resultDelay = 1100;
             if (winner === 0 || (this.s.mode === 'team' && winner >= 0 && teamOf(winner) === 0)) sfx.win();
@@ -640,9 +644,16 @@ export class TableScene extends Phaser.Scene {
 
   private discardSelected() {
     // Son taşta seçim gerekmez: "Bitir!" o taşı ortaya vurur.
+    if (this.doubleOkeyReady()) return this.humanAct({ type: 'finishDoubleOkey' });
     if (this.me.hand.length === 1) return this.tryDiscard(this.me.hand[0].id);
     if (this.selected.size !== 1) return;
     this.tryDiscard([...this.selected][0]);
+  }
+
+  /** Elde sadece iki okey kaldı mı (ikisi birden ortaya vurulabilir: çift okey). */
+  private doubleOkeyReady() {
+    const h = this.me.hand;
+    return this.me.opened && h.length === 2 && h.every((t) => t.joker);
   }
 
   /** İşlek taş atılmadan önce bir kez uyarır (atarsa +50 ceza). */
@@ -760,9 +771,10 @@ export class TableScene extends Phaser.Scene {
     });
 
     // --- eli bitiren taş: masanın ortasına, destenin üstüne
-    if (s.finishTile) {
-      targets.set(s.finishTile.id, { tile: s.finishTile, kind: 'discard', place: { x: DECK.x, y: DECK.y - 4, scale: 0.56, depth: 450, angle: -8 } });
-    }
+    (s.finishTiles ?? []).forEach((t, k, arr) => {
+      const off = arr.length > 1 ? (k - 0.5) * 30 : 0;
+      targets.set(t.id, { tile: t, kind: 'discard', place: { x: DECK.x + off, y: DECK.y - 4, scale: 0.56, depth: 450 + k, angle: arr.length > 1 ? (k ? 9 : -9) : -8 } });
+    });
 
     // --- perler + hazırlananlar
     this.zoneGfx.clear();
@@ -1004,7 +1016,8 @@ export class TableScene extends Phaser.Scene {
       this.setStatus((s.pendingDiscard ? 'Sıra sende · ortadan çek ya da soldaki taşı al' : 'Sıra sende · ortadan çek') + this.turnClock(), 'turn');
     } else if (s.phase === 'action' && s.current === 0) {
       let t: string;
-      if (me.hand.length === 1 && me.opened) t = 'Son taş! Ortaya vur ve bit → "Bitir!"';
+      if (this.doubleOkeyReady()) t = 'Elinde iki okey kaldı! İkisini birden vur → "Çift Okey!"';
+      else if (me.hand.length === 1 && me.opened) t = me.hand[0].joker ? 'Son taş okey! Ortaya vur → okeyle bit' : 'Son taş! Ortaya vur ve bit → "Bitir!"';
       else if (c.mode !== 'normal') t = 'Tek seferde açabiliyorsan "Öner" · yoksa bir taş at';
       else if (!me.opened) t = `Sadece kuralı aç (${c.name}) ya da taş at`;
       else if (me.openedThisTurn) t = 'Kural açıldı! Fazlalıklar sonraki sırada · bir taş at';
@@ -1028,9 +1041,10 @@ export class TableScene extends Phaser.Scene {
     b.lay.setLabel(this.layLabel()).setEnabled(this.myAction && this.staged.length > 0 && !me.openedThisTurn);
     b.lay.setPulse(this.myAction && stagedValid && !me.openedThisTurn);
     b.cancel.setEnabled(this.staged.length > 0);
-    const lastTile = this.me.hand.length === 1;
+    const dbl = this.doubleOkeyReady();
+    const lastTile = this.me.hand.length === 1 || dbl;
     b.discard
-      .setLabel(lastTile ? 'Bitir!' : 'Taş At')
+      .setLabel(dbl ? 'Çift Okey!' : lastTile ? 'Bitir!' : 'Taş At')
       .setColor(lastTile ? UI.green : UI.red)
       .setEnabled(this.myAction && (this.selected.size === 1 || lastTile));
     b.discard.setPulse(this.myAction && lastTile);
@@ -1196,58 +1210,117 @@ export class TableScene extends Phaser.Scene {
     if (!r) return;
     const cx = GAME_W / 2;
     const cy = GAME_H / 2;
-    const c = this.openOverlay('round', 760, 500, true);
-    const title = r.winner === null ? 'El berabere bitti' : `${s.players[r.winner].name} eli bitirdi!`;
-    c.add(txt(this, cx, cy - 222, title, 32, UI.goldHex, 900).setOrigin(0.5, 0));
+    const c = this.openOverlay('round', 780, 580, true);
+    const title = r.winner === null ? 'El berabere bitti' : `${r.winner === 0 ? 'Sen' : s.players[r.winner].name} eli bitirdi!`;
+    c.add(txt(this, cx, cy - 266, title, 32, UI.goldHex, 900).setOrigin(0.5, 0));
     const sub =
-      r.winner === null
-        ? `${r.contractName} · Ortada taş kalmadı`
-        : `${r.contractName} · ${FINISH_NAMES[r.finishType!]}${r.multiplier > 1 ? ` · ×${r.multiplier}` : ''}`;
-    c.add(txt(this, cx, cy - 178, sub, 17, UI.cream, 700).setOrigin(0.5, 0));
+      r.winner === null ? `${r.contractName} · Ortada taş kalmadı` : `${r.contractName} · ${FINISH_NAMES[r.finishType!]}`;
+    c.add(txt(this, cx, cy - 224, sub, 17, UI.cream, 700).setOrigin(0.5, 0));
 
-    const x0 = cx - 350;
+    // --- çarpan şeridi: nasıl bitildi × hangi el = toplam çarpan
+    const m = r.multiplier;
+    if (r.winner !== null && r.finishType) {
+      this.multiplierStrip(c, cx, cy - 172, r);
+      const team = s.mode === 'team';
+      const fin = FINISH_BONUS * m;
+      const expl =
+        m > 1
+          ? `${team ? 'Bitiren takım' : 'Bitiren'}: ${FINISH_BONUS} × ${m} = ${fin}  ·  ${team ? 'Karşı takımın' : 'Diğerlerinin'} el cezası ×${m}`
+          : `${team ? 'Bitiren takım' : 'Bitiren'}: ${FINISH_BONUS}  ·  Elde kalan taşlar olduğu gibi yazılır`;
+      c.add(txt(this, cx, cy - 136, expl, 14, UI.muted, 800).setOrigin(0.5, 0));
+    }
+
+    const x0 = cx - 360;
     const head = [
       ['Oyuncu', x0],
       ['Elde kalan taşlar', x0 + 150],
-      ['Ceza', x0 + 500],
-      ['Bu el', x0 + 570],
-      ['Toplam', x0 + 640],
+      ['Ceza', x0 + 486],
+      ['Bu el', x0 + 590],
+      ['Toplam', x0 + 662],
     ] as const;
-    head.forEach(([h, x]) => c.add(txt(this, x, cy - 140, h, 13, UI.muted, 900)));
+    head.forEach(([h, x]) => c.add(txt(this, x, cy - 104, h, 13, UI.muted, 900)));
     s.players.forEach((p, i) => {
-      const y = cy - 104 + i * 54;
+      const y = cy - 70 + i * 52;
       const win = r.winner !== null && (s.mode === 'solo' ? i === r.winner : teamOf(i) === teamOf(r.winner));
       if (win) {
         const hl = this.add.graphics();
         hl.fillStyle(0x5fd38a, 0.12);
-        hl.fillRoundedRect(x0 - 10, y - 20, 720, 44, 10);
+        hl.fillRoundedRect(x0 - 10, y - 20, 740, 42, 10);
         c.add(hl);
       }
       const team = s.mode === 'team' ? ` (${teamOf(i) === 0 ? 'A' : 'B'})` : '';
       c.add(txt(this, x0, y, p.name + team, 18, win ? UI.greenHex : '#fff', 900).setOrigin(0, 0.5));
-      p.hand.slice(0, 16).forEach((t, k) => c.add(this.add.image(x0 + 160 + k * 21, y, tileKey(t)).setScale(0.2)));
+      p.hand.slice(0, 15).forEach((t, k) => c.add(this.add.image(x0 + 160 + k * 21, y, tileKey(t)).setScale(0.2)));
       const ex = r.extras?.[i] ?? 0;
-      c.add(txt(this, x0 + 500, y, `${r.penalties[i]}${ex ? ` +${ex}` : ''}`, 17, ex ? UI.redHex : UI.cream, 800).setOrigin(0, 0.5));
+      const isWinner = i === r.winner;
+      const base = isWinner ? `${FINISH_BONUS}` : `${r.penalties[i]}`;
+      const pen = `${base}${m > 1 && (isWinner || r.penalties[i]) ? ` ×${m}` : ''}${ex ? ` +${ex}` : ''}`;
+      c.add(txt(this, x0 + 486, y, pen, 16, ex ? UI.redHex : UI.cream, 800).setOrigin(0, 0.5));
       const d = r.deltas[i];
-      c.add(txt(this, x0 + 570, y, `${d > 0 ? '+' : ''}${d}`, 18, d < 0 ? UI.greenHex : UI.redHex, 900).setOrigin(0, 0.5));
-      c.add(txt(this, x0 + 640, y, `${p.score}`, 18, UI.goldHex, 900).setOrigin(0, 0.5));
+      c.add(txt(this, x0 + 590, y, `${d > 0 ? '+' : ''}${d}`, 18, d < 0 ? UI.greenHex : UI.redHex, 900).setOrigin(0, 0.5));
+      c.add(txt(this, x0 + 662, y, `${p.score}`, 18, UI.goldHex, 900).setOrigin(0, 0.5));
     });
-    c.add(
-      txt(this, cx, cy + 122, s.mode === 'team' ? 'Takım puanı: karşı takım iki elin toplamını yazar. En düşük toplam kazanır.' : 'Puanlar ceza puanıdır: en düşük toplam kazanır.', 13, UI.muted, 700).setOrigin(0.5, 0),
-    );
+    const note =
+      (s.mode === 'team' ? 'Takım puanı: karşı takım iki elin toplamını yazar.' : 'Puanlar ceza puanıdır.') +
+      ' En düşük toplam kazanır. "+50": işlek / okey cezası (çarpılmaz).';
+    c.add(txt(this, cx, cy + 142, note, 13, UI.muted, 700).setOrigin(0.5, 0));
     const last = s.phase === 'gameOver';
+    if (this.mode.preview) {
+      const pv = this.mode.preview;
+      c.add(new Button(this, cx - 135, cy + 218, 240, 58, 'Tekrar Dene', () => this.scene.restart({ mode: 'solo', preview: pv }), UI.slate, 21));
+      c.add(new Button(this, cx + 135, cy + 218, 240, 58, 'Önizlemeler', () => this.scene.start('preview'), UI.green, 21));
+      return;
+    }
     c.add(
-      new Button(this, cx, cy + 190, 240, 58, last ? 'Sonuçlar' : 'Sonraki El', () => {
+      new Button(this, cx, cy + 218, 240, 58, last ? 'Sonuçlar' : 'Sonraki El', () => {
         if (last) this.showFinal();
         else this.humanAct({ type: 'nextRound' });
       }, UI.green, 21),
     );
   }
 
+  /** "[okey taşları] Okey ile bitiş ×2 · Çift Eli ×2 = ×4" rozet şeridi. */
+  private multiplierStrip(c: Phaser.GameObjects.Container, cx: number, y: number, r: RoundResult) {
+    const ft = r.finishType!;
+    const parts: { label: string; mult: number; jokers: number; color: number }[] = [
+      { label: FINISH_NAMES[ft], mult: FINISH_MULT[ft], jokers: ft === 'ciftOkey' ? 2 : ft === 'okey' ? 1 : 0, color: ft === 'normal' ? UI.stroke : 0xf5c451 },
+    ];
+    if (r.ciftEli) parts.push({ label: 'Çift Eli', mult: 2, jokers: 0, color: 0xc28cf0 });
+    const chipH = 44;
+    const widths = parts.map((p) => 30 + p.jokers * 24 + p.label.length * 9.4 + 46);
+    const opW = 34;
+    const totalW = 94;
+    const full = widths.reduce((a, b) => a + b, 0) + opW * parts.length + totalW;
+    let x = cx - full / 2;
+    const g = this.add.graphics();
+    c.add(g);
+    parts.forEach((p, i) => {
+      if (i > 0) {
+        c.add(txt(this, x + opW / 2 - opW, y, '·', 26, UI.muted, 900).setOrigin(0.5));
+      }
+      const w = widths[i];
+      panel(g, x, y - chipH / 2, w, chipH, 12, UI.panelHi, 0.95, p.color, 1);
+      let tx = x + 14;
+      for (let k = 0; k < p.jokers; k++) {
+        c.add(this.add.image(tx + 10 + k * 24, y, 'tile-joker').setScale(0.3).setAngle(k ? 6 : -6));
+      }
+      tx += p.jokers * 24 + (p.jokers ? 10 : 2);
+      c.add(txt(this, tx, y, p.label, 16, UI.cream, 800).setOrigin(0, 0.5));
+      c.add(txt(this, x + w - 12, y, `×${p.mult}`, 20, p.mult > 1 ? UI.goldHex : UI.muted, 900).setOrigin(1, 0.5));
+      x += w + opW;
+    });
+    c.add(txt(this, x - opW / 2, y, '=', 24, UI.muted, 900).setOrigin(0.5));
+    const m = r.multiplier;
+    panel(g, x, y - chipH / 2 - 4, totalW, chipH + 8, 14, m > 1 ? 0x5a3a08 : UI.panel, 1, m > 1 ? 0xffd56b : UI.stroke, 1);
+    const big = txt(this, x + totalW / 2, y, `×${m}`, 30, m > 1 ? '#ffd56b' : UI.cream, 900, { stroke: '#2a1700', strokeThickness: 5 }).setOrigin(0.5);
+    c.add(big);
+    if (m > 1) this.tweens.add({ targets: big, scale: { from: 1.6, to: 1 }, duration: 380, delay: 150, ease: 'Back.easeOut' });
+  }
+
   // ================================================================ okeyle bitiş kutlaması
 
   /** Okeyle (ya da çift okeyle) bitince: karartma, dönen altın ışınlar, büyüyen okey, kıvılcım, fanfar. */
-  private okeyCelebration(winner: number, double: boolean, mult: number) {
+  private okeyCelebration(winner: number, double: boolean, mult: number, ciftEli = false) {
     const cx = GAME_W / 2;
     const cy = 300;
     const c = this.add.container(0, 0).setDepth(3800);
@@ -1322,8 +1395,25 @@ export class TableScene extends Phaser.Scene {
       .setOrigin(0.5)
       .setScale(0)
       .setShadow(0, 6, 'rgba(0,0,0,0.6)', 12);
-    const sub = txt(this, cx, cy + 186, `${winner === 0 ? 'Sen' : name} bitirdi · cezalar ×${mult}`, 22, '#ffffff', 900).setOrigin(0.5).setAlpha(0);
+    const how = `${double ? 'Çift okey ×4' : 'Okey ×2'}${ciftEli ? ' · Çift Eli ×2' : ''}`;
+    const sub = txt(this, cx, cy + 186, `${winner === 0 ? 'Sen' : name} bitirdi · ${how} → cezalar ×${mult}`, 22, '#ffffff', 900).setOrigin(0.5).setAlpha(0);
     c.add([title, sub]);
+    if (ciftEli) {
+      const rib = this.add.container(cx, cy - 150).setAlpha(0);
+      const rg = this.add.graphics();
+      panel(rg, -120, -22, 240, 44, 12, 0x3b1f5c, 1, 0xc28cf0, 1);
+      rib.add([rg, txt(this, 0, 0, 'ÇİFT ELİ · ×2', 22, '#f3dcff', 900).setOrigin(0.5)]);
+      c.add(rib);
+      this.tweens.add({ targets: rib, alpha: 1, y: cy - 160, duration: 320, delay: 700, ease: 'Back.easeOut' });
+    }
+    // çarpan damgası
+    const stamp = txt(this, cx + 300, cy - 70, `×${mult}`, 84, '#ffd56b', 900, { stroke: '#5a3a00', strokeThickness: 12 })
+      .setOrigin(0.5)
+      .setAngle(-12)
+      .setAlpha(0)
+      .setShadow(0, 6, 'rgba(0,0,0,0.6)', 12);
+    c.add(stamp);
+    this.tweens.add({ targets: stamp, alpha: 1, scale: { from: 3, to: 1 }, duration: 320, delay: 1150, ease: 'Cubic.easeIn', onComplete: () => this.cameras.main.shake(160, 0.006) });
     this.tweens.add({ targets: title, scale: 1, duration: 420, delay: 560, ease: 'Back.easeOut' });
     this.tweens.add({ targets: sub, alpha: 1, duration: 300, delay: 900 });
 

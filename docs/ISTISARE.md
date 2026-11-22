@@ -164,7 +164,7 @@ kut-americano/
 Cevaplanmayanlar için parantez içindeki **varsayım** ile başlanır.
 
 - **S1 — Taş seti:** Standart okey takımı mı (4 renk × 13 × 2 + **2 sahte okey** = 106 taş), yoksa 4 joker mi (108 taş)? *(Varsayım: 106 taş, 2 okey. 4×14+1 = 57 taş dağıtılır, ortada 49 kalır.)*
-- **S2 — "Okey ile bitiş" ve "çift okey ile bitiş" tam olarak ne?** Son atılan taşın okey olması mı, bitiş elinde okey kullanılması mı? Çift okey = iki okeyle mi bitmek? *(Varsayım: son atılan taş okeyse "okey ile bitiş"; elinde iki okey varken biri atılıp diğeri perde kullanılarak bitilirse "çift okey".)*
+- **S2 — "Okey ile bitiş" ve "çift okey ile bitiş" tam olarak ne?** Son atılan taşın okey olması mı, bitiş elinde okey kullanılması mı? Çift okey = iki okeyle mi bitmek? **Cevap:** son taş tek okeyse ortaya vurulur → *okey ile bitiş* (×2). Elde sadece iki okey kaldıysa (ör. iki okey + bir işlek: işlek işlenir, kalan iki okey) ikisi birden ortaya vurulur → *çift okey ile bitiş* (×4). Çift Eli'nde bunlar ×4 ve ×8 olur. Oyunda "Çift Okey!" butonu; önizleme: `?onizleme`.
 - **S3 — Elde kalan okeyin ceza değeri?** *(Varsayım: 25 puan.)*
 - **S4 — 10. el "Elden bitme":** Önceden hiç açmadan, tüm 14 taşı tek hamlede perleyip bitmek mi? Bu elde ara açma yok mu? *(Varsayım: evet, tek hamlede bitiş; puanlama normal bitiş gibi.)*
 - **S5 — 11. el "Çift eli":** Kaç çift gerekli — 7 çift mi? Çift = aynı renk + aynı sayı mı? Okey çiftin yerine geçer mi? *(Varsayım: 7 çift, aynı renk-aynı sayı, okey bir taşın yerine geçer.)*
@@ -251,3 +251,30 @@ Botlar sadece açık bilgiyle (kendi eli, masa, atılan taşlar, rakiplerin taş
 - Rakip bitmeye yakınken yüksek değerli taşlardan önce kurtulur; işlek taş atmaz; fırsat buldukça rakipten okey alır.
 - Botların temkin düzeyi koltuğa göre biraz farklıdır, hepsi aynı oynamaz.
 - 20 oyunluk simülasyon (220 el): 199 el bitti, 3 okeyle bitiş, 180 okey alma, 69 kez elde okey kaldı (çoğu kuralı açamayan botlarda), işlek cezası 0.
+
+## 13. App Store ve Google Play hazırlığı (karar: 2026-11-19)
+
+**Kararlar:** iki mağazaya **birlikte** çıkılacak · geliştirici hesabı **kişisel** · görsel yön: **Kahvehane premium** (bkz. `docs/GORSEL.md`) · görseller OpenAI görsel API'siyle **otomatik** üretilecek.
+
+### Sıralı adımlar
+| # | Adım | Kim | Çıktı |
+|---|---|---|---|
+| 1 | **Görsel kimlik:** yeni buton/panel dili, arka planlar, motifler, ikonlar, logo; mağaza ikonu | Claude (+ senin OpenAI anahtarın) | Oyun "şablon" görünmekten çıkar; mağaza görsellerinin temeli |
+| 2 | **Mobil paket (Capacitor):** Android + iOS projeleri, yatay ekran kilidi, tam ekran, açılış ekranı, uygulama ikonu, titreşim, Android geri tuşu, arka plana alınınca ses/zamanlayıcı, davet linkiyle uygulamayı açma | Claude | `android/`, `ios/` projeleri |
+| 3 | **Hesap ve bulut profil:** anonim hesap + Google / Apple ile giriş (iOS'ta başka giriş varsa Apple ile giriş zorunlu), profil ve KP'nin Cloudflare'de saklanması, **uygulama içinden hesap silme** (Apple şartı) | Claude | Cihaz değişince ilerleme kaybolmaz |
+| 4 | **Yasal sayfalar:** gizlilik politikası, KVKK aydınlatma metni, kullanım şartları (GitHub Pages'te); Play "Veri güvenliği" ve App Store "Uygulama gizliliği" formları; yaş derecelendirmesi (kumar/çip satışı olmadığı için düşük yaş grubu beklenir) | Claude yazar, sen formları gönderirsin | Mağaza zorunlulukları |
+| 5 | **Reklam ve satın alma:** AdMob ödüllü video (Avrupa/onay için UMP, iOS'ta ATT izni), "Reklamsız" ve premium temalar (RevenueCat ile tek altyapı) | Claude + senin AdMob/RevenueCat hesapların | Simüle video gerçek reklama döner |
+| 6 | **Mağaza sayfaları:** ikon (512 ve 1024 px), ekran görüntüleri (telefon + tablet, yatay), Play özellik görseli (1024×500), kısa/uzun açıklama (TR + EN), anahtar kelimeler | Claude | Yüklemeye hazır klasör |
+| 7 | **Test:** Play'de **kapalı test — en az 12 test kullanıcısı, kesintisiz 14 gün** (kişisel hesap şartı); iOS'ta TestFlight | Sen test kullanıcılarını toplarsın, ben derlemeleri hazırlarım | Üretime çıkış izni |
+| 8 | **Yayın:** Play üretim + App Store incelemesi; öncesinde TÜRKPATENT marka araması ve mağazada isim kontrolü | Sen gönderirsin | Mağazada! |
+
+### Senin açman gereken hesaplar (sırası gelince)
+- **OpenAI API anahtarı** (adım 1) — görsel başına birkaç sent; tüm set için birkaç dolar.
+- **Google Play Console** — tek seferlik 25 $ (kişisel). **Apple Developer Program** — yıllık 99 $.
+- **iOS derlemesi:** bu bilgisayar Windows; iOS için Mac ya da bulut derleme gerekir. Plan: GitHub Actions'ın macOS makineleri (açık depoda ücretsiz) ya da Codemagic.
+- **AdMob** ve **RevenueCat** (adım 5).
+
+### Bilinen riskler
+- **Apple 4.2 "asgari işlevsellik":** web sitesini uygulamaya saran kabuklar reddedilebiliyor. Bizim artımız gerçek bir oyun olması; yine de çevrimdışı oynanabilirlik, titreşim, bildirim gibi yerel özellikler eklenecek.
+- **12 test kullanıcısı / 14 gün:** kişisel Play hesabı için zorunlu; test kullanıcıları oyunu gerçekten açmalı.
+- **Hedef API:** Play, yeni uygulamaların güncel Android sürümünü hedeflemesini istiyor; Capacitor'ın güncel sürümüyle karşılanacak.

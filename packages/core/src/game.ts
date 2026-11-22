@@ -22,7 +22,7 @@ export const FINISH_NAMES: Record<FinishType, string> = {
   okey: 'Okey ile bitiş',
   ciftOkey: 'Çift okey ile bitiş',
 };
-const FINISH_MULT: Record<FinishType, number> = { normal: 1, okey: 2, ciftOkey: 4 };
+export const FINISH_MULT: Record<FinishType, number> = { normal: 1, okey: 2, ciftOkey: 4 };
 
 export interface PlayerState {
   seat: number;
@@ -59,6 +59,8 @@ export interface RoundResult {
   winner: number | null;
   finishType: FinishType | null;
   multiplier: number;
+  /** Çift Eli miydi (çarpan ayrıca ×2). */
+  ciftEli?: boolean;
   /** Her oyuncunun elinde kalan taşların ham ceza toplamı. */
   penalties: number[];
   /** Okeyi alınma / işlek atma gibi el içinde yazılan ek cezalar (koltuk bazında, çarpansız). */
@@ -93,8 +95,8 @@ export interface GameState {
   turnJokers: number;
   /** Bu el içinde yazılan ek cezalar (okeyi alınma, işlek atma). */
   extraPenalties: number[];
-  /** Eli bitiren son taş: yana değil ortaya vurulur. */
-  finishTile: Tile | null;
+  /** Eli bitiren son taş(lar): yana değil ortaya vurulur (çift okeyde iki okey). */
+  finishTiles: Tile[];
   history: RoundResult[];
   log: GameEvent[];
 }
@@ -108,6 +110,8 @@ export type Action =
   /** Yerdeki perde okeyin tuttuğu taşı koyup okeyi almak. */
   | { type: 'swapJoker'; tileId: number; meldId: number }
   | { type: 'discard'; tileId: number }
+  /** Elde sadece iki okey kaldıysa ikisini birden ortaya vurup "çift okey" ile bitmek. */
+  | { type: 'finishDoubleOkey' }
   | { type: 'nextRound' };
 
 export type GameEventType =
@@ -233,7 +237,7 @@ export class Game {
       claim: null,
       turnJokers: 0,
       extraPenalties: [0, 0, 0, 0],
-      finishTile: null,
+      finishTiles: [],
       history: [],
       log: [],
     };
@@ -321,6 +325,8 @@ export class Game {
         return this.doAddToMeld(seat, a.tileId, a.meldId);
       case 'discard':
         return this.doDiscard(seat, a.tileId);
+      case 'finishDoubleOkey':
+        return this.doFinishDoubleOkey(seat);
       default:
         throw new RuleError('Taş çekme zamanı değil.');
     }
@@ -342,7 +348,7 @@ export class Game {
     s.extraTile = extra;
     s.melds = [];
     s.extraPenalties = [0, 0, 0, 0];
-    s.finishTile = null;
+    s.finishTiles = [];
     s.pendingDiscard = null;
     s.claim = null;
     s.current = s.starter;
@@ -452,6 +458,9 @@ export class Game {
       }),
     );
     const remaining = p.hand.length - seen.size;
+    // Elde dışarıda kalan tam iki okeyse sayılmaz: onlarla "çift okey" bitişi yapılabilir.
+    const leftJokersOnly = remaining === 2 && p.hand.filter((t) => !seen.has(t.id)).every((t) => t.joker);
+    const tooMany = remaining > 1 && !leftJokersOnly;
     let shapes: MeldShape[];
 
     if (c.mode === 'normal') {
@@ -473,14 +482,14 @@ export class Game {
         });
       }
     } else if (c.mode === 'eldenBitme') {
-      if (remaining > 1) throw new RuleError('Elden bitmede tüm taşlar tek seferde dizilmeli (en fazla 1 taş atılır).');
+      if (tooMany) throw new RuleError('Elden bitmede tüm taşlar tek seferde dizilmeli (en fazla 1 taş atılır).');
       shapes = tileGroups.map((g) => {
         const sh = asSeri(g) ?? asKut(g);
         if (!sh) throw new RuleError('Geçersiz per: küt ya da seri olmalı.');
         return sh;
       });
     } else {
-      if (remaining > 1) throw new RuleError('Çift elinde tüm çiftler tek seferde açılmalı (en fazla 1 taş atılır).');
+      if (tooMany) throw new RuleError('Çift elinde tüm çiftler tek seferde açılmalı (en fazla 1 taş atılır).');
       shapes = tileGroups.map((g) => {
         const sh = asCift(g);
         if (!sh) throw new RuleError('Geçersiz çift: aynı renk ve aynı sayı olmalı.');
@@ -557,6 +566,21 @@ export class Game {
     return events;
   }
 
+  /** Çift okey: elde sadece iki okey kalmışsa ikisi birlikte ortaya vurulur (normal ×4, çift elinde ×8). */
+  private doFinishDoubleOkey(seat: number): GameEvent[] {
+    const s = this.state;
+    const p = s.players[seat];
+    if (!p.opened) throw new RuleError('Kuralı açmadan bitilemez.');
+    if (p.hand.length !== 2 || !p.hand.every((t) => t.joker)) throw new RuleError('Çift okey için elde sadece iki okey kalmalı.');
+    const tiles = p.hand.slice();
+    p.hand = [];
+    s.finishTiles = tiles;
+    return [
+      { type: 'discard', seat, tile: tiles[0], text: `${p.name} iki okeyi birden ortaya vurdu!` },
+      ...this.finishRound(seat, 'ciftOkey'),
+    ];
+  }
+
   private doDiscard(seat: number, tileId: number): GameEvent[] {
     const s = this.state;
     const p = s.players[seat];
@@ -566,8 +590,8 @@ export class Game {
     if (p.hand.length === 1) {
       // Son taş: işlek olsa da ortaya vurulur ve el biter (yana atılmaz, ceza yok).
       p.hand = [];
-      s.finishTile = tile;
-      const ft: FinishType = tile.joker ? (s.turnJokers >= 2 ? 'ciftOkey' : 'okey') : 'normal';
+      s.finishTiles = [tile];
+      const ft: FinishType = tile.joker ? 'okey' : 'normal';
       return [{ type: 'discard', seat, tile, text: `${p.name} son taşını ortaya vurdu (${tileName(tile)}).` }, ...this.finishRound(seat, ft)];
     }
     if (this.isIslek(tile)) {
@@ -645,6 +669,7 @@ export class Game {
       winner,
       finishType: ft,
       multiplier,
+      ciftEli: c.mode === 'ciftEli',
       penalties,
       extras,
       deltas,

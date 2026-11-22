@@ -2,6 +2,7 @@ import { Action, Game, GameEvent, GameMode, GameState, RuleOrder, ServerMsg, dec
 import { Connection } from './net/connection';
 import { setupTutorialGame, tutorialBotAction } from './tutorial';
 import { profile } from './profile';
+import { PreviewSpec, setupPreviewGame, CIFT_ELI_ROUND } from './preview';
 
 export type ChangeListener = (events: GameEvent[]) => void;
 export type ErrorListener = (message: string) => void;
@@ -28,6 +29,8 @@ export interface ControllerOptions {
   ruleOrder?: RuleOrder;
   /** Öğretici: hazır el, tek el, senaryolu botlar. */
   tutorial?: boolean;
+  /** Bitiş ekranı önizlemesi: hazır tek el. */
+  preview?: PreviewSpec;
   /** Bot hızı çarpanı (1 = normal). */
   speed?: number;
 }
@@ -57,6 +60,10 @@ export class LocalController implements GameController {
       this.game = new Game({ mode: 'solo', names, seed: 7, startRound: 0, endRound: 0, profiles });
       setupTutorialGame(this.game);
       this.tutorial = true;
+    } else if (opts.preview) {
+      const r = opts.preview.ciftEli ? CIFT_ELI_ROUND : 0;
+      this.game = new Game({ mode: 'solo', names, seed: 11, startRound: r, endRound: r, profiles });
+      setupPreviewGame(this.game, opts.preview);
     } else {
       this.game = new Game({ mode: opts.mode, names, seed: opts.seed, startRound: opts.startRound, ruleOrder: opts.ruleOrder, profiles });
     }

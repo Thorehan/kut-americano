@@ -72,6 +72,8 @@ export function decideBotAction(game: Game, seat: number): Action {
     return { type: 'drawDeck' };
   }
   if (s.phase !== 'action') return { type: 'nextRound' };
+  // Elde sadece iki okey kaldıysa: ikisini birden ortaya vur (çift okey ×4)
+  if (p.opened && p.hand.length === 2 && p.hand.every((t) => t.joker)) return { type: 'finishDoubleOkey' };
 
   const ids = (groups: Tile[][]) => groups.map((g) => g.map((t) => t.id));
 
@@ -91,10 +93,12 @@ export function decideBotAction(game: Game, seat: number): Action {
       //  - normal bitebiliyorsa ya da bir rakip bitmeye yakınsa: okeyleri pere koy (elde kalan okey +50)
       //  - aksi halde okeyi elde sakla
       const allJokers = p.hand.filter((t) => t.joker);
-      const okeyFinish = allJokers.length > 0 && canFinishThisTurn(game, seat, 1);
+      // Önce çift okey (iki okeyi sona sakla), sonra tek okey planı
+      const reserve = allJokers.length >= 2 && canFinishThisTurn(game, seat, 2) ? 2 : allJokers.length >= 1 && canFinishThisTurn(game, seat, 1) ? 1 : 0;
+      const okeyFinish = reserve > 0;
       const useAll = !okeyFinish && (canFinishThisTurn(game, seat) || inDanger(game, seat));
-      const reserved = okeyFinish ? allJokers[0] : null;
-      const usable = p.hand.filter((t) => t !== reserved && (useAll || okeyFinish || !t.joker));
+      const reservedSet = new Set(allJokers.slice(0, reserve));
+      const usable = p.hand.filter((t) => !reservedSet.has(t) && (useAll || okeyFinish || !t.joker));
       const extra = findGreedyMelds(usable, usable.filter((t) => t.joker).length);
       if (extra.length) return { type: 'lay', melds: ids(extra) };
       if (game.canAddToMelds(seat)) {

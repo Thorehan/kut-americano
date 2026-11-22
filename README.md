@@ -37,7 +37,8 @@ Deneme parametreleri: `?mod=rastgele` → rastgele mod seçili açılır · `?el
 - **Okeyi al:** yerdeki bir perde okeyin yerini tutan taş elindeyse seç → o pere dokun: taş okeyin yerine geçer, okey eline gelir, perin sahibine +50 ceza yazılır.
 - **İşlek taş:** yerdeki bir pere işlenebilen ya da okeyin yerini tutan taş. Gerçek oyunda gösterilmez ve uyarılmaz: atarsan taş geri gelir, ortadan 1 taş daha çekersin, +50 ceza yersin ve sıra geçer.
 - **Profil ve Küt Puanı (KP):** sol üstteki profil çipinden avatar, renk, istatistik, seviye ve rozetler; **Mağaza**dan KP ile taş temaları ve masa renkleri. KP oynayarak, günlük ödülle ve ödüllü video izleyerek kazanılır (video şimdilik simülasyon; mobil sürümde gerçek reklama bağlanacak). KP satılmaz.
-- **Okeyle bitiş:** okeyle ya da çift okeyle bitince özel kutlama sekansı oynar.
+- **Okeyle bitiş:** son taş okeyse okeyle bitiş (×2); elde sadece iki okey kaldıysa ikisi birden vurulur, çift okey (×4). Çift Eli'nde ×4 / ×8. Özel kutlama ve çarpanı adım adım gösteren el sonu ekranı var.
+- **Önizleme:** `?onizleme` adresiyle tüm bitiş türleri (normal / okey / çift okey, normal el ve Çift Eli) hazır ellerle denenebilir.
 - **Öğretici:** ana ekrandaki **🎓 Öğretici** (~2 dk) bir eli adım adım oynatır; ipuçları sadece orada açıktır.
 - **At:** bir taş seç → **Taş At** (ya da taşı "Taş at" alanına sürükle).
 - **İstek:** sıradaki oyuncu yan taşı almazsa sana sorulur: **İSTE** dersen yan taş + ortadan 1 taş gelir.

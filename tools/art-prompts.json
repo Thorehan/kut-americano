@@ -1,0 +1,95 @@
+{
+  "style": "Premium Turkish coffeehouse (kahvehane) board game art. Warm dim lighting, walnut wood, brushed brass, green baize felt, subtle Iznik/Ottoman geometric tile ornament. Painterly-realistic game asset, rich but restrained, no people, no text, no letters, no numbers, no watermark, no logos.",
+  "assets": [
+    {
+      "id": "bg-menu",
+      "size": "1536x1024",
+      "background": "opaque",
+      "prompt": "Main menu background: cozy traditional Turkish kahvehane interior at evening, softly blurred (shallow depth of field), warm brass lamps glowing, wooden walls with blue-turquoise Iznik tiles, a wooden okey table in the foreground lower area slightly out of focus, tea glasses silhouettes, dark vignette at edges so UI can sit on top, center area calm and darker."
+    },
+    {
+      "id": "bg-table",
+      "size": "1536x1024",
+      "background": "opaque",
+      "prompt": "Top-down view of a dark polished walnut wooden table surface filling the whole frame, subtle wood grain, warm soft light from above with gentle vignette, very subtle and even so game UI can sit on top, no objects on it."
+    },
+    {
+      "id": "felt",
+      "size": "1024x1024",
+      "background": "opaque",
+      "prompt": "Seamless tileable texture of green billiard/card table baize felt, fine fabric fibers, even lighting, top-down, no seams, no objects."
+    },
+    {
+      "id": "emblem",
+      "size": "1024x1024",
+      "background": "transparent",
+      "prompt": "Ornate brushed brass emblem medallion for a game logo: circular brass frame with Ottoman geometric eight-pointed star interlace border, in the center a single cream okey tile (blank face, no number) tilted slightly, small turquoise enamel accents, isolated on transparent background, front view, crisp edges."
+    },
+    {
+      "id": "ornament-corner",
+      "size": "1024x1024",
+      "background": "transparent",
+      "prompt": "Single decorative brushed brass corner ornament piece for a UI panel, Ottoman/Iznik inspired filigree in an L shape filling the top-left corner, thin and elegant, isolated on transparent background, front view."
+    },
+    {
+      "id": "divider",
+      "size": "1536x1024",
+      "background": "transparent",
+      "prompt": "Thin horizontal decorative divider line made of brushed brass with a small central eight-pointed star rosette and tapering ends, centered horizontally, isolated on transparent background, front view."
+    },
+    {
+      "id": "icon-coin",
+      "size": "1024x1024",
+      "background": "transparent",
+      "prompt": "Game currency coin icon: thick brass coin seen slightly from the front, embossed tulip motif in the center (no letters), polished rim, warm highlight, isolated on transparent background."
+    },
+    {
+      "id": "icon-video",
+      "size": "1024x1024",
+      "background": "transparent",
+      "prompt": "Game UI icon: vintage brass film camera / clapperboard symbol with a small play triangle, embossed brass with turquoise enamel inlay, isolated on transparent background, simple readable silhouette."
+    },
+    {
+      "id": "icon-trophy",
+      "size": "1024x1024",
+      "background": "transparent",
+      "prompt": "Game UI icon: small brass trophy cup with turquoise enamel band, embossed, isolated on transparent background, simple readable silhouette."
+    },
+    {
+      "id": "icon-shop",
+      "size": "1024x1024",
+      "background": "transparent",
+      "prompt": "Game UI icon: brass shopping basket with a single okey tile peeking out (blank tile, no number), embossed, isolated on transparent background, simple readable silhouette."
+    },
+    {
+      "id": "icon-sound",
+      "size": "1024x1024",
+      "background": "transparent",
+      "prompt": "Game UI icon: brass gramophone horn speaker symbol, embossed, isolated on transparent background, simple readable silhouette."
+    },
+    {
+      "id": "icon-tutorial",
+      "size": "1024x1024",
+      "background": "transparent",
+      "prompt": "Game UI icon: small open book in brass and cream pages with a turquoise ribbon bookmark, embossed, isolated on transparent background, simple readable silhouette."
+    },
+    {
+      "id": "icon-online",
+      "size": "1024x1024",
+      "background": "transparent",
+      "prompt": "Game UI icon: four small brass tea glasses arranged around a round table seen from above, symbolizing friends playing together, embossed, isolated on transparent background, simple readable silhouette."
+    },
+    {
+      "id": "app-icon",
+      "size": "1024x1024",
+      "background": "opaque",
+      "prompt": "Mobile app icon, square full-bleed: a cream okey tile with a large green rosette joker symbol (no numbers, no letters) standing on green baize felt, framed by a thin brushed brass ring with subtle Ottoman geometric pattern, warm rim light, bold simple composition readable at small sizes, rich dark green background."
+    },
+    {
+      "id": "store-feature",
+      "size": "1536x1024",
+      "background": "opaque",
+      "prompt": "Wide promotional banner background for a Turkish okey tile game: close-up of a wooden okey rack (istaka) with cream tiles (blank faces, no numbers) on green felt, warm kahvehane lighting, brass accents, left third darker and calm for a title to be overlaid later, cinematic."
+    }
+  ]
+}

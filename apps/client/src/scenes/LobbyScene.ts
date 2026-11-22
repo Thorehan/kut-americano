@@ -51,6 +51,10 @@ export class LobbyScene extends Phaser.Scene {
   private createMode: GameMode = 'solo';
   private createOrder: RuleOrder = 'classic';
   private leaving = false;
+  /** "Odaya giriliyor…" açılır penceresi ve zaman aşımı. */
+  private busy: Phaser.GameObjects.Container | null = null;
+  private busyTimer: Phaser.Time.TimerEvent | null = null;
+  private busyRetry: (() => void) | null = null;
 
   constructor() {
     super('lobby');
@@ -65,6 +69,8 @@ export class LobbyScene extends Phaser.Scene {
     this.view = null;
     this.lobby = null;
     this.leaving = false;
+    this.busy = null;
+    this.busyTimer = null;
     this.createOrder = load('kut-rule-order') === 'random' ? 'random' : 'classic';
     this.createMode = load('kut-last-mode') === 'team' ? 'team' : 'solo';
 
@@ -102,6 +108,7 @@ export class LobbyScene extends Phaser.Scene {
     if (session) {
       // Yarım kalan oda: aynı odaya bağlan, koltuğu jetonla geri al
       this.setStatus('Odaya geri dönülüyor…');
+      this.showBusy('Odaya geri dönülüyor…', () => connection.openRoom(session.code));
       if (connection.status === 'open') connection.send({ t: 'rejoin', ...session });
       else connection.openRoom(session.code);
     } else if (code.length === 4) {
@@ -117,6 +124,7 @@ export class LobbyScene extends Phaser.Scene {
   }
 
   private onMsg(m: ServerMsg) {
+    if (m.t === 'lobby' || m.t === 'state' || m.t === 'error' || m.t === 'left') this.hideBusy();
     if (m.t === 'lobby') {
       this.lobby = m.lobby;
       if (!m.lobby.started) this.showRoom(m.lobby);
@@ -157,6 +165,82 @@ export class LobbyScene extends Phaser.Scene {
   }
 
   // ---------------------------------------------------------------- görünümler
+
+  // ---------------------------------------------------------------- bağlanıyor penceresi
+
+  private static readonly BUSY_TIMEOUT = 12000;
+
+  /** Küçük "bağlanıyor" penceresi: dönen taş, nokta animasyonu, İptal. Zaman aşımında yardım metni + Tekrar Dene. */
+  private showBusy(title: string, retry: () => void) {
+    this.hideBusy();
+    this.busyRetry = retry;
+    const cx = GAME_W / 2;
+    const cy = GAME_H / 2;
+    const c = this.add.container(0, 0).setDepth(5000);
+    const dim = this.add.rectangle(0, 0, GAME_W, GAME_H, 0x000000, 0.55).setOrigin(0).setInteractive();
+    const g = this.add.graphics();
+    panel(g, cx - 230, cy - 100, 460, 200, 18, UI.panel, 0.97, UI.stroke, 1);
+    const tile = this.add.image(cx - 150, cy - 22, 'tile-joker').setScale(0.42);
+    this.tweens.add({ targets: tile, angle: 360, duration: 1400, repeat: -1, ease: 'Sine.easeInOut' });
+    const t = txt(this, cx - 100, cy - 40, title, 22, UI.goldHex, 900).setOrigin(0, 0.5);
+    const sub = txt(this, cx - 100, cy - 6, 'Sunucuya bağlanılıyor', 15, UI.muted, 800).setOrigin(0, 0.5);
+    let dots = 0;
+    const dotTimer = this.time.addEvent({ delay: 400, loop: true, callback: () => sub.setText('Sunucuya bağlanılıyor' + '.'.repeat((dots = (dots + 1) % 4))) });
+    const cancel = new Button(this, cx, cy + 58, 160, 46, 'İptal', () => this.cancelBusy(), UI.slate, 17);
+    c.add([dim, g, tile, t, sub, cancel]);
+    c.setAlpha(0);
+    this.tweens.add({ targets: c, alpha: 1, duration: 160 });
+    this.busy = c;
+    c.once('destroy', () => dotTimer.remove(false));
+
+    this.busyTimer = this.time.delayedCall(LobbyScene.BUSY_TIMEOUT, () => {
+      if (!this.busy) return;
+      dotTimer.remove(false);
+      tile.setVisible(false);
+      this.tweens.killTweensOf(tile);
+      g.clear();
+      panel(g, cx - 300, cy - 150, 600, 300, 18, UI.panel, 0.97, UI.red, 1);
+      t.setPosition(cx, cy - 112).setOrigin(0.5).setText('Sunucuya ulaşılamadı').setColor(UI.redHex);
+      sub
+        .setPosition(cx, cy - 20)
+        .setOrigin(0.5)
+        .setAlign('center')
+        .setWordWrapWidth(540)
+        .setLineSpacing(4)
+        .setText('İnternet bağlantını kontrol et.\nBazı internet sağlayıcıları oyun sunucusunu engelleyebilir; Wi-Fi ↔ mobil veri değiştirip tekrar dene.');
+      cancel.setPosition(cx - 100, cy + 100);
+      const again = new Button(this, cx + 100, cy + 100, 180, 50, 'Tekrar Dene', () => {
+        const r = this.busyRetry;
+        connection.close();
+        if (r) {
+          this.showBusy(title, r);
+          r();
+        }
+      }, UI.green, 17);
+      c.add(again);
+      sfx.error();
+    });
+  }
+
+  private hideBusy() {
+    this.busyTimer?.remove(false);
+    this.busyTimer = null;
+    if (this.busy) {
+      const b = this.busy;
+      this.busy = null;
+      this.tweens.add({ targets: b, alpha: 0, duration: 120, onComplete: () => b.destroy() });
+    }
+  }
+
+  private cancelBusy() {
+    this.hideBusy();
+    this.busyRetry = null;
+    this.leaving = true;
+    connection.close();
+    this.leaving = false;
+    this.setStatus('');
+    if (!this.lobby) this.showHome();
+  }
 
   private clearView() {
     this.view?.destroy();
@@ -231,8 +315,12 @@ export class LobbyScene extends Phaser.Scene {
     save('kut-rule-order', this.createOrder);
     save('kut-last-mode', this.createMode);
     this.setStatus('Oda kuruluyor…');
-    connection.openNew();
-    connection.send({ t: 'create', name: playerName(), mode: this.createMode, ruleOrder: this.createOrder, ...look() });
+    const go = () => {
+      connection.openNew();
+      connection.send({ t: 'create', name: playerName(), mode: this.createMode, ruleOrder: this.createOrder, ...look() });
+    };
+    this.showBusy('Oda kuruluyor…', go);
+    go();
   }
 
   private async askCode() {
@@ -247,8 +335,12 @@ export class LobbyScene extends Phaser.Scene {
       return;
     }
     this.setStatus(`${code} odasına katılınıyor…`);
-    connection.openRoom(code);
-    connection.send({ t: 'join', code, name: playerName(), ...look() });
+    const go = () => {
+      connection.openRoom(code);
+      connection.send({ t: 'join', code, name: playerName(), ...look() });
+    };
+    this.showBusy(`${code} odasına giriliyor…`, go);
+    go();
   }
 
   private showRoom(l: LobbyInfo) {

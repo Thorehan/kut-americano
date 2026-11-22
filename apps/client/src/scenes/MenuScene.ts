@@ -11,6 +11,7 @@ import { KP, VIDEO_REWARD, grant, levelOf, profile, videosLeft, xpForLevel } fro
 import { fmt, showDailyPopup, showGain } from '../ui/rewards';
 import { playRewardedVideo } from '../ui/videoAd';
 import { showBubble } from '../view/SeatView';
+import type { PreviewSpec } from '../preview';
 
 export interface TableData {
   mode: GameMode;
@@ -18,6 +19,8 @@ export interface TableData {
   online?: OnlineController;
   /** Kısa öğretici eli. */
   tutorial?: boolean;
+  /** Bitiş ekranı önizlemesi (?onizleme). */
+  preview?: PreviewSpec;
   ruleOrder?: RuleOrder;
   seed?: number;
   startRound?: number;

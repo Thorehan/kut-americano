@@ -4,6 +4,7 @@ import '@fontsource/nunito/800.css';
 import '@fontsource/nunito/900.css';
 import { LobbyScene } from './scenes/LobbyScene';
 import { MenuScene } from './scenes/MenuScene';
+import { PreviewScene } from './scenes/PreviewScene';
 import { ProfileScene } from './scenes/ProfileScene';
 import { TableScene } from './scenes/TableScene';
 import { GAME_H, GAME_W, RENDER_SCALE } from './layout';
@@ -24,7 +25,10 @@ void loadFonts().then(() => {
     scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
     render: { antialias: true, roundPixels: false, powerPreference: 'high-performance' },
     input: { activePointers: 2 },
-    scene: [MenuScene, LobbyScene, ProfileScene, TableScene],
+    // ?onizleme → bitiş ekranları önizlemesiyle açılır
+    scene: new URLSearchParams(location.search).has('onizleme')
+      ? [PreviewScene, MenuScene, LobbyScene, ProfileScene, TableScene]
+      : [MenuScene, LobbyScene, ProfileScene, TableScene, PreviewScene],
   });
   // Geliştirme sırasında konsoldan erişim için (prod build'de yok).
   if (import.meta.env.DEV) (window as unknown as { __game: Phaser.Game }).__game = game;
