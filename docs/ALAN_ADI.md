@@ -41,7 +41,7 @@ Sunucu zaten Cloudflare'de. Alan adını Cloudflare'den almak:
 6. Ödeme: kayıtlı kart / sanal kart.
 7. Birkaç dakika içinde alan adı **Websites** listesinde "Active" görünür.
 
-Bitince bana sadece alan adını yaz. Gerisi bende:
+**Durum (22.11.2026):** `kuralokey.com` Cloudflare üzerinden alındı; sunucu `api.kuralokey.com` adresine bağlandı.
 
 ## Bağlama (Claude yapar)
 

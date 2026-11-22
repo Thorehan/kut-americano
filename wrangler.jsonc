@@ -12,7 +12,9 @@
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["RoomDO"] }],
   "vars": {
     // Virgülle ayrılmış izinli kökenler (boşsa hepsi). Yerel geliştirme için localhost da açık.
-    "ALLOWED_ORIGINS": "https://thorehan.github.io,http://localhost:5173,capacitor://localhost,https://localhost"
+    "ALLOWED_ORIGINS": "https://thorehan.github.io,https://kuralokey.com,http://localhost:5173,capacitor://localhost,https://localhost"
   },
+  // Kendi alan adımız: *.workers.dev Türkiye'de engelli. Cloudflare DNS kaydını ve sertifikayı kendisi kurar.
+  "routes": [{ "pattern": "api.kuralokey.com", "custom_domain": true }],
   "observability": { "enabled": true }
 }

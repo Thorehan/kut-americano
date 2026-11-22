@@ -1,7 +1,14 @@
 import { ClientMsg, ServerMsg } from '@kut/core';
 
-/** Yayındaki oyun sunucusu (Cloudflare Worker + Durable Objects). */
-export const PROD_SERVER_URL = 'wss://kut-americano.torehan-anbarli.workers.dev';
+/**
+ * Yayındaki oyun sunucusu (Cloudflare Worker + Durable Objects), kendi alan adımızda.
+ * *.workers.dev Türkiye'deki bazı internet sağlayıcılarında engelli olduğu için sadece yedek.
+ */
+export const PROD_SERVER_URL = 'wss://api.kuralokey.com';
+export const FALLBACK_SERVER_URL = 'wss://kut-americano.torehan-anbarli.workers.dev';
+
+/** Bağlantı bu sürede açılmazsa (engelli/askıda ağ) sıradaki adres denenir. */
+const OPEN_TIMEOUT_MS = 6000;
 
 /**
  * Sunucu adresi önceliği:
@@ -9,15 +16,17 @@ export const PROD_SERVER_URL = 'wss://kut-americano.torehan-anbarli.workers.dev'
  * 2. Yerelde (localhost / aynı ağdaki IP) ws://<adres>:2567 — Node geliştirme sunucusu
  * 3. Diğer her yerde (GitHub Pages vb.) yayındaki Cloudflare sunucusu
  */
-function resolveServerUrl(): string {
+function resolveServerUrls(): string[] {
   const env = import.meta.env.VITE_SERVER_URL as string | undefined;
-  if (env) return env;
+  if (env) return [env];
   const h = location.hostname;
   const local = h === 'localhost' || h === '127.0.0.1' || /^(\d{1,3}\.){3}\d{1,3}$/.test(h) || h.endsWith('.local');
-  return local ? `ws://${h}:2567` : PROD_SERVER_URL;
+  return local ? [`ws://${h}:2567`] : [PROD_SERVER_URL, FALLBACK_SERVER_URL];
 }
 
-export const SERVER_URL = resolveServerUrl();
+/** Denenecek sunucu adresleri (ilki asıl, sonrakiler yedek). */
+export const SERVER_URLS = resolveServerUrls();
+export const SERVER_URL = SERVER_URLS[0];
 
 export interface Session {
   code: string;
@@ -48,6 +57,8 @@ export class Connection {
   private retryTimer: ReturnType<typeof setTimeout> | null = null;
   private pingTimer: ReturnType<typeof setInterval> | null = null;
   private wanted = false;
+  /** Şu an kullanılan adres (SERVER_URLS içinde); açılamayan bağlantıda sıradakine geçilir. */
+  private urlIndex = 0;
   private queue: ClientMsg[] = [];
   status: ConnStatus = 'idle';
 
@@ -121,7 +132,7 @@ export class Connection {
     if (!SERVER_URL) return null;
     const t = this.target ?? (this.session ? ({ kind: 'code', code: this.session.code } as Target) : null);
     if (!t) return null;
-    const base = SERVER_URL.replace(/\/+$/, '');
+    const base = SERVER_URLS[this.urlIndex % SERVER_URLS.length].replace(/\/+$/, '');
     return t.kind === 'new' ? `${base}/ws?new=1` : `${base}/ws?code=${encodeURIComponent(t.code)}`;
   }
 
@@ -138,7 +149,28 @@ export class Connection {
       return;
     }
     this.ws = ws;
+    let opened = false;
+    const failover = () => {
+      if (SERVER_URLS.length > 1) this.urlIndex = (this.urlIndex + 1) % SERVER_URLS.length;
+    };
+    // Engelli ağlarda bağlantı hata vermeden askıda kalabilir: süre dolunca kapat, yedeği dene.
+    const openTimer = setTimeout(() => {
+      if (opened || this.ws !== ws) return;
+      ws.onclose = null;
+      ws.onerror = null;
+      try {
+        ws.close();
+      } catch {
+        /* zaten kapalı */
+      }
+      this.ws = null;
+      failover();
+      this.setStatus('closed');
+      if (this.wanted) this.scheduleRetry(true);
+    }, OPEN_TIMEOUT_MS);
     ws.onopen = () => {
+      opened = true;
+      clearTimeout(openTimer);
       this.retry = 0;
       this.setStatus('open');
       const s = this.session;
@@ -167,6 +199,8 @@ export class Connection {
       for (const l of this.listeners) l(m);
     };
     ws.onclose = () => {
+      clearTimeout(openTimer);
+      if (!opened) failover();
       this.ws = null;
       if (this.pingTimer) clearInterval(this.pingTimer);
       this.pingTimer = null;
@@ -176,9 +210,9 @@ export class Connection {
     ws.onerror = () => ws.close();
   }
 
-  private scheduleRetry() {
+  private scheduleRetry(fast = false) {
     if (this.retryTimer) return;
-    const delay = Math.min(8000, 800 * 2 ** this.retry++);
+    const delay = fast ? 200 : Math.min(8000, 800 * 2 ** this.retry++);
     this.retryTimer = setTimeout(() => {
       this.retryTimer = null;
       this.connect();
