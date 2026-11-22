@@ -181,6 +181,66 @@ class Sfx {
     this.hush(0.7, 0.025, 2500, 7000, 0.35);
   }
 
+  /** Derin, yumuşak gong: düşük sinüsler + kısa hışırtı (sert patlama değil). */
+  private gong(when = 0, gain = 1) {
+    this.note(73, 1.8, 0.32 * gain, when);
+    this.note(110, 1.4, 0.18 * gain, when);
+    this.note(147, 1.0, 0.1 * gain, when, 0.15);
+    this.hush(0.9, 0.05 * gain, 1400, 180, when);
+  }
+
+  /** Bakır üflemeli benzeri akor: üst harmonikli, daha uzun sönümlü notalar. */
+  private chord(freqs: number[], when: number, dur: number, gain = 0.07) {
+    freqs.forEach((f) => this.note(f, dur, gain, when, 0.32));
+  }
+
+  /** Okeyle bitiş, Çift Eli: fanfar bir oktav yukarıda ve kraliyet akoruyla kapanır. */
+  fanfareRoyal() {
+    [523, 659, 784, 1047, 1319, 1568].forEach((f, i) => this.mallet(f, 0.1, i * 0.07, 0.7));
+    this.chord([523, 784, 1047, 1319], 0.5, 1.6, 0.06);
+    this.hush(0.8, 0.03, 2500, 8000, 0.4);
+  }
+
+  /**
+   * Çift okey: iki taşın çarpışmasına gong, ardından "ta-ta-TAAA" büyük akor fanfarı,
+   * inen parıltı ve altın şıkırtısı. Çift Eli'nde bir oktav daha üst katman eklenir.
+   */
+  doubleOkey(royal = false) {
+    const hit = 0.5; // çarpışma anı
+    this.click(2.2, hit - 0.02);
+    this.gong(hit, royal ? 1.15 : 1);
+    const G = [392, 494, 587];
+    const C = [523, 659, 784, 1047];
+    this.chord(G, hit + 0.45, 0.22, 0.06);
+    this.chord(G, hit + 0.62, 0.22, 0.06);
+    this.chord(C, hit + 0.82, 2.0, 0.07);
+    if (royal) this.chord([1319, 1568, 2093], hit + 0.82, 1.8, 0.035);
+    [2637, 2349, 2093, 1760, 1568, 1319].forEach((f, i) => this.mallet(f, 0.05, hit + 1.2 + i * 0.07, 0.5));
+    this.coins(hit + 0.5, royal ? 18 : 12);
+  }
+
+  /** Dökülen altınlar: rastgele, kısa, tiz şıkırtılar. */
+  coins(when = 0, n = 12) {
+    for (let i = 0; i < n; i++) {
+      const f = 2200 + Math.random() * 1400;
+      this.note(f, 0.12, 0.025, when + i * 0.07 + Math.random() * 0.04, 0.1);
+    }
+  }
+
+  /** Çarpan damgası "güm". */
+  stamp() {
+    this.note(98, 0.35, 0.22, 0);
+    this.click(1.6, 0);
+  }
+
+  /** Çift Eli çarpanı ikiye katlanınca: yükselen iki nota + parıltı. */
+  doubleUp() {
+    this.mallet(784, 0.1, 0, 0.5);
+    this.mallet(1568, 0.1, 0.12, 0.9);
+    this.chord([784, 1175, 1568], 0.12, 1.2, 0.04);
+    this.hush(0.6, 0.03, 3000, 9000, 0.1);
+  }
+
   lose() {
     this.mallet(440, 0.06, 0, 0.45);
     this.mallet(349, 0.06, 0.15, 0.55);

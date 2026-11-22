@@ -12,7 +12,7 @@
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["RoomDO"] }],
   "vars": {
     // Virgülle ayrılmış izinli kökenler (boşsa hepsi). Yerel geliştirme için localhost da açık.
-    "ALLOWED_ORIGINS": "https://thorehan.github.io,http://localhost:5173"
+    "ALLOWED_ORIGINS": "https://thorehan.github.io,http://localhost:5173,capacitor://localhost,https://localhost"
   },
   "observability": { "enabled": true }
 }

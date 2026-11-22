@@ -37,6 +37,7 @@ import {
   RENDER_SCALE,
   SEAT_ANCHOR,
   STATUS,
+  TABLE,
   UI,
   Zone,
 } from '../layout';
@@ -392,8 +393,9 @@ export class TableScene extends Phaser.Scene {
           const h = this.s.history[this.s.history.length - 1];
           const okey = winner >= 0 && !!h && (h.finishType === 'okey' || h.finishType === 'ciftOkey');
           if (okey) {
-            this.resultDelay = 4200;
-            this.time.delayedCall(450, () => this.okeyCelebration(winner, h!.finishType === 'ciftOkey', h!.multiplier, !!h!.ciftEli));
+            const dbl = h!.finishType === 'ciftOkey';
+            this.resultDelay = 250 + this.celebrationMs(dbl, !!h!.ciftEli);
+            this.time.delayedCall(450, () => this.okeyCelebration(winner, dbl, h!.multiplier, !!h!.ciftEli));
           } else {
             this.resultDelay = 1100;
             if (winner === 0 || (this.s.mode === 'team' && winner >= 0 && teamOf(winner) === 0)) sfx.win();
@@ -580,17 +582,38 @@ export class TableScene extends Phaser.Scene {
   }
 
   private onTablePointer(x: number, y: number) {
+    // iki okey seçiliyken ortaya / atma yerine dokunmak = çift okey
+    if (this.myAction && this.doubleOkeyReady() && this.selected.size === 2 && this.isCenterDrop(x, y)) {
+      this.humanAct({ type: 'finishDoubleOkey' });
+      return;
+    }
     const sel = this.selectedSingle();
     if (!sel || !this.myAction) return;
     const hit = this.meldHits.find((h) => h.rect.contains(x, y));
     if (hit) this.meldAction(sel.id, hit.id);
   }
 
+  /** Masanın ortası (deste çevresi) ya da atma yeri. */
+  private isCenterDrop(x: number, y: number) {
+    return Phaser.Math.Distance.Between(x, y, DECK.x, DECK.y) < 130 || Phaser.Math.Distance.Between(x, y, DISCARD_POS[0].x, DISCARD_POS[0].y) < 80;
+  }
+
   private onDrop(id: number, x: number, y: number) {
     const slot = this.slotAt(x, y);
+    const dropped = this.tileById(id);
+    const onMeld = this.meldHits.some((h) => h.rect.contains(x, y));
     if (slot !== null) {
       this.moveToSlot(id, slot);
       sfx.tok();
+    } else if (
+      this.doubleOkeyReady() &&
+      dropped?.joker &&
+      !onMeld &&
+      x >= TABLE.x && x <= TABLE.x + TABLE.w && y >= TABLE.y && y <= TABLE.y + TABLE.h + 20
+    ) {
+      // elde sadece iki okey: biri masaya sürüklenince ikisi birden ortaya vurulur
+      if (this.myAction) this.humanAct({ type: 'finishDoubleOkey' });
+      else this.showError('Sıranı bekle.');
     } else if (
       Phaser.Math.Distance.Between(x, y, DISCARD_POS[0].x, DISCARD_POS[0].y) < 70 ||
       (this.me.hand.length === 1 && Phaser.Math.Distance.Between(x, y, DECK.x, DECK.y) < 80)
@@ -1016,7 +1039,7 @@ export class TableScene extends Phaser.Scene {
       this.setStatus((s.pendingDiscard ? 'Sıra sende · ortadan çek ya da soldaki taşı al' : 'Sıra sende · ortadan çek') + this.turnClock(), 'turn');
     } else if (s.phase === 'action' && s.current === 0) {
       let t: string;
-      if (this.doubleOkeyReady()) t = 'Elinde iki okey kaldı! İkisini birden vur → "Çift Okey!"';
+      if (this.doubleOkeyReady()) t = 'Elinde iki okey kaldı! Ortaya sürükle ya da "Çift Okey!"';
       else if (me.hand.length === 1 && me.opened) t = me.hand[0].joker ? 'Son taş okey! Ortaya vur → okeyle bit' : 'Son taş! Ortaya vur ve bit → "Bitir!"';
       else if (c.mode !== 'normal') t = 'Tek seferde açabiliyorsan "Öner" · yoksa bir taş at';
       else if (!me.opened) t = `Sadece kuralı aç (${c.name}) ya da taş at`;
@@ -1319,109 +1342,220 @@ export class TableScene extends Phaser.Scene {
 
   // ================================================================ okeyle bitiş kutlaması
 
-  /** Okeyle (ya da çift okeyle) bitince: karartma, dönen altın ışınlar, büyüyen okey, kıvılcım, fanfar. */
+  /**
+   * Okeyle bitiş kutlaması — dört kademe, her biri farklı görünür ve duyulur:
+   *  okey            : altın ışınlar, dönerek büyüyen tek okey, fanfar (×2)
+   *  çift okey       : iki okey iki yandan çarpışır, şok dalgası, harf harf başlık, altın yağmuru, gong + büyük fanfar (×4)
+   *  + Çift Eli      : mor-altın kraliyet teması, çarpan damgası gözle görülür ikiye katlanır (×4 / ×8), ek patlamalar
+   */
   private okeyCelebration(winner: number, double: boolean, mult: number, ciftEli = false) {
     const cx = GAME_W / 2;
     const cy = 300;
     const c = this.add.container(0, 0).setDepth(3800);
-    const dim = this.add.rectangle(0, 0, GAME_W, GAME_H, 0x000000, 1).setOrigin(0).setAlpha(0);
+    const total = this.celebrationMs(double, ciftEli);
+    const royal = ciftEli;
+    const gold = 0xffd56b;
+    const accent = royal ? 0xc28cf0 : 0xfff1c2;
+
+    const dim = this.add.rectangle(0, 0, GAME_W, GAME_H, royal ? 0x12051f : 0x000000, 1).setOrigin(0).setAlpha(0);
     c.add(dim);
-    this.tweens.add({ targets: dim, alpha: 0.74, duration: 260 });
+    this.tweens.add({ targets: dim, alpha: double ? 0.84 : 0.74, duration: 260 });
 
-    // dönen ışık huzmeleri
-    const rays = this.add.graphics({ x: cx, y: cy });
-    const n = 18;
-    for (let i = 0; i < n; i++) {
-      const a = (i / n) * Math.PI * 2;
-      rays.fillStyle(i % 2 ? 0xffd56b : 0xfff1c2, i % 2 ? 0.16 : 0.1);
-      rays.beginPath();
-      rays.moveTo(0, 0);
-      rays.lineTo(Math.cos(a - 0.09) * 760, Math.sin(a - 0.09) * 760);
-      rays.lineTo(Math.cos(a + 0.09) * 760, Math.sin(a + 0.09) * 760);
-      rays.closePath();
-      rays.fillPath();
+    // ışın huzmeleri: çift okeyde iki katman ters yönde döner
+    const rayLayer = (n: number, colA: number, colB: number, alphaA: number, width: number) => {
+      const g = this.add.graphics({ x: cx, y: cy });
+      for (let i = 0; i < n; i++) {
+        const a = (i / n) * Math.PI * 2;
+        g.fillStyle(i % 2 ? colA : colB, i % 2 ? alphaA : alphaA * 0.6);
+        g.beginPath();
+        g.moveTo(0, 0);
+        g.lineTo(Math.cos(a - width) * 800, Math.sin(a - width) * 800);
+        g.lineTo(Math.cos(a + width) * 800, Math.sin(a + width) * 800);
+        g.closePath();
+        g.fillPath();
+      }
+      g.setScale(0.1).setAlpha(0);
+      c.add(g);
+      return g;
+    };
+    const rays = rayLayer(18, gold, accent, 0.16, 0.09);
+    this.tweens.add({ targets: rays, scale: 1, alpha: 1, duration: 420, delay: double ? 520 : 0, ease: 'Cubic.easeOut' });
+    this.tweens.add({ targets: rays, angle: 60, duration: total, ease: 'Linear' });
+    if (double) {
+      const rays2 = rayLayer(12, royal ? 0xe9c8ff : 0xffe39a, gold, 0.12, 0.05);
+      this.tweens.add({ targets: rays2, scale: 1.1, alpha: 1, duration: 520, delay: 560, ease: 'Cubic.easeOut' });
+      this.tweens.add({ targets: rays2, angle: -80, duration: total, ease: 'Linear' });
     }
-    rays.setScale(0.1).setAlpha(0);
-    c.add(rays);
-    this.tweens.add({ targets: rays, scale: 1, alpha: 1, duration: 420, ease: 'Cubic.easeOut' });
-    this.tweens.add({ targets: rays, angle: 60, duration: 4200, ease: 'Linear' });
 
-    // altın hale
+    // hale
     const halo = this.add.graphics({ x: cx, y: cy });
-    halo.fillStyle(0xffd56b, 0.25);
-    halo.fillCircle(0, 0, 120);
+    halo.fillStyle(royal ? 0xb07ae0 : gold, 0.25);
+    halo.fillCircle(0, 0, double ? 170 : 120);
     halo.fillStyle(0xffe9a8, 0.3);
-    halo.fillCircle(0, 0, 80);
+    halo.fillCircle(0, 0, double ? 110 : 80);
     halo.setScale(0);
     c.add(halo);
-    this.tweens.add({ targets: halo, scale: 1, duration: 500, ease: 'Back.easeOut' });
-    this.tweens.add({ targets: halo, scale: 1.12, duration: 700, delay: 500, yoyo: true, repeat: 2, ease: 'Sine.easeInOut' });
+    this.tweens.add({ targets: halo, scale: 1, duration: 500, delay: double ? 520 : 0, ease: 'Back.easeOut' });
+    this.tweens.add({ targets: halo, scale: 1.12, duration: 700, delay: 1000, yoyo: true, repeat: 2, ease: 'Sine.easeInOut' });
 
-    // okey taş(lar)ı dönerek büyür
-    const offs = double ? [-80, 80] : [0];
-    offs.forEach((dx, i) => {
-      const img = this.add.image(cx + dx, cy, 'tile-joker').setScale(0).setAngle(-540);
-      img.preFX?.addGlow(0xffd35c, 8, 0, false, 0.12, 18);
+    const burst = this.add.particles(0, 0, 'spark', {
+      speed: { min: 180, max: 640 },
+      angle: { min: 0, max: 360 },
+      lifespan: { min: 700, max: 1500 },
+      scale: { start: 0.9, end: 0 },
+      gravityY: 260,
+      blendMode: 'ADD',
+      tint: royal ? [0xffffff, 0xe0b8ff, 0xffd56b] : [0xffffff, 0xffe9a8, 0xffd56b],
+      emitting: false,
+    });
+    burst.setDepth(3801);
+    this.time.delayedCall(total + 200, () => burst.destroy());
+
+    if (!double) {
+      // --- tek okey: dönerek büyür
+      const img = this.add.image(cx, cy, 'tile-joker').setScale(0).setAngle(-540);
+      img.preFX?.addGlow(royal ? 0xd6a8ff : gold, 8, 0, false, 0.12, 18);
       c.add(img);
-      this.tweens.add({ targets: img, scale: 1.3, angle: (i - (offs.length - 1) / 2) * 10, duration: 750, delay: 120 + i * 140, ease: 'Back.easeOut' });
+      this.tweens.add({ targets: img, scale: 1.3, angle: 0, duration: 750, delay: 120, ease: 'Back.easeOut' });
       this.tweens.add({ targets: img, y: cy - 10, duration: 900, delay: 900, yoyo: true, repeat: 1, ease: 'Sine.easeInOut' });
-    });
-
-    // kıvılcım patlaması
-    this.time.delayedCall(520, () => {
-      const burst = this.add.particles(cx, cy, 'spark', {
-        speed: { min: 180, max: 620 },
-        angle: { min: 0, max: 360 },
-        lifespan: { min: 700, max: 1500 },
-        scale: { start: 0.9, end: 0 },
-        gravityY: 260,
-        blendMode: 'ADD',
-        emitting: false,
+      this.time.delayedCall(520, () => {
+        burst.explode(110, cx, cy);
+        this.time.delayedCall(1300, () => burst.explode(60, cx + Phaser.Math.Between(-220, 220), cy - 80));
+        this.cameras.main.flash(260, 255, 225, 140);
+        this.cameras.main.shake(320, 0.004);
       });
-      burst.setDepth(3801);
-      burst.explode(double ? 160 : 110);
-      this.time.delayedCall(1300, () => burst.explode(60, cx + Phaser.Math.Between(-220, 220), cy - 80));
-      this.time.delayedCall(4000, () => burst.destroy());
-      this.cameras.main.flash(260, 255, 225, 140);
-      this.cameras.main.shake(320, 0.004);
-    });
-
-    // yazılar
-    const name = this.s.players[winner]?.name ?? '';
-    const title = txt(this, cx, cy + 128, double ? 'ÇİFT OKEY!' : 'OKEY İLE BİTTİ!', 56, '#ffd56b', 900, {
-      stroke: '#5a3a00',
-      strokeThickness: 10,
-    })
-      .setOrigin(0.5)
-      .setScale(0)
-      .setShadow(0, 6, 'rgba(0,0,0,0.6)', 12);
-    const how = `${double ? 'Çift okey ×4' : 'Okey ×2'}${ciftEli ? ' · Çift Eli ×2' : ''}`;
-    const sub = txt(this, cx, cy + 186, `${winner === 0 ? 'Sen' : name} bitirdi · ${how} → cezalar ×${mult}`, 22, '#ffffff', 900).setOrigin(0.5).setAlpha(0);
-    c.add([title, sub]);
-    if (ciftEli) {
-      const rib = this.add.container(cx, cy - 150).setAlpha(0);
-      const rg = this.add.graphics();
-      panel(rg, -120, -22, 240, 44, 12, 0x3b1f5c, 1, 0xc28cf0, 1);
-      rib.add([rg, txt(this, 0, 0, 'ÇİFT ELİ · ×2', 22, '#f3dcff', 900).setOrigin(0.5)]);
-      c.add(rib);
-      this.tweens.add({ targets: rib, alpha: 1, y: cy - 160, duration: 320, delay: 700, ease: 'Back.easeOut' });
+      if (ciftEli) sfx.fanfareRoyal();
+      else sfx.fanfare();
+    } else {
+      // --- çift okey: iki okey iki yandan hızla gelip ortada çarpışır, geri sekip yan yana durur
+      for (const side of [-1, 1]) {
+        const img = this.add.image(cx + side * 760, cy, 'tile-joker').setScale(1.15).setAngle(side * 30);
+        img.preFX?.addGlow(royal ? 0xd6a8ff : gold, 10, 0, false, 0.12, 20);
+        c.add(img);
+        this.tweens.add({ targets: img, x: cx + side * 34, angle: side * 8, duration: 460, delay: 60, ease: 'Cubic.easeIn' });
+        this.tweens.add({ targets: img, x: cx + side * 92, angle: side * 7, scale: 1.35, duration: 520, delay: 540, ease: 'Back.easeOut' });
+        this.tweens.add({ targets: img, y: cy - 12, duration: 800, delay: 1200, yoyo: true, repeat: 2, ease: 'Sine.easeInOut' });
+      }
+      sfx.doubleOkey(royal);
+      this.time.delayedCall(520, () => {
+        // şok dalgası halkaları
+        for (let k = 0; k < 3; k++) {
+          const ring = this.add.graphics({ x: cx, y: cy }).setDepth(3802);
+          ring.lineStyle(10 - k * 2, k === 1 && royal ? 0xd6a8ff : 0xfff1c2, 0.9);
+          ring.strokeCircle(0, 0, 40);
+          ring.setScale(0.4);
+          this.tweens.add({ targets: ring, scale: 9 + k * 3, alpha: 0, duration: 800 + k * 160, delay: k * 110, ease: 'Cubic.easeOut', onComplete: () => ring.destroy() });
+        }
+        burst.explode(200, cx, cy);
+        this.cameras.main.flash(380, 255, 240, 190);
+        this.cameras.main.shake(520, 0.012);
+        haptic(90);
+        // havai fişekler
+        const fw = royal ? 6 : 4;
+        for (let k = 0; k < fw; k++) {
+          this.time.delayedCall(700 + k * 380, () => burst.explode(70, cx + Phaser.Math.Between(-470, 470), Phaser.Math.Between(90, 250)));
+        }
+      });
+      // altın yağmuru
+      this.time.delayedCall(900, () => {
+        const rain = this.add.particles(0, -30, 'coin', {
+          x: { min: 0, max: GAME_W },
+          speedY: { min: 220, max: 420 },
+          speedX: { min: -40, max: 40 },
+          rotate: { min: 0, max: 360 },
+          scale: { min: 0.22, max: 0.4 },
+          lifespan: 2600,
+          frequency: 45,
+          quantity: royal ? 3 : 2,
+        });
+        rain.setDepth(3799);
+        this.time.delayedCall(1900, () => rain.stop());
+        this.time.delayedCall(total, () => rain.destroy());
+      });
     }
-    // çarpan damgası
-    const stamp = txt(this, cx + 300, cy - 70, `×${mult}`, 84, '#ffd56b', 900, { stroke: '#5a3a00', strokeThickness: 12 })
+
+    // --- başlık
+    const name = this.s.players[winner]?.name ?? '';
+    const titleY = cy + 132;
+    const titleStr = double ? 'ÇİFT OKEY!' : 'OKEY İLE BİTTİ!';
+    const titleStyle = { stroke: royal ? '#3b0f5c' : '#5a3a00', strokeThickness: double ? 12 : 10 };
+    const titleColor = royal ? '#ffe28a' : '#ffd56b';
+    if (double) {
+      // harf harf damga gibi iner
+      const size = 74;
+      const probe = txt(this, 0, 0, titleStr, size, titleColor, 900, titleStyle);
+      const fullW = probe.width;
+      probe.destroy();
+      let x = cx - fullW / 2;
+      [...titleStr].forEach((ch, i) => {
+        const l = txt(this, 0, titleY, ch, size, titleColor, 900, titleStyle).setOrigin(0, 0.5);
+        const w = l.width;
+        l.setX(x).setAlpha(0).setScale(2.4).setShadow(0, 6, 'rgba(0,0,0,0.6)', 12);
+        c.add(l);
+        this.tweens.add({ targets: l, alpha: 1, scale: 1, duration: 200, delay: 1000 + i * 70, ease: 'Cubic.easeIn' });
+        this.tweens.add({ targets: l, y: titleY - 8, duration: 500, delay: 1700 + i * 60, yoyo: true, ease: 'Sine.easeInOut' });
+        x += w - titleStyle.strokeThickness;
+      });
+    } else {
+      const title = txt(this, cx, titleY, titleStr, 56, titleColor, 900, titleStyle).setOrigin(0.5).setScale(0).setShadow(0, 6, 'rgba(0,0,0,0.6)', 12);
+      c.add(title);
+      this.tweens.add({ targets: title, scale: 1, duration: 420, delay: 560, ease: 'Back.easeOut' });
+    }
+    const how = `${double ? 'Çift okey ×4' : 'Okey ×2'}${ciftEli ? ' · Çift Eli ×2' : ''}`;
+    const sub = txt(this, cx, titleY + 62, `${winner === 0 ? 'Sen' : name} bitirdi · ${how} → cezalar ×${mult}`, 22, '#ffffff', 900).setOrigin(0.5).setAlpha(0);
+    c.add(sub);
+    this.tweens.add({ targets: sub, alpha: 1, duration: 300, delay: double ? 1800 : 900 });
+
+    // --- çarpan damgası: Çift Eli'nde önce bitiş çarpanı basılır, sonra ikiye katlanır
+    const baseMult = ciftEli ? mult / 2 : mult;
+    const stampAt = double ? 1500 : 1150;
+    const stamp = txt(this, cx + 330, cy - 80, `×${baseMult}`, double ? 96 : 84, '#ffd56b', 900, { stroke: '#5a3a00', strokeThickness: 12 })
       .setOrigin(0.5)
       .setAngle(-12)
       .setAlpha(0)
       .setShadow(0, 6, 'rgba(0,0,0,0.6)', 12);
     c.add(stamp);
-    this.tweens.add({ targets: stamp, alpha: 1, scale: { from: 3, to: 1 }, duration: 320, delay: 1150, ease: 'Cubic.easeIn', onComplete: () => this.cameras.main.shake(160, 0.006) });
-    this.tweens.add({ targets: title, scale: 1, duration: 420, delay: 560, ease: 'Back.easeOut' });
-    this.tweens.add({ targets: sub, alpha: 1, duration: 300, delay: 900 });
+    this.tweens.add({
+      targets: stamp,
+      alpha: 1,
+      scale: { from: 3, to: 1 },
+      duration: 320,
+      delay: stampAt,
+      ease: 'Cubic.easeIn',
+      onComplete: () => {
+        this.cameras.main.shake(160, 0.006);
+        sfx.stamp();
+      },
+    });
 
-    sfx.fanfare();
+    if (ciftEli) {
+      // mor kraliyet şeridi soldan süzülür; ardından damga ikiye katlanır
+      const rib = this.add.container(-300, cy - 190);
+      const rg = this.add.graphics();
+      panel(rg, -150, -26, 300, 52, 12, 0x3b1f5c, 1, 0xc28cf0, 1);
+      rib.add([rg, txt(this, 0, 0, 'ÇİFT ELİ · ×2', 26, '#f3dcff', 900).setOrigin(0.5)]);
+      c.add(rib);
+      this.tweens.add({ targets: rib, x: cx, duration: 520, delay: stampAt + 200, ease: 'Back.easeOut' });
+      this.time.delayedCall(stampAt + 950, () => {
+        if (!stamp.active) return;
+        stamp.setText(`×${mult}`).setColor('#f6dcff').setStroke('#3b0f5c', 12);
+        this.tweens.add({ targets: stamp, scale: { from: 2.2, to: 1.15 }, angle: { from: 8, to: -12 }, duration: 420, ease: 'Back.easeOut' });
+        stamp.preFX?.addGlow(0xd6a8ff, 6, 0, false, 0.1, 14);
+        burst.explode(double ? 140 : 90, cx + 330, cy - 80);
+        this.cameras.main.flash(240, 220, 180, 255);
+        this.cameras.main.shake(260, double ? 0.01 : 0.007);
+        sfx.doubleUp();
+        haptic(70);
+      });
+    }
+
     haptic(60);
-    this.time.delayedCall(3700, () =>
-      this.tweens.add({ targets: c, alpha: 0, duration: 450, onComplete: () => c.destroy() }),
-    );
+    this.time.delayedCall(total - 500, () => this.tweens.add({ targets: c, alpha: 0, duration: 450, onComplete: () => c.destroy() }));
+  }
+
+  /** Kutlamanın süresi (sonuç penceresi bundan sonra açılır). */
+  private celebrationMs(double: boolean, ciftEli: boolean) {
+    return (double ? 5000 : 3900) + (ciftEli ? 1000 : 0);
   }
 
   // ================================================================ profil / ödüller
