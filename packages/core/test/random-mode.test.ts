@@ -7,10 +7,10 @@ describe('rastgele mod oranları', () => {
     expect(RANDOM_WEIGHTS.reduce((a, b) => a + b, 0)).toBe(100);
   });
 
-  it('11 el üretir; aynı kural art arda gelmez, en fazla 2 kez gelir', () => {
+  it('her el için kural üretir; aynı kural art arda gelmez, en fazla 2 kez gelir', () => {
     for (let seed = 1; seed <= 300; seed++) {
       const order = randomContractOrder(mulberry32(seed));
-      expect(order).toHaveLength(11);
+      expect(order).toHaveLength(CONTRACTS.length);
       for (let i = 1; i < order.length; i++) expect(order[i]).not.toBe(order[i - 1]);
       const counts = CONTRACTS.map((_, c) => order.filter((x) => x === c).length);
       expect(Math.max(...counts)).toBeLessThanOrEqual(RANDOM_MAX_REPEAT);
@@ -30,7 +30,7 @@ describe('rastgele mod oranları', () => {
 });
 
 describe('rastgele mod oyunu', () => {
-  it('aynı seed aynı sırayı verir; klasik mod 1→11 sırayla gider', () => {
+  it('aynı seed aynı sırayı verir; klasik mod 1→13 sırayla gider', () => {
     const a = new Game({ seed: 77, ruleOrder: 'random' });
     const b = new Game({ seed: 77, ruleOrder: 'random' });
     expect(a.state.contractOrder).toEqual(b.state.contractOrder);
@@ -45,7 +45,7 @@ describe('rastgele mod oyunu', () => {
     expect(g.state.players[0].hand.map((t) => t.id).slice(0, 5)).toEqual(new Game({ seed: 1, ruleOrder: 'classic' }).state.players[0].hand.map((t) => t.id).slice(0, 5));
   });
 
-  it('4 bot rastgele modda 11 eli hatasız bitirir', () => {
+  it('4 bot rastgele modda tüm elleri hatasız bitirir', () => {
     for (let seed = 1; seed <= 3; seed++) {
       const g = new Game({ seed: seed * 31, ruleOrder: 'random', bots: [true, true, true, true] });
       const s = g.state;
@@ -64,7 +64,7 @@ describe('rastgele mod oyunu', () => {
         if (!r.ok) throw new Error(r.error);
       }
       expect(s.history.map((h) => h.contractName)).toEqual(seen);
-      expect(s.history).toHaveLength(11);
+      expect(s.history).toHaveLength(CONTRACTS.length);
     }
   });
 });

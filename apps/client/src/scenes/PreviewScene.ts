@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { GAME_H, GAME_W, RENDER_SCALE, UI } from '../layout';
-import { PREVIEWS, PreviewSpec } from '../preview';
+import { CIFT_ELI_ROUND, PREVIEWS, PreviewSpec } from '../preview';
 import { sfx } from '../sfx';
 import { createTextures } from '../textures';
 import { Button } from '../ui/Button';
@@ -24,8 +24,8 @@ export class PreviewScene extends Phaser.Scene {
     txt(this, cx, 104, 'Bir el seç · son hamleyi sen yap · kutlamayı ve el sonu puan ekranını gör', 17, UI.muted, 800).setOrigin(0.5, 0);
 
     const rows: [string, PreviewSpec[]][] = [
-      ['Normal eller (1–10)', PREVIEWS.filter((p) => !p.ciftEli)],
-      ['Çift Eli (11. el · tüm çarpanlar ×2)', PREVIEWS.filter((p) => p.ciftEli)],
+      [`Normal eller (1–${CIFT_ELI_ROUND - 1})`, PREVIEWS.filter((p) => !p.ciftEli)],
+      [`Çift Eli (${CIFT_ELI_ROUND + 1}. el · tüm çarpanlar ×2)`, PREVIEWS.filter((p) => p.ciftEli)],
     ];
     rows.forEach(([label, list], r) => {
       const y = 170 + r * 230;

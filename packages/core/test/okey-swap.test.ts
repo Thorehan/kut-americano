@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { Game, Meld, asKut, asSeri, jokerSlots, jokerSwapIndex } from '../src';
+import { CONTRACTS, Game, Meld, asKut, asSeri, jokerSlots, jokerSwapIndex } from '../src';
 import { tiles } from './helpers';
 
 function ok(r: ReturnType<Game['act']>) {
@@ -245,13 +245,13 @@ describe('okey ile bitiş türleri', () => {
   });
 
   it('çift elinde: okey ×4, çift okey ×8', () => {
-    const g1 = new Game({ seed: 3, startRound: 10 });
+    const g1 = new Game({ seed: 3, startRound: CONTRACTS.findIndex((c) => c.mode === 'ciftEli') });
     g1.state.players[0].hand = tiles('J');
     g1.state.players[0].opened = true;
     g1.state.players[1].hand = tiles('r3');
     ok(g1.act(0, { type: 'discard', tileId: g1.state.players[0].hand[0].id }));
     expect(g1.state.history[0].multiplier).toBe(4);
-    const g2 = new Game({ seed: 3, startRound: 10 });
+    const g2 = new Game({ seed: 3, startRound: CONTRACTS.findIndex((c) => c.mode === 'ciftEli') });
     g2.state.players[0].hand = tiles('J J');
     g2.state.players[0].opened = true;
     g2.state.players[1].hand = tiles('r3');

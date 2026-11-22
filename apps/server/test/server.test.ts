@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import WebSocket from 'ws';
-import { Action, ClientMsg, Game, GameState, ServerMsg, decideBotAction } from '@kut/core';
+import { Action, CONTRACTS, ClientMsg, Game, GameState, ServerMsg, decideBotAction } from '@kut/core';
 import { RunningServer, startServer } from '../src/server';
 
 let srv: RunningServer;
@@ -155,7 +155,7 @@ describe('oyun', () => {
     }
     a.send({ t: 'start' });
     const end = await a.wait('state', (m) => m.view.phase === 'gameOver', 80_000);
-    expect(end.view.history).toHaveLength(11);
+    expect(end.view.history).toHaveLength(CONTRACTS.length);
     // iki tarafın gördüğü toplam puanlar aynı (koltuk döndürülmüş olarak)
     const endB = await b.wait('state', (m) => m.view.phase === 'gameOver');
     expect(endB.view.players[3].score).toBe(end.view.players[0].score);

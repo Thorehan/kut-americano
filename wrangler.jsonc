@@ -15,6 +15,8 @@
     "ALLOWED_ORIGINS": "https://thorehan.github.io,https://kuralokey.com,http://localhost:5173,capacitor://localhost,https://localhost"
   },
   // Kendi alan adımız: *.workers.dev Türkiye'de engelli. Cloudflare DNS kaydını ve sertifikayı kendisi kurar.
+  // routes tanımlıyken workers.dev varsayılan olarak kapanır; yurt dışı/yedek bağlantı için açık kalsın.
+  "workers_dev": true,
   "routes": [{ "pattern": "api.kuralokey.com", "custom_domain": true }],
   "observability": { "enabled": true }
 }

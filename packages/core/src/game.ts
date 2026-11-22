@@ -73,7 +73,7 @@ export interface GameState {
   mode: GameMode;
   seed: number;
   jokerCount: number;
-  /** Kural sırası: klasik (1→11) ya da rastgele. */
+  /** Kural sırası: klasik (1→13) ya da rastgele. */
   ruleOrder: RuleOrder;
   /** Her elin kuralı (CONTRACTS indeksleri), roundIndex ile okunur. */
   contractOrder: number[];

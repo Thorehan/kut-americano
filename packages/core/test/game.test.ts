@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { Game, decideBotAction, SEATS } from '../src';
+import { CONTRACTS, Game, decideBotAction, SEATS } from '../src';
 import { tiles } from './helpers';
 
 const allBots = [true, true, true, true];
@@ -173,7 +173,7 @@ describe('puanlama', () => {
   });
 
   it('çift eli: puanlar ×2 (normal bitiş −100)', () => {
-    const g = finishWith('solo', 'r4', 10);
+    const g = finishWith('solo', 'r4', CONTRACTS.findIndex((c) => c.mode === 'ciftEli'));
     expect(g.state.history[0].deltas).toEqual([-100, 26, 20, 54 + 50]);
     expect(g.state.phase).toBe('gameOver');
   });
@@ -193,7 +193,7 @@ describe('deste biterse', () => {
 
 describe('bot simülasyonu', () => {
   for (const mode of ['solo', 'team'] as const) {
-    it(`4 bot 11 eli hatasız bitirir (${mode})`, () => {
+    it(`4 bot tüm elleri hatasız bitirir (${mode})`, () => {
       for (let seed = 1; seed <= 4; seed++) {
         const g = new Game({ seed: seed * 101, mode, bots: allBots });
         const s = g.state;
@@ -211,7 +211,7 @@ describe('bot simülasyonu', () => {
           expect(total + s.deck.length + s.melds.reduce((n, m) => n + m.tiles.length, 0) + s.players.reduce((n, p) => n + p.discards.length, 0)).toBe(106);
           ok(g.act(seat, decideBotAction(g, seat)));
         }
-        expect(s.history).toHaveLength(11);
+        expect(s.history).toHaveLength(CONTRACTS.length);
         expect(finishes).toBeGreaterThan(3);
       }
     });

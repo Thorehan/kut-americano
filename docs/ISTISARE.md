@@ -13,9 +13,10 @@ Küt (Amerikano), rummy ailesinden "kontratlı" bir oyundur: her elde masada **b
 - **Seri:** Aynı renk, ardışık sayı (ör. sarı 4-5-6). **Başa sarma yok:** yalnızca 1-2-3 … 11-12-13. 12-13-1 ve 13-1-2 geçersiz.
 - **Okey (joker):** Her zaman **sahte okey simgeli taş**. Gösterge yok, okey her elde aynı taştır.
 
-## 2. El kuralları (11 el)
+## 2. El kuralları (13 el)
 
 Her el sıradaki kural geçerlidir. UI'da sabit bir **Kural Paneli** o elin kuralını gösterir.
+*(22.11.2026: kullanıcı isteğiyle 13 ele çıktı — 4'lü küt + 4'lü seri, iki 4'lü kütün önüne alındı; 5'li seri + 3'lü küt ve 5'li seri + 4'lü küt eklendi.)*
 
 | El | Kural | Açmak için gereken |
 |---|---|---|
@@ -24,12 +25,14 @@ Her el sıradaki kural geçerlidir. UI'da sabit bir **Kural Paneli** o elin kura
 | 3 | 3'lü küt + 3'lü seri | küt + seri (6 taş) |
 | 4 | 4'lü küt | 1 × küt (4 renk, 4 taş) |
 | 5 | 4'lü seri | 1 × seri (4 taş) |
-| 6 | İki 4'lü küt | 2 × küt (8 taş) |
-| 7 | İki 4'lü seri | 2 × seri (8 taş) |
-| 8 | 4'lü küt + 4'lü seri | küt + seri (8 taş) |
+| 6 | 4'lü küt + 4'lü seri | küt + seri (8 taş) |
+| 7 | İki 4'lü küt | 2 × küt (8 taş) |
+| 8 | İki 4'lü seri | 2 × seri (8 taş) |
 | 9 | 5'li seri | 1 × 5'li seri |
-| 10 | Elden bitme | Tüm el tek hamlede (bkz. açık soru S4) |
-| 11 | Çift eli | Çiftlerle bitiş, puanlar ×2 (bkz. açık soru S5) |
+| 10 | 5'li seri + 3'lü küt | 5'li seri + 3'lü küt (8 taş) |
+| 11 | 5'li seri + 4'lü küt | 5'li seri + 4'lü küt (9 taş) |
+| 12 | Elden bitme | Tüm el tek hamlede (bkz. açık soru S4) |
+| 13 | Çift eli | Çiftlerle bitiş, puanlar ×2 (bkz. açık soru S5) |
 
 **Açma (kural kilidi):** O elin kuralı yere açılır → kilit açılır. **Açtığın sırada yalnızca kural iner, fazlalık inmez:** ne ek per ne de kurala eklenen fazla taş (ör. 3'lü küt elinde 4'lü küt açılmaz). Fazlalıklar **bir sonraki sırada** dizilir/işlenir, bitebiliyorsan bitersin. Kural açılmadan **elden bile bitilemez**.
 
@@ -46,21 +49,23 @@ Her el sıradaki kural geçerlidir. UI'da sabit bir **Kural Paneli** o elin kura
 
 ### Rastgele mod
 
-Menüden **🎲 Rastgele Mod** seçilirse 11 elin kuralı sırayla değil, aşağıdaki oranlarla rastgele çekilir. İlk el dahil her el her kural olabilir (ilk el 5'li seri bile gelebilir). El başında kural bir çark gibi döner, sonra gerçek kurala oturur.
+Menüden **🎲 Rastgele Mod** seçilirse 13 elin kuralı sırayla değil, aşağıdaki oranlarla rastgele çekilir. İlk el dahil her el her kural olabilir (ilk el 5'li seri bile gelebilir). El başında kural bir çark gibi döner, sonra gerçek kurala oturur.
 
 | Kural | Oran |
 |---|---|
-| 3'lü Küt | %12 |
-| 3'lü Seri | %12 |
-| 3'lü Küt + 3'lü Seri | %11 |
-| 4'lü Küt | %10 |
-| 4'lü Seri | %10 |
-| İki 4'lü Küt | %8 |
-| İki 4'lü Seri | %8 |
-| 4'lü Küt + 4'lü Seri | %8 |
-| 5'li Seri | %9 |
-| Elden Bitme | %6 |
-| Çift Eli | %6 |
+| 3'lü Küt | %10 |
+| 3'lü Seri | %10 |
+| 3'lü Küt + 3'lü Seri | %9 |
+| 4'lü Küt | %8 |
+| 4'lü Seri | %8 |
+| 4'lü Küt + 4'lü Seri | %7 |
+| İki 4'lü Küt | %7 |
+| İki 4'lü Seri | %7 |
+| 5'li Seri | %7 |
+| 5'li Seri + 3'lü Küt | %7 |
+| 5'li Seri + 4'lü Küt | %6 |
+| Elden Bitme | %7 |
+| Çift Eli | %7 |
 
 - Aynı kural **art arda gelmez** ve bir oyunda **en fazla 2 kez** gelir; bu sınırlar yüzünden gerçekleşen oranlar tabloya çok yakın ama birebir değildir.
 - Kolay kurallar biraz daha sık, özel eller (Elden Bitme, Çift Eli) daha seyrek gelir. Oranlar `packages/core/src/contracts.ts` içindeki `RANDOM_WEIGHTS` ile tek yerden değiştirilir.
@@ -90,7 +95,7 @@ Menüden **🎲 Rastgele Mod** seçilirse 11 elin kuralı sırayla değil, aşa�
 
 ## 5. Puanlama
 
-Puanlar ceza mantığındadır; **11 el sonunda en düşük puan kazanır** (biten taraf eksi puan alır).
+Puanlar ceza mantığındadır; **13 el sonunda en düşük puan kazanır** (biten taraf eksi puan alır).
 
 | Bitiş | Biten (kişi/takım) | Diğerleri |
 |---|---|---|
@@ -167,7 +172,7 @@ Cevaplanmayanlar için parantez içindeki **varsayım** ile başlanır.
 - **S2 — "Okey ile bitiş" ve "çift okey ile bitiş" tam olarak ne?** Son atılan taşın okey olması mı, bitiş elinde okey kullanılması mı? Çift okey = iki okeyle mi bitmek? **Cevap:** son taş tek okeyse ortaya vurulur → *okey ile bitiş* (×2). Elde sadece iki okey kaldıysa (ör. iki okey + bir işlek: işlek işlenir, kalan iki okey) ikisi birden ortaya vurulur → *çift okey ile bitiş* (×4). Çift Eli'nde bunlar ×4 ve ×8 olur. Oyunda "Çift Okey!" butonu; önizleme: `?onizleme`.
 - **S3 — Elde kalan okeyin ceza değeri?** *(Varsayım: 25 puan.)*
 - **S4 — 10. el "Elden bitme":** Önceden hiç açmadan, tüm 14 taşı tek hamlede perleyip bitmek mi? Bu elde ara açma yok mu? *(Varsayım: evet, tek hamlede bitiş; puanlama normal bitiş gibi.)*
-- **S5 — 11. el "Çift eli":** Kaç çift gerekli — 7 çift mi? Çift = aynı renk + aynı sayı mı? Okey çiftin yerine geçer mi? *(Varsayım: 7 çift, aynı renk-aynı sayı, okey bir taşın yerine geçer.)*
+- **S5 — 13. el "Çift eli":** Kaç çift gerekli — 7 çift mi? Çift = aynı renk + aynı sayı mı? Okey çiftin yerine geçer mi? *(Varsayım: 7 çift, aynı renk-aynı sayı, okey bir taşın yerine geçer.)*
 - ~~**S6 — Kontrat açıldıktan sonra dizme**~~ — **Cevaplandı:** açılış sırasında sadece kural iner; fazlalıklar sonraki sırada.
 - ~~**S7 — İşlemede okey değiştirme**~~ — **Cevaplandı:** evet; okeyi alınan rakibe +50, işlek taşı atana +50 (bkz. §2).
 - **S8 — İstek zamanlaması ve öncelik:** Birden fazla kişi aynı anda isterse kim alır? İstek penceresi ne zaman kapanır? *(Varsayım — Faz 1'de böyle kodlandı: sırası gelen oyuncu ortadan çektiği anda diğer oyunculara sıra yönüne göre tek tek sorulur (en yakın önce, 8 sn süre); ilk "İSTE" diyen alır, sonra sırası gelen oyuncu devam eder.)*

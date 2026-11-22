@@ -222,7 +222,7 @@ ${left}/5 bugün` : '🎬 Yarın').setEnabled(left > 0);
     this.segClassic.setSelected(!random, UI.slate);
     this.segRandom.setSelected(random, UI.slate);
     this.segHint.setText(
-      random ? `Her elin kuralı oranlarla çekilir · ilk el bile 5'li seri olabilir` : '11 el, kurallar sırayla: 3\'lü küt → … → çift eli',
+      random ? `Her elin kuralı oranlarla çekilir · ilk el bile 5'li seri olabilir` : `${CONTRACTS.length} el sırayla: 3'lü küt → … → 5'li seri + 4'lü küt → elden bitme → çift eli`,
     );
     this.quickSub?.setText(`${this.lastMode === 'team' ? 'Takım' : 'Tekli'} · ${random ? 'Rastgele' : 'Sıralı'}`);
   }
@@ -344,19 +344,19 @@ ${left}/5 bugün` : '🎬 Yarın').setEnabled(left > 0);
     c.add(g);
     c.add(txt(this, GAME_W / 2, y0 + 22, 'NASIL OYNANIR', 24, UI.goldHex, 900).setOrigin(0.5, 0));
 
-    const tabs = ['Temel', 'Kural & İşleme', 'Puan & Modlar'];
+    const tabs = ['Temel', `Eller (${CONTRACTS.length})`, 'Kural & İşleme', 'Puan & Modlar'];
     const body = txt(this, x0 + 44, y0 + 130, '', 21, UI.cream, 700, { lineSpacing: 8, wordWrap: { width: W - 88 } });
     c.add(body);
     const tabBtns: Button[] = [];
     const pages = this.howToPages();
     const show = (p: number) => {
-      body.setText(pages[p]);
+      body.setText(pages[p]).setFontSize(p === 1 ? 17 : 21).setLineSpacing(p === 1 ? 5 : 8);
       tabBtns.forEach((b, i) => b.setSelected(i === p, UI.slate));
       body.setAlpha(0);
       this.tweens.add({ targets: body, alpha: 1, duration: 160 });
     };
     tabs.forEach((t, i) => {
-      const b = new Button(this, GAME_W / 2 + (i - 1) * 230, y0 + 92, 216, 50, t, () => show(i), UI.slate, 17);
+      const b = new Button(this, GAME_W / 2 + (i - 1.5) * 232, y0 + 92, 220, 50, t, () => show(i), UI.slate, 17);
       tabBtns.push(b);
       c.add(b);
     });
@@ -385,6 +385,7 @@ ${left}/5 bugün` : '🎬 Yarın').setEnabled(left > 0);
         '•  Sıran gelince ortadaki desteden ya da soldakinin attığı taştan çek, oyna, bir taş at.',
         '•  İstek: sıradaki oyuncu yan taşı almazsa diğerleri ortadan 1 taşla birlikte isteyebilir.',
       ].join('\n'),
+      CONTRACTS.map((k, i) => `${String(i + 1).padStart(2, '\u2007')}.  ${k.name} — ${k.description}`).join('\n'),
       [
         '•  Her elin bir kuralı var (ör. 3\'lü küt). Kuralı açmadan per dizemez, işleyemez, bitemezsin.',
         '•  Kuralı açtığın sırada sadece kural iner; fazlalıklar sonraki sırada.',
@@ -397,8 +398,8 @@ ${left}/5 bugün` : '🎬 Yarın').setEnabled(left > 0);
         '•  Biten −50. Diğerleri elde kalanı yazar: 1–9 kendi sayısı, 10 ve üstü 10, okey 25.',
         '•  Okey ile bitiş ×2 (−100), çift okey ×4 (−200). Çift Eli\'nde her şey ayrıca ×2.',
         '•  Takım: karşılıklı oturanlar ortaktır; karşı takım iki elin toplamını yazar.',
-        '•  11 el sonunda en düşük toplam puan kazanır.',
-        `•  Sıralı mod: kurallar 1→11. Rastgele mod: her el oranlarla çekilir, aynı kural art arda gelmez, en fazla ${RANDOM_MAX_REPEAT} kez gelir.`,
+        `•  ${CONTRACTS.length} el sonunda en düşük toplam puan kazanır.`,
+        `•  Sıralı mod: kurallar 1→${CONTRACTS.length}. Rastgele mod: her el oranlarla çekilir, aynı kural art arda gelmez, en fazla ${RANDOM_MAX_REPEAT} kez gelir.`,
         `•  Oranlar: ${odds}`,
       ].join('\n'),
     ];

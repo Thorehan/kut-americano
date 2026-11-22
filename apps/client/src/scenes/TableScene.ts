@@ -264,14 +264,14 @@ export class TableScene extends Phaser.Scene {
   private buildRulePanel() {
     const c = this.add.container(10, 8).setDepth(60);
     const g = this.add.graphics();
-    panel(g, 0, 0, 362, 62, 16, UI.panel, 0.94, UI.gold, 0.55);
+    panel(g, 0, 0, 404, 72, 16, UI.panel, 0.94, UI.gold, 0.55);
     const chipBg = this.add.graphics();
     chipBg.fillStyle(UI.gold, 1);
     chipBg.fillRoundedRect(10, 9, 70, 22, 11);
     this.ruleChip = txt(this, 45, 20, '', 12, '#2a1d02', 900).setOrigin(0.5);
     this.ruleName = txt(this, 88, 6, '', 20, '#fff', 900);
-    this.ruleDesc = txt(this, 12, 37, '', 12, UI.muted, 700, { wordWrap: { width: 300 } });
-    this.ruleExtra = this.add.image(340, 31, 'tile-back').setScale(0.29);
+    this.ruleDesc = txt(this, 12, 35, '', 12, UI.muted, 700, { wordWrap: { width: 340 }, lineSpacing: 1 });
+    this.ruleExtra = this.add.image(380, 34, 'tile-back').setScale(0.29);
     c.add([g, chipBg, this.ruleChip, this.ruleName, this.ruleDesc, this.ruleExtra]);
   }
 
