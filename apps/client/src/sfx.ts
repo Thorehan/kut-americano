@@ -288,6 +288,21 @@ class Sfx {
     [523, 659, 784, 1047].forEach((f, i) => this.marimba(f, 0.09, i * 0.1, 0.8));
     this.marimba(1319, 0.06, 0.4, 1.1);
   }
+  /**
+   * Normal bitiş (okeysiz): son taş masanın ortasına vurulur — müzik yok.
+   * Ağır taş darbesi + masanın gümbürtüsü + ahşabın titreşimi + sıçrayan birkaç taş.
+   * mine=false (başkası bitirdi) biraz daha hafif.
+   */
+  finish(mine = true) {
+    const k = mine ? 1 : 0.7;
+    this.clack(0.95 * k, 0, 0.72);
+    this.partial(92, 0, 0.32, 0.32 * k, 0.25, 0.002);
+    this.partial(205, 0, 0.18, 0.12 * k, 0.25, 0.002);
+    this.burst(0, 0.09, 0.3 * k, 'lowpass', 650, 0.7, 0.25);
+    // masadaki taşlar hafifçe sıçrayıp yerine oturur
+    [0.05, 0.09, 0.14, 0.2].forEach((t, i) => this.clack((0.12 - i * 0.02) * k, t + Math.random() * 0.02, 1.1 + Math.random() * 0.25));
+  }
+
   lose() {
     this.marimba(440, 0.08, 0, 0.6);
     this.marimba(349, 0.08, 0.16, 0.8);

@@ -398,7 +398,9 @@ export class TableScene extends Phaser.Scene {
             this.time.delayedCall(450, () => this.okeyCelebration(winner, dbl, h!.multiplier, !!h!.ciftEli));
           } else {
             this.resultDelay = 1100;
-            if (winner === 0 || (this.s.mode === 'team' && winner >= 0 && teamOf(winner) === 0)) sfx.win();
+            // normal bitiş: müzik değil, son taşın masaya vurulma sesi
+            const mine = winner === 0 || (this.s.mode === 'team' && winner >= 0 && teamOf(winner) === 0);
+            if (winner >= 0) sfx.finish(mine);
             else sfx.lose();
           }
           if (winner >= 0) this.bubble(winner, 'BİTTİ!', UI.gold);
