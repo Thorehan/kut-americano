@@ -243,38 +243,6 @@ export function createTextures(scene: Phaser.Scene) {
     ctx.fillRect(0, 0, 32, 32);
   });
 
-  // Defne yaprağı (kutlama çelengi) — beyaz tonlu, setTint ile altın/mor boyanır; sivri ucu sağda
-  canvas(scene, 'leaf', 64, 26, (ctx) => {
-    const g = ctx.createLinearGradient(0, 0, 0, 26);
-    g.addColorStop(0, '#ffffff');
-    g.addColorStop(0.5, '#e9e2cf');
-    g.addColorStop(1, '#a8987a');
-    ctx.beginPath();
-    ctx.moveTo(2, 13);
-    ctx.quadraticCurveTo(24, -3, 62, 13);
-    ctx.quadraticCurveTo(24, 29, 2, 13);
-    ctx.closePath();
-    ctx.fillStyle = g;
-    ctx.fill();
-    ctx.strokeStyle = 'rgba(90,70,30,0.7)';
-    ctx.lineWidth = 1.5;
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(4, 13);
-    ctx.lineTo(58, 13);
-    ctx.strokeStyle = 'rgba(110,85,35,0.65)';
-    ctx.lineWidth = 1.5;
-    ctx.stroke();
-  });
-
-  // Konfeti parçası (tint ile renklenir)
-  canvas(scene, 'confetti', 14, 8, (ctx) => {
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, 14, 8);
-    ctx.fillStyle = 'rgba(0,0,0,0.18)';
-    ctx.fillRect(0, 5, 14, 3);
-  });
-
   // Gölge (sürüklenen / uçan taşın altında)
   canvas(scene, 'tile-shadow', TILE_W + 24, TILE_H + 24, (ctx) => {
     ctx.filter = 'blur(8px)';
