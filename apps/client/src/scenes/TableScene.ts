@@ -198,7 +198,11 @@ export class TableScene extends Phaser.Scene {
       this.time.addEvent({ delay: 1000, loop: true, callback: () => this.updateStatus() });
     }
     this.ctrl.onChange((ev) => this.onEvents(ev));
-    this.events.once('shutdown', () => this.ctrl.destroy());
+    this.events.once('shutdown', () => {
+      this.ctrl.destroy();
+      sfx.stopMusic();
+      this.cameras.main.setZoom(RENDER_SCALE);
+    });
 
     this.tiles = new TileLayer(this, (id, kind) => this.onTileTap(id, kind));
     this.zoneGfx = this.add.graphics().setDepth(5);
@@ -1361,6 +1365,20 @@ export class TableScene extends Phaser.Scene {
     c.add(dim);
     this.tweens.add({ targets: dim, alpha: double ? 0.84 : 0.74, duration: 260 });
 
+    // sinematik siyah bantlar (altın çizgili) yukarıdan ve aşağıdan kayar
+    const barH = double ? 78 : 64;
+    for (const top of [true, false]) {
+      const bar = this.add.container(0, top ? -barH : GAME_H);
+      const bg = this.add.graphics();
+      bg.fillStyle(0x050302, 0.96);
+      bg.fillRect(0, 0, GAME_W, barH);
+      bg.lineStyle(2, royal ? 0xc28cf0 : 0xd9b45e, 0.9);
+      bg.lineBetween(0, top ? barH - 1 : 1, GAME_W, top ? barH - 1 : 1);
+      bar.add(bg);
+      c.add(bar);
+      this.tweens.add({ targets: bar, y: top ? 0 : GAME_H - barH, duration: 380, ease: 'Cubic.easeOut' });
+    }
+
     // ışın huzmeleri: çift okeyde iki katman ters yönde döner
     const rayLayer = (n: number, colA: number, colB: number, alphaA: number, width: number) => {
       const g = this.add.graphics({ x: cx, y: cy });
@@ -1398,6 +1416,13 @@ export class TableScene extends Phaser.Scene {
     this.tweens.add({ targets: halo, scale: 1, duration: 500, delay: double ? 520 : 0, ease: 'Back.easeOut' });
     this.tweens.add({ targets: halo, scale: 1.12, duration: 700, delay: 1000, yoyo: true, repeat: 2, ease: 'Sine.easeInOut' });
 
+    // altın defne çelengi (Çift Eli'nde mor-altın), taşların arkasında açılır
+    const wreath = this.laurel(cx, cy + 6, double ? 205 : 160, royal ? 0xd6a8ff : 0xf1c75a, double ? 15 : 12);
+    wreath.setScale(0.3).setAlpha(0);
+    c.add(wreath);
+    this.tweens.add({ targets: wreath, scale: 1, alpha: 1, duration: 620, delay: double ? 600 : 260, ease: 'Back.easeOut' });
+    if (double) this.tweens.add({ targets: wreath, angle: { from: -4, to: 4 }, duration: 1600, delay: 1200, yoyo: true, repeat: 1, ease: 'Sine.easeInOut' });
+
     const burst = this.add.particles(0, 0, 'spark', {
       speed: { min: 180, max: 640 },
       angle: { min: 0, max: 360 },
@@ -1423,6 +1448,7 @@ export class TableScene extends Phaser.Scene {
         this.time.delayedCall(1300, () => burst.explode(60, cx + Phaser.Math.Between(-220, 220), cy - 80));
         this.cameras.main.flash(260, 255, 225, 140);
         this.cameras.main.shake(320, 0.004);
+        this.cameraPunch(1.04);
       });
       if (ciftEli) sfx.fanfareRoyal();
       else sfx.fanfare();
@@ -1449,7 +1475,24 @@ export class TableScene extends Phaser.Scene {
         burst.explode(200, cx, cy);
         this.cameras.main.flash(380, 255, 240, 190);
         this.cameras.main.shake(520, 0.012);
+        this.cameraPunch(1.07);
         haptic(90);
+        // konfeti yağmuru
+        const conf = this.add.particles(0, -20, 'confetti', {
+          x: { min: 0, max: GAME_W },
+          speedY: { min: 160, max: 340 },
+          speedX: { min: -90, max: 90 },
+          rotate: { start: 0, end: 720 },
+          scaleX: { min: 0.7, max: 1.2 },
+          scaleY: { min: 0.5, max: 1 },
+          lifespan: 3200,
+          frequency: 22,
+          quantity: royal ? 4 : 3,
+          tint: royal ? [0xffd56b, 0xd6a8ff, 0xffffff, 0x9b5de5] : [0xffd56b, 0xffffff, 0xe84a4a, 0x3bb273, 0x3b8fe6],
+        });
+        conf.setDepth(3803);
+        this.time.delayedCall(1700, () => conf.stop());
+        this.time.delayedCall(total, () => conf.destroy());
         // havai fişekler
         const fw = royal ? 6 : 4;
         for (let k = 0; k < fw; k++) {
@@ -1480,6 +1523,11 @@ export class TableScene extends Phaser.Scene {
     const titleStr = double ? 'ÇİFT OKEY!' : 'OKEY İLE BİTTİ!';
     const titleStyle = { stroke: royal ? '#3b0f5c' : '#5a3a00', strokeThickness: double ? 12 : 10 };
     const titleColor = royal ? '#ffe28a' : '#ffd56b';
+    // başlığın arkasında kurdele
+    const rib = this.ribbon(cx, titleY + 2, double ? 700 : 600, double ? 96 : 80, royal ? [0x5a2a86, 0x3b1758] : [0x9c1f1f, 0x6a1010], royal ? 0xd6a8ff : 0xf1c75a);
+    rib.setScale(0, 1);
+    c.add(rib);
+    this.tweens.add({ targets: rib, scaleX: 1, duration: 420, delay: double ? 900 : 470, ease: 'Cubic.easeOut' });
     if (double) {
       // harf harf damga gibi iner
       const size = 74;
@@ -1502,8 +1550,11 @@ export class TableScene extends Phaser.Scene {
       this.tweens.add({ targets: title, scale: 1, duration: 420, delay: 560, ease: 'Back.easeOut' });
     }
     const how = `${double ? 'Çift okey ×4' : 'Okey ×2'}${ciftEli ? ' · Çift Eli ×2' : ''}`;
-    const sub = txt(this, cx, titleY + 62, `${winner === 0 ? 'Sen' : name} bitirdi · ${how} → cezalar ×${mult}`, 22, '#ffffff', 900).setOrigin(0.5).setAlpha(0);
-    c.add(sub);
+    const sub = txt(this, cx, titleY + (double ? 76 : 68), `${winner === 0 ? 'Sen' : name} bitirdi · ${how} → cezalar ×${mult}`, 22, '#ffffff', 900, { backgroundColor: 'rgba(10,6,2,0.72)', padding: { x: 16, y: 6 } })
+      .setOrigin(0.5)
+      .setAlpha(0)
+      .setDepth(3806); // konfetinin önünde, okunur kalsın
+    c.once('destroy', () => sub.destroy());
     this.tweens.add({ targets: sub, alpha: 1, duration: 300, delay: double ? 1800 : 900 });
 
     // --- çarpan damgası: Çift Eli'nde önce bitiş çarpanı basılır, sonra ikiye katlanır
@@ -1550,7 +1601,102 @@ export class TableScene extends Phaser.Scene {
     }
 
     haptic(60);
-    this.time.delayedCall(total - 500, () => this.tweens.add({ targets: c, alpha: 0, duration: 450, onComplete: () => c.destroy() }));
+    this.time.delayedCall(total - 500, () => this.tweens.add({ targets: [c, sub], alpha: 0, duration: 450, onComplete: () => c.destroy() }));
+  }
+
+  /** Kamera bir an yaklaşıp geri çekilir (darbe hissi). */
+  private cameraPunch(amount: number) {
+    const cam = this.cameras.main;
+    cam.zoomTo(RENDER_SCALE * amount, 110, 'Quad.easeOut', true);
+    this.time.delayedCall(130, () => cam.zoomTo(RENDER_SCALE, 520, 'Sine.easeInOut', true));
+  }
+
+  /** Defne çelengi: iki yanda kıvrılan yaprak dizisi, altta kurdele düğümü. */
+  private laurel(x: number, y: number, r: number, color: number, leaves: number) {
+    const c = this.add.container(x, y);
+    // Her yan: alttan (düğüm) başlayıp çemberin yanından yukarı çıkan dal; yapraklar dalın
+    // gidiş yönüne bakar, dışa ve içe doğru dönüşümlü açılır, yukarı çıktıkça küçülür.
+    for (const side of [-1, 1]) {
+      const stem = this.add.graphics();
+      stem.lineStyle(4, color, 0.9);
+      stem.beginPath();
+      for (let i = 0; i <= 24; i++) {
+        const a = Phaser.Math.DegToRad(96 + (i / 24) * 150);
+        const px = side * -Math.cos(a) * r;
+        const py = Math.sin(a) * r;
+        if (i === 0) stem.moveTo(px, py);
+        else stem.lineTo(px, py);
+      }
+      stem.strokePath();
+      c.add(stem);
+      for (let i = 0; i < leaves; i++) {
+        const t = i / (leaves - 1);
+        const a = Phaser.Math.DegToRad(100 + t * 145); // 100° (alt) → 245° (üst-yan)
+        // sol yan: (cos a, sin a); sağ yan aynası
+        const px = side * -Math.cos(a) * r;
+        const py = Math.sin(a) * r;
+        // dalın yukarı ilerleme yönü (a artarken) — sağda x aynalanır
+        const tx = side * Math.sin(a);
+        const ty = Math.cos(a);
+        const dir = Phaser.Math.RadToDeg(Math.atan2(ty, tx));
+        const s = (1.2 - t * 0.5) * (r / 160);
+        for (const k of [-1, 1]) {
+          // k=-1 dışa, k=+1 içe açılan yaprak
+          const out = k * side;
+          const leaf = this.add
+            .image(px, py, 'leaf')
+            .setOrigin(0.04, 0.5)
+            .setTint(color)
+            .setScale(s * (k < 0 ? 0.62 : 0.5))
+            .setAngle(dir + out * 38);
+          c.add(leaf);
+        }
+      }
+    }
+    const knot = this.add.graphics();
+    knot.fillStyle(color, 1);
+    knot.fillCircle(0, r * 0.98, 9);
+    knot.fillTriangle(-4, r * 0.98, -22, r * 0.98 + 30, -8, r * 0.98 + 26);
+    knot.fillTriangle(4, r * 0.98, 22, r * 0.98 + 30, 8, r * 0.98 + 26);
+    c.add(knot);
+    return c;
+  }
+
+  /** Uçları çatallı kurdele (başlık arkası). colors: [ön yüz, gölge/uçlar]. */
+  private ribbon(x: number, y: number, w: number, h: number, colors: [number, number], edge: number) {
+    const c = this.add.container(x, y);
+    const g = this.add.graphics();
+    const tail = h * 0.75;
+    const hw = w / 2;
+    // arka uçlar (çatallı)
+    for (const s of [-1, 1]) {
+      const x0 = s * (hw - 30);
+      const x1 = s * (hw + tail);
+      g.fillStyle(colors[1], 1);
+      g.beginPath();
+      g.moveTo(x0, -h * 0.32);
+      g.lineTo(x1, -h * 0.32);
+      g.lineTo(x1 - s * tail * 0.45, h * 0.12);
+      g.lineTo(x1, h * 0.56);
+      g.lineTo(x0, h * 0.56);
+      g.closePath();
+      g.fillPath();
+      // kıvrım gölgesi
+      g.fillStyle(0x000000, 0.35);
+      g.fillTriangle(s * (hw - 30), h * 0.38, s * hw, h * 0.38, s * (hw - 30), h * 0.56);
+    }
+    // ön yüz
+    g.fillStyle(0x000000, 0.35);
+    g.fillRect(-hw + 2, -h / 2 + 6, w, h);
+    g.fillStyle(colors[0], 1);
+    g.fillRect(-hw, -h / 2, w, h * 0.9);
+    g.fillStyle(0xffffff, 0.12);
+    g.fillRect(-hw, -h / 2, w, h * 0.3);
+    g.lineStyle(3, edge, 1);
+    g.lineBetween(-hw, -h / 2 + 5, hw, -h / 2 + 5);
+    g.lineBetween(-hw, h * 0.4 - 5, hw, h * 0.4 - 5);
+    c.add(g);
+    return c;
   }
 
   /** Kutlamanın süresi (sonuç penceresi bundan sonra açılır). */
