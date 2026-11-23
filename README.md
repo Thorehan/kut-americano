@@ -41,7 +41,9 @@ Deneme parametreleri: `?mod=rastgele` → rastgele mod seçili açılır · `?el
 - **Önizleme:** `?onizleme` adresiyle tüm bitiş türleri (normal / okey / çift okey, normal el ve Çift Eli) hazır ellerle denenebilir.
 - **Öğretici:** ana ekrandaki **🎓 Öğretici** (~2 dk) bir eli adım adım oynatır; ipuçları sadece orada açıktır.
 - **At:** bir taş seç → **Taş At** (ya da taşı "Taş at" alanına sürükle).
-- **İstek:** sıradaki oyuncu yan taşı almazsa sana sorulur: **İSTE** dersen yan taş + ortadan 1 taş gelir.
+- **İstek:** sıradaki oyuncu yan taşı almazsa sana sorulur: **İSTE** dersen yan taş + ortadaki üst taş gelir. Sıradaki oyuncu ortadan istek bittikten sonra çeker.
+- **Toplu sürükleme:** birden çok taş seç, birini sürükle — hepsi birlikte gider (ıstakada, kendi alanında per olarak ya da bir pere işlenerek).
+- **Menü:** oyun içinde Menü → ses aç/kapat, maçtan çık. Online maçtan çıkan ceza alır (KP kesintisi + 1 → 5 → 10 dk online kilidi).
 
 ## Online oyun
 

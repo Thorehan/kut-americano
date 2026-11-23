@@ -32,6 +32,8 @@ export interface Profile {
   feltTheme: string;
   daily: { last: string; streak: number };
   videos: { day: string; count: number };
+  /** Online maçtan çıkış cezaları: art arda çıkışlarda ceza büyür, 24 saat temiz kalınca sıfırlanır. */
+  leaves: { count: number; last: number; lockUntil: number };
 }
 
 export const AVATARS = ['🦊', '🐺', '🦁', '🐯', '🐻', '🐼', '🐸', '🦉', '🐙', '🦄', '🐢', '🐝', '😎', '🤠', '👑', '🎩'];
@@ -114,6 +116,7 @@ function defaults(): Profile {
     feltTheme: 'felt-yesil',
     daily: { last: '', streak: 0 },
     videos: { day: '', count: 0 },
+    leaves: { count: 0, last: 0, lockUntil: 0 },
   };
 }
 
@@ -128,7 +131,7 @@ export function profile(): Profile {
     const raw = localStorage.getItem(KEY);
     if (raw) {
       const p = JSON.parse(raw) as Partial<Profile>;
-      cache = { ...base, ...p, stats: { ...base.stats, ...p.stats }, daily: { ...base.daily, ...p.daily }, videos: { ...base.videos, ...p.videos } };
+      cache = { ...base, ...p, stats: { ...base.stats, ...p.stats }, daily: { ...base.daily, ...p.daily }, videos: { ...base.videos, ...p.videos }, leaves: { ...base.leaves, ...p.leaves } };
     }
   } catch {
     /* bozuk kayıt: varsayılan */
@@ -240,6 +243,42 @@ export function countVideo() {
   if (p.videos.day !== today()) p.videos = { day: today(), count: 0 };
   p.videos.count++;
   saveProfile();
+}
+
+// ------------------------------------------------------------------ maçtan çıkış cezası
+
+/** Art arda çıkışlarda: 1., 2., 3.+ çıkış. KP kesintisi ve online kilidi (dakika). */
+export const LEAVE_KP = [100, 250, 500];
+export const LEAVE_LOCK_MIN = [1, 5, 10];
+/** Bu kadar süre maç terk etmeyen oyuncunun ceza basamağı sıfırlanır. */
+const LEAVE_RESET_MS = 24 * 3_600_000;
+
+function leaveStep(): number {
+  const l = profile().leaves;
+  const count = Date.now() - l.last > LEAVE_RESET_MS ? 0 : l.count;
+  return Math.min(count, LEAVE_KP.length - 1);
+}
+
+/** Şimdi çıkarsa alacağı ceza (onay sorusunda gösterilir). */
+export function leavePenalty(): { kp: number; min: number } {
+  const i = leaveStep();
+  return { kp: Math.min(LEAVE_KP[i], profile().kp), min: LEAVE_LOCK_MIN[i] };
+}
+
+/** Online maçı terk etti: KP kesilir (sıfırın altına inmez), online oyun bir süre kilitlenir. */
+export function recordLeave(): { kp: number; min: number } {
+  const pen = leavePenalty();
+  const p = profile();
+  const i = leaveStep();
+  p.kp -= pen.kp;
+  p.leaves = { count: i + 1, last: Date.now(), lockUntil: Date.now() + pen.min * 60_000 };
+  saveProfile();
+  return pen;
+}
+
+/** Online kilidinin kalan süresi (ms); 0 = serbest. */
+export function onlineLockLeft(): number {
+  return Math.max(0, profile().leaves.lockUntil - Date.now());
 }
 
 // ------------------------------------------------------------------ temalar

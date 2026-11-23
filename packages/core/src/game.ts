@@ -118,6 +118,8 @@ export type GameEventType =
   | 'roundStart'
   | 'drawDeck'
   | 'takeDiscard'
+  /** Sıradaki yan taşı almadı; istek sırası diğerlerine geçer, ardından ortadan çeker. */
+  | 'pass'
   | 'claim'
   | 'open'
   | 'lay'
@@ -371,27 +373,38 @@ export class Game {
     s.turnJokers = s.players[seat].hand.filter((t) => t.joker).length;
   }
 
+  /**
+   * Ortadan çekme. Sıradaki yan taşı almıyorsa önce diğerlerine sorulur (isteyen yan taş +
+   * ortadaki üst taşı alır, bu yüzden ortadaki taş değişir); istek bitince sıradaki ortadan çeker.
+   */
   private doDrawDeck(seat: number): GameEvent[] {
     const s = this.state;
-    const p = s.players[seat];
-    const tile = s.deck.pop();
-    if (!tile) throw new RuleError('Ortada taş kalmadı.');
-    p.hand.push(tile);
-    const events: GameEvent[] = [{ type: 'drawDeck', seat, text: `${p.name} ortadan çekti.` }];
+    if (!s.deck.length) throw new RuleError('Ortada taş kalmadı.');
     const pd = s.pendingDiscard;
     s.pendingDiscard = null;
-    if (pd && s.deck.length > 0) {
+    // istek için ortada en az 2 taş olmalı (biri isteyene, biri sıradakine)
+    if (pd && s.deck.length >= 2) {
       const queue: number[] = [];
       for (let k = 1; k < SEATS; k++) {
         const q = (seat + k) % SEATS;
         if (q !== pd.from) queue.push(q);
       }
-      s.claim = { tile: pd.tile, from: pd.from, queue };
-      s.phase = 'claim';
-    } else {
-      this.enterAction(seat);
+      if (queue.length) {
+        s.claim = { tile: pd.tile, from: pd.from, queue };
+        s.phase = 'claim';
+        return [{ type: 'pass', seat, tile: pd.tile, text: `${s.players[seat].name} yan taşı almadı.` }];
+      }
     }
-    return events;
+    return this.drawFor(seat);
+  }
+
+  private drawFor(seat: number): GameEvent[] {
+    const s = this.state;
+    const p = s.players[seat];
+    const tile = s.deck.pop();
+    if (tile) p.hand.push(tile);
+    this.enterAction(seat);
+    return [{ type: 'drawDeck', seat, text: `${p.name} ortadan çekti.` }];
   }
 
   private takeFromDiscards(pd: PendingDiscard) {
@@ -420,7 +433,7 @@ export class Game {
       c.queue.shift();
       if (c.queue.length === 0) {
         s.claim = null;
-        this.enterAction(s.current);
+        return this.drawFor(s.current);
       }
       return [];
     }
@@ -430,7 +443,6 @@ export class Game {
     const extra = s.deck.pop();
     if (extra) p.hand.push(extra);
     s.claim = null;
-    this.enterAction(s.current);
     return [
       {
         type: 'claim',
@@ -438,6 +450,7 @@ export class Game {
         tile: c.tile,
         text: `${p.name} ${s.players[c.from].name}'in taşını istedi: ${tileName(c.tile)} + ortadan 1 taş.`,
       },
+      ...this.drawFor(s.current),
     ];
   }
 

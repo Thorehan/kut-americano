@@ -1,6 +1,6 @@
 import { Action, Game, GameEvent, GameMode, GameState, RuleOrder, ServerMsg, decideBotAction } from '@kut/core';
 import { Connection } from './net/connection';
-import { setupTutorialGame, tutorialBotAction } from './tutorial';
+import { TutorialStage, setupTutorialGame, tutorialBotAction } from './tutorial';
 import { profile } from './profile';
 import { PreviewSpec, setupPreviewGame, CIFT_ELI_ROUND } from './preview';
 
@@ -28,7 +28,7 @@ export interface ControllerOptions {
   startRound?: number;
   ruleOrder?: RuleOrder;
   /** Öğretici: hazır el, tek el, senaryolu botlar. */
-  tutorial?: boolean;
+  tutorial?: boolean | TutorialStage;
   /** Bitiş ekranı önizlemesi: hazır tek el. */
   preview?: PreviewSpec;
   /** Bot hızı çarpanı (1 = normal). */
@@ -58,7 +58,7 @@ export class LocalController implements GameController {
     ];
     if (opts.tutorial) {
       this.game = new Game({ mode: 'solo', names, seed: 7, startRound: 0, endRound: 0, profiles });
-      setupTutorialGame(this.game);
+      setupTutorialGame(this.game, opts.tutorial === 'okey' ? 'okey' : 'basic');
       this.tutorial = true;
     } else if (opts.preview) {
       const r = opts.preview.ciftEli ? CIFT_ELI_ROUND : 0;

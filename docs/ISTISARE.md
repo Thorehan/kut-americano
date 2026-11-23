@@ -84,7 +84,7 @@ Menüden **🎲 Rastgele Mod** seçilirse 13 elin kuralı sırayla değil, aşa�
 ### İstek mekaniği (yan taş)
 
 - Atılan taş öncelikle **sırası gelen oyuncunundur** (atanın sağındaki). O alırsa ortadan çekmez — normal hamledir.
-- O almazsa (ortadan çekerse) **diğer oyuncular "İstiyorum" diyebilir.** Yanında olmayan kişiden taş isteyen, yan taşı **ortadan 1 taş ile birlikte** alır (eline +2 taş).
+- O almazsa (ortadan çekmeyi seçerse) **önce diğer oyuncular "İstiyorum" diyebilir.** Yanında olmayan kişiden taş isteyen, yan taşı **ortadaki üst taşla birlikte** alır (eline +2 taş). **Sırası gelen oyuncu ortadan ancak istek bittikten sonra çeker** — biri isterse ortadaki taş değişir, sıradaki bir alttakini çeker.
 - İstek sayısında **sınır yok.**
 - Stratejik kullanım: ortadaki taş lazım olmasa bile ortadakini görmek veya sıradaki oyuncuyu engellemek için istenebilir.
 
@@ -175,7 +175,7 @@ Cevaplanmayanlar için parantez içindeki **varsayım** ile başlanır.
 - **S5 — 13. el "Çift eli":** Kaç çift gerekli — 7 çift mi? Çift = aynı renk + aynı sayı mı? Okey çiftin yerine geçer mi? *(Varsayım: 7 çift, aynı renk-aynı sayı, okey bir taşın yerine geçer.)*
 - ~~**S6 — Kontrat açıldıktan sonra dizme**~~ — **Cevaplandı:** açılış sırasında sadece kural iner; fazlalıklar sonraki sırada.
 - ~~**S7 — İşlemede okey değiştirme**~~ — **Cevaplandı:** evet; okeyi alınan rakibe +50, işlek taşı atana +50 (bkz. §2).
-- **S8 — İstek zamanlaması ve öncelik:** Birden fazla kişi aynı anda isterse kim alır? İstek penceresi ne zaman kapanır? *(Varsayım — Faz 1'de böyle kodlandı: sırası gelen oyuncu ortadan çektiği anda diğer oyunculara sıra yönüne göre tek tek sorulur (en yakın önce, 8 sn süre); ilk "İSTE" diyen alır, sonra sırası gelen oyuncu devam eder.)*
+- **S8 — İstek zamanlaması ve öncelik:** Birden fazla kişi aynı anda isterse kim alır? İstek penceresi ne zaman kapanır? *(Varsayım — Faz 1'de böyle kodlandı: sırası gelen oyuncu yan taşı almayıp desteye dokunduğunda önce diğer oyunculara sıra yönüne göre tek tek sorulur (en yakın önce, 8 sn süre); ilk "İSTE" diyen yan taş + ortadaki üst taşı alır, ardından sırası gelen oyuncu ortadan çeker ve devam eder.)*
 - **S9 — Deste biterse:** Ortada taş kalmazsa el nasıl biter? *(Varsayım: el berabere biter, herkes elindeki cezayı yazar, kimse eksi almaz.)*
 - **S10 — Takım modunda kural açma:** Takım arkadaşının açtığı kural diğerinin kilidini de açar mı? *(Varsayım: hayır, herkes kendi kuralını açar; takım biri bitince biter.)*
 - **S11 — "Elden bitmek −50":** Bunu "eli bitirmek" (normal bitiş) olarak yorumladık. Doğru mu?

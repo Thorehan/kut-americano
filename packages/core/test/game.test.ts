@@ -35,33 +35,41 @@ describe('sıra akışı ve istek', () => {
     expect(s.players[0].discards).toHaveLength(0);
   });
 
-  it('sıradaki ortadan çekerse diğerleri sırayla istenir; isteyen yan taş + 1 ortadan alır', () => {
+  it('sıradaki almazsa önce diğerlerine sorulur; isteyen yan taş + ortadaki üst taşı alır, sonra sıradaki çeker', () => {
     const g = new Game({ seed: 3 });
     const s = g.state;
     const tile = s.players[0].hand[0];
     ok(g.act(0, { type: 'discard', tileId: tile.id }));
     ok(g.act(1, { type: 'drawDeck' }));
     expect(s.phase).toBe('claim');
+    expect(s.players[1].hand).toHaveLength(14); // henüz çekmedi
     expect(s.claim!.queue).toEqual([2, 3]);
     expect(g.act(3, { type: 'claim', want: true }).ok).toBe(false); // önce 2 sorulur
     ok(g.act(2, { type: 'claim', want: false }));
     const before = s.players[3].hand.length;
+    const top = s.deck[s.deck.length - 1];
+    const next = s.deck[s.deck.length - 2];
     ok(g.act(3, { type: 'claim', want: true }));
     expect(s.players[3].hand).toHaveLength(before + 2);
     expect(s.players[3].hand).toContain(tile);
+    expect(s.players[3].hand).toContain(top); // ortadaki üst taş isteyene gider
+    expect(s.players[1].hand).toContain(next); // sıradaki bir alttakini çeker
+    expect(s.players[1].hand).toHaveLength(15);
     expect(s.phase).toBe('action');
     expect(s.current).toBe(1);
   });
 
-  it('herkes pas geçerse sıradaki oynamaya devam eder', () => {
+  it('herkes pas geçerse sıradaki ortadan çekip oynar', () => {
     const g = new Game({ seed: 4 });
     const s = g.state;
     ok(g.act(0, { type: 'discard', tileId: s.players[0].hand[0].id }));
+    const top = s.deck[s.deck.length - 1];
     ok(g.act(1, { type: 'drawDeck' }));
     ok(g.act(2, { type: 'claim', want: false }));
     ok(g.act(3, { type: 'claim', want: false }));
     expect(s.phase).toBe('action');
     expect(s.claim).toBeNull();
+    expect(s.players[1].hand).toContain(top);
     expect(s.players[0].discards).toHaveLength(1);
   });
 });

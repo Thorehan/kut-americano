@@ -7,7 +7,7 @@ import { Button } from '../ui/Button';
 import { panel, txt } from '../ui/text';
 import { GAME_H, GAME_W, RENDER_SCALE, UI } from '../layout';
 import { haptic, sfx } from '../sfx';
-import { KP, VIDEO_REWARD, grant, levelOf, profile, videosLeft, xpForLevel } from '../profile';
+import { KP, VIDEO_REWARD, grant, levelOf, onlineLockLeft, profile, videosLeft, xpForLevel } from '../profile';
 import { fmt, showDailyPopup, showGain } from '../ui/rewards';
 import { playRewardedVideo } from '../ui/videoAd';
 import { showBubble } from '../view/SeatView';
@@ -17,8 +17,8 @@ export interface TableData {
   mode: GameMode;
   /** Online oyunda sunucuya bağlı kontrolcü. */
   online?: OnlineController;
-  /** Kısa öğretici eli. */
-  tutorial?: boolean;
+  /** Kısa öğretici eli ('okey': okeyle bitiş örneği). */
+  tutorial?: boolean | 'okey';
   /** Bitiş ekranı önizlemesi (?onizleme). */
   preview?: PreviewSpec;
   ruleOrder?: RuleOrder;
@@ -102,6 +102,14 @@ export class MenuScene extends Phaser.Scene {
     txt(this, GAME_W / 2, 704, VERSION, 12, 'rgba(255,255,255,0.35)', 800).setOrigin(0.5, 1);
 
     this.renderOrder();
+
+    const pen = this.registry.get('leavePenalty') as { kp: number; min: number } | undefined;
+    if (pen) {
+      this.registry.remove('leavePenalty');
+      this.time.delayedCall(450, () =>
+        showBubble(this, GAME_W / 2, 250, `Maçtan çıkış cezası: −${pen.kp} ${KP} · ${pen.min} dk online oyun yok`, UI.red, false),
+      );
+    }
 
     // Davet linki (?oda=ABCD) ya da yarım kalan online oda → lobiye git
     const invite = normalizeCode(new URLSearchParams(location.search).get('oda') ?? '');
@@ -281,7 +289,17 @@ ${left}/5 bugün` : '🎬 Yarın').setEnabled(left > 0);
         color: 0x7a4bb8,
         tiles: ['tile-back', 'tile-joker', 'tile-back'],
         locked: connection.available ? undefined : 'SUNUCU YOK',
-        onTap: () => this.scene.start('lobby', {}),
+        onTap: () => {
+          const left = onlineLockLeft();
+          if (left > 0) {
+            const m = Math.floor(left / 60_000);
+            const s = Math.ceil((left % 60_000) / 1000);
+            showBubble(this, 950, 222, `Maçtan çıkış cezası: ${m > 0 ? `${m} dk ` : ''}${s} sn sonra online oynayabilirsin`, UI.red, false);
+            sfx.error();
+            return;
+          }
+          this.scene.start('lobby', {});
+        },
       },
     ];
     specs.forEach((sp, i) => this.modeCard(sp, i));
@@ -383,7 +401,7 @@ ${left}/5 bugün` : '🎬 Yarın').setEnabled(left > 0);
         '•  Seri: aynı renk, ardışık (mavi 4-5-6). Başa sarma yok: 12-13-1 olmaz.',
         '•  Herkese 14 taş; başlayana 15. Başlayanın fazlalık taşı herkese gösterilir.',
         '•  Sıran gelince ortadaki desteden ya da soldakinin attığı taştan çek, oyna, bir taş at.',
-        '•  İstek: sıradaki oyuncu yan taşı almazsa diğerleri ortadan 1 taşla birlikte isteyebilir.',
+        '•  İstek: sıradaki yan taşı almazsa diğerleri ortadaki üst taşla birlikte isteyebilir; sıradaki sonra ortadan çeker.',
       ].join('\n'),
       CONTRACTS.map((k, i) => `${String(i + 1).padStart(2, '\u2007')}.  ${k.name} — ${k.description}`).join('\n'),
       [

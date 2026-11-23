@@ -12,6 +12,8 @@ import {
   OKEY_SWAP_PENALTY,
   addPosition,
   jokerSwapIndex,
+  withTile,
+  Meld,
   asCift,
   asKut,
   asSeri,
@@ -48,8 +50,22 @@ import { panel, txt } from '../ui/text';
 import { SeatView, showBubble } from '../view/SeatView';
 import { Origin, Point, Target, TileKind, TileLayer } from '../view/TileLayer';
 import type { TableData } from './MenuScene';
-import { TutorialRunner } from '../tutorial';
-import { Badge, Gain, KP, PLACE_KP, PLACE_XP, ROUND_WIN_KP, ROUND_WIN_OKEY_KP, award, grant, profile, saveProfile } from '../profile';
+import { SpotCtx, TutorialRunner } from '../tutorial';
+import {
+  Badge,
+  Gain,
+  KP,
+  PLACE_KP,
+  PLACE_XP,
+  ROUND_WIN_KP,
+  ROUND_WIN_OKEY_KP,
+  award,
+  grant,
+  leavePenalty,
+  profile,
+  recordLeave,
+  saveProfile,
+} from '../profile';
 import { fmt, showBadge, showGain } from '../ui/rewards';
 import { playRewardedVideo } from '../ui/videoAd';
 
@@ -59,7 +75,7 @@ type Rect = Phaser.Geom.Rectangle;
 const SLOT_COUNT = RACK.cols * RACK.rows;
 const CLAIM_SECONDS = 8;
 const ZONE_SCALES = [0.4, 0.36, 0.32, 0.28, 0.25, 0.22, 0.19, 0.16, 0.14];
-type OverlayKind = 'none' | 'claim' | 'round' | 'scores' | 'final';
+type OverlayKind = 'none' | 'claim' | 'round' | 'scores' | 'final' | 'menu';
 
 export class TableScene extends Phaser.Scene {
   private ctrl!: GameController;
@@ -90,13 +106,15 @@ export class TableScene extends Phaser.Scene {
   private errorUntil = 0;
   private meChipBg!: Phaser.GameObjects.Graphics;
   private meChipT!: Phaser.GameObjects.Text;
-  private buttons!: Record<'group' | 'lay' | 'cancel' | 'discard' | 'hint' | 'sort' | 'sound' | 'scores' | 'menu', Button>;
+  private buttons!: Record<'group' | 'lay' | 'cancel' | 'discard' | 'hint' | 'sort' | 'scores' | 'menu', Button>;
 
   private meldHits: { id: number; rect: Rect }[] = [];
   private stagedHits: { gi: number; rect: Rect }[] = [];
   private actor = -1;
   private dealing = false;
   private dragging = false;
+  /** Birlikte sürüklenen seçili taşlar (ıstaka sırasıyla) ve elle tutulanın sırası. */
+  private groupDrag: { ids: number[]; lead: number } | null = null;
   private wasMyTurn = false;
   private islekConfirm = -1;
   /**
@@ -136,6 +154,7 @@ export class TableScene extends Phaser.Scene {
     this.actor = -1;
     this.dealing = false;
     this.dragging = false;
+    this.groupDrag = null;
     this.wasMyTurn = false;
     this.spinning = false;
     this.finalGain = null;
@@ -179,13 +198,15 @@ export class TableScene extends Phaser.Scene {
         preview: this.mode.preview,
       });
     if (this.mode.tutorial) {
-      this.tutorial = new TutorialRunner(this, () => this.s, (a) => {
+      const stage = this.mode.tutorial === 'okey' ? 'okey' : 'basic';
+      this.tutorial = new TutorialRunner(this, () => this.s, this.spotCtx(), stage, (a) => {
         try {
           localStorage.setItem('kut-tutorial-done', '1');
         } catch {
           /* depolama yok */
         }
         if (a === 'play') this.scene.start('table', { mode: 'solo' });
+        else if (a === 'example' || a === 'again') this.scene.start('table', { mode: 'solo', tutorial: 'okey' } satisfies TableData);
         else this.scene.start('menu');
       });
     }
@@ -221,18 +242,39 @@ export class TableScene extends Phaser.Scene {
     });
     this.input.on('dragstart', (_p: Phaser.Input.Pointer, obj: Phaser.GameObjects.Image) => {
       this.dragging = true;
-      obj.setData('dragged', true).setData('dragging', true);
-      this.tweens.killTweensOf(obj);
-      obj.setDepth(5000);
-      this.tweens.add({ targets: obj, scale: RACK.scale * 1.12, duration: 90 });
+      const id = obj.getData('id') as number;
+      // seçili birden çok taştan biri sürüklenirse hepsi birlikte gider (ıstakadaki sırasıyla)
+      this.groupDrag = null;
+      if (this.selected.has(id) && this.selected.size >= 2) {
+        const order = this.slots.filter((x): x is number => x !== null && this.selected.has(x));
+        this.groupDrag = { ids: order, lead: order.indexOf(id) };
+      }
+      for (const gid of this.groupDrag?.ids ?? [id]) {
+        const img = this.tiles.get(gid);
+        if (!img) continue;
+        img.setData('dragged', true).setData('dragging', true);
+        this.tweens.killTweensOf(img);
+        img.setDepth(5000 + (gid === id ? 50 : 0));
+        this.tweens.add({ targets: img, scale: RACK.scale * 1.12, duration: 90 });
+      }
     });
     this.input.on('drag', (_p: Phaser.Input.Pointer, obj: Phaser.GameObjects.Image, x: number, y: number) => {
       obj.setPosition(x, y);
+      const gd = this.groupDrag;
+      if (!gd) return;
+      const step = RACK.slotW * 0.98;
+      gd.ids.forEach((gid, i) => {
+        if (i === gd.lead) return;
+        this.tiles.get(gid)?.setPosition(x + (i - gd.lead) * step, y);
+      });
     });
     this.input.on('dragend', (p: Phaser.Input.Pointer, obj: Phaser.GameObjects.Image) => {
       this.dragging = false;
-      obj.setData('dragging', false);
-      this.onDrop(obj.getData('id') as number, p.worldX, p.worldY);
+      const gd = this.groupDrag;
+      this.groupDrag = null;
+      for (const gid of gd?.ids ?? [obj.getData('id') as number]) this.tiles.get(gid)?.setData('dragging', false);
+      if (gd) this.onGroupDrop(gd.ids, gd.lead, p.worldX, p.worldY);
+      else this.onDrop(obj.getData('id') as number, p.worldX, p.worldY);
     });
 
     this.dealing = true;
@@ -244,6 +286,34 @@ export class TableScene extends Phaser.Scene {
     sfx.shuffle();
     this.ctrl.hold(this.bannerMs + 100);
     this.ctrl.start();
+  }
+
+  /** Öğreticinin ışık tutacağı yerler (canlı konumlar; her karede okunur). */
+  private spotCtx(): SpotCtx {
+    const rect = (r: { x: number; y: number; width: number; height: number }) => ({ x: r.x, y: r.y, w: r.width, h: r.height });
+    return {
+      tilePos: (id) => {
+        const img = this.tiles?.get(id);
+        return img && img.active ? { x: img.x, y: img.y } : null;
+      },
+      button: (name) => {
+        const b = this.buttons[name];
+        return { x: b.x - b.width / 2, y: b.y - b.height / 2, w: b.width, h: b.height };
+      },
+      meld: (id) => {
+        const h = this.meldHits.find((m) => m.id === id);
+        return h ? rect(h.rect) : null;
+      },
+      myZone: () => {
+        const z = MELD_ZONES[0];
+        return { x: z.x0, y: z.y0, w: z.x1 - z.x0, h: z.y1 - z.y0 };
+      },
+      deck: () => DECK,
+      discardSpot: () => DISCARD_POS[0],
+      rulePanel: () => ({ x: 10, y: 8, w: 404, h: 72 }),
+      selected: () => this.selected,
+      stagedCount: () => this.staged.length,
+    };
   }
 
   private buildStaticTable() {
@@ -314,9 +384,8 @@ export class TableScene extends Phaser.Scene {
       discard: new Button(this, c1, r1, w, h, 'Taş At', () => this.discardSelected(), UI.red),
       hint: new Button(this, c0, r2, w, h, 'Öner', () => this.suggest(), UI.amber),
       sort: new Button(this, c1, r2, w, h, 'Küt Diz', () => this.toggleSort(), UI.amber),
-      sound: new Button(this, 1066, 34, 64, 38, sfx.muted ? 'Ses ✗' : 'Ses', () => this.toggleSound(), UI.slate, 14),
       scores: new Button(this, 1138, 34, 68, 38, 'Puan', () => this.showScores(), UI.slate, 14),
-      menu: new Button(this, 1212, 34, 68, 38, 'Menü', () => this.exitToMenu(), UI.slate, 14),
+      menu: new Button(this, 1212, 34, 68, 38, 'Menü', () => this.showGameMenu(), UI.slate, 14),
     };
     Object.values(this.buttons).forEach((b) => b.setDepth(80));
   }
@@ -348,6 +417,9 @@ export class TableScene extends Phaser.Scene {
         case 'takeDiscard':
           sfx.draw();
           if (e.seat !== 0) this.bubble(e.seat, 'Yan taşı aldı', UI.panelHi, false);
+          break;
+        case 'pass':
+          if (e.seat !== 0) this.bubble(e.seat, 'Yan taşı almadı', UI.panelHi, false);
           break;
         case 'claim':
           this.bubble(e.seat, 'İSTEDİ! +1', UI.gold);
@@ -589,10 +661,12 @@ export class TableScene extends Phaser.Scene {
       this.humanAct({ type: 'finishDoubleOkey' });
       return;
     }
-    const sel = this.selectedSingle();
-    if (!sel || !this.myAction) return;
+    if (!this.myAction || this.selected.size === 0) return;
     const hit = this.meldHits.find((h) => h.rect.contains(x, y));
-    if (hit) this.meldAction(sel.id, hit.id);
+    if (!hit) return;
+    const sel = this.selectedSingle();
+    if (sel) this.meldAction(sel.id, hit.id);
+    else this.addGroupToMeld(this.slots.filter((x): x is number => x !== null && this.selected.has(x)), hit.id);
   }
 
   /** Masanın ortası (deste çevresi) ya da atma yeri. */
@@ -623,7 +697,8 @@ export class TableScene extends Phaser.Scene {
       if (this.myAction) this.tryDiscard(id);
       else this.showError('Taş atmak için sıranı bekle.');
     } else {
-      const hit = this.meldHits.find((h) => h.rect.contains(x, y));
+      let hit = this.meldHits.find((h) => h.rect.contains(x, y));
+      if (hit && dropped && this.inZone(MELD_ZONES[0], x, y) && !this.groupAddOrder([dropped], hit.id).order.length) hit = undefined;
       if (hit && this.myAction) this.meldAction(id, hit.id);
       else if (this.inZone(MELD_ZONES[0], x, y) && this.myAction) {
         // kendi alanına bırakılan taş → hazırlanan pere eklenir
@@ -633,6 +708,123 @@ export class TableScene extends Phaser.Scene {
         this.selected.delete(id);
       }
     }
+    this.sync();
+  }
+
+  /** Seçili birden çok taş birlikte bırakıldı: ıstakada blok halinde taşınır, kendi alanında per olur, pere işlenir. */
+  private onGroupDrop(ids: number[], lead: number, x: number, y: number) {
+    const slot = this.slotAt(x, y);
+    let hit = this.meldHits.find((h) => h.rect.contains(x, y));
+    const tiles = ids.map((id) => this.tileById(id)).filter((t): t is Tile => !!t);
+    // kendi alanında bir perin üstüne denk geldi ama o pere uymuyorsa: yeni per olarak hazırla
+    if (hit && this.inZone(MELD_ZONES[0], x, y) && !this.groupAddOrder(tiles, hit.id).order.length) hit = undefined;
+    if (slot !== null) {
+      this.placeBlock(ids, slot - lead);
+      sfx.tok();
+    } else if (this.doubleOkeyReady() && ids.length === 2 && tiles.every((t) => t.joker) && !hit && this.isOnTable(x, y)) {
+      if (this.myAction) this.humanAct({ type: 'finishDoubleOkey' });
+      else this.showError('Sıranı bekle.');
+    } else if (hit) {
+      if (this.myAction) this.addGroupToMeld(ids, hit.id);
+      else this.showError('İşlemek için sıranı bekle.');
+    } else if (this.inZone(MELD_ZONES[0], x, y)) {
+      if (this.myAction) {
+        this.staged.push(ids);
+        this.selected.clear();
+        sfx.tok();
+      } else this.showError('Per dizmek için sıranı bekle.');
+    } else if (Phaser.Math.Distance.Between(x, y, DISCARD_POS[0].x, DISCARD_POS[0].y) < 70) {
+      this.showError('Bir seferde tek taş atılır.');
+    }
+    this.sync();
+  }
+
+  private isOnTable(x: number, y: number) {
+    return x >= TABLE.x && x <= TABLE.x + TABLE.w && y >= TABLE.y && y <= TABLE.y + TABLE.h + 20;
+  }
+
+  /** Taşları ıstakada start'tan itibaren yan yana koyar; yer açmak için diğerlerini kaydırır. */
+  private placeBlock(ids: number[], start: number) {
+    const set = new Set(ids);
+    this.slots = this.slots.map((x) => (x !== null && set.has(x) ? null : x));
+    const row = Math.floor(Phaser.Math.Clamp(start, 0, SLOT_COUNT - 1) / RACK.cols);
+    const rowStart = row * RACK.cols;
+    const rowEnd = rowStart + RACK.cols - 1;
+    let s = Phaser.Math.Clamp(start, rowStart, Math.max(rowStart, rowEnd - ids.length + 1));
+    for (const id of ids) {
+      const target = Math.min(s++, SLOT_COUNT - 1);
+      if (this.slots[target] === null) {
+        this.slots[target] = id;
+        continue;
+      }
+      // sağa doğru ilk boşluğa kadar kaydır (aynı satırda), yoksa herhangi bir boşluğa koy
+      const tr = Math.floor(target / RACK.cols);
+      const end = tr * RACK.cols + RACK.cols - 1;
+      let e = -1;
+      for (let i = target + 1; i <= end; i++)
+        if (this.slots[i] === null) {
+          e = i;
+          break;
+        }
+      if (e >= 0) {
+        for (let i = e; i > target; i--) this.slots[i] = this.slots[i - 1];
+        this.slots[target] = id;
+      } else {
+        const free = this.slots.indexOf(null);
+        if (free >= 0) this.slots[free] = id;
+      }
+    }
+  }
+
+  /** Taşların bir pere hangi sırayla işlenebileceği (uca eklenebilene göre) ve artakalanlar. */
+  private groupAddOrder(tiles: Tile[], meldId: number): { order: Tile[]; rest: Tile[] } {
+    const found = this.s.melds.find((x) => x.id === meldId);
+    if (!found) return { order: [], rest: tiles };
+    let m: Meld = found;
+    let rest = [...tiles];
+    const order: Tile[] = [];
+    let progress = true;
+    while (rest.length && progress) {
+      progress = false;
+      for (const t of rest) {
+        const next: Meld | null = withTile(m, t);
+        if (next) {
+          m = next;
+          order.push(t);
+          rest = rest.filter((x) => x !== t);
+          progress = true;
+          break;
+        }
+      }
+    }
+    // tek taş okeyin yerine de geçebilir
+    if (!order.length && tiles.length === 1 && jokerSwapIndex(found, tiles[0]) !== null) return { order: tiles, rest: [] };
+    return { order, rest };
+  }
+
+  /** Birden çok taşı aynı pere işler; uygun sırayı önceden hesaplar. */
+  private addGroupToMeld(ids: number[], meldId: number) {
+    if (!this.ctrl.game.canAddToMelds(0)) {
+      this.showError(this.me.opened ? 'Kuralı bu sırada açtın — işleme sonraki sırada.' : 'İşlemek için önce kuralı açmalısın.');
+      return;
+    }
+    const { order, rest } = this.groupAddOrder(ids.map((id) => this.tileById(id)).filter((t): t is Tile => !!t), meldId);
+    if (ids.length === 1 || !order.length) {
+      // tek taşsa okey alma da olabilir
+      if (ids.length === 1) return this.meldAction(ids[0], meldId);
+      this.showError('Bu taşlar bu pere işlenemez.');
+      return;
+    }
+    for (const t of order) {
+      const err = this.ctrl.act({ type: 'addToMeld', tileId: t.id, meldId });
+      if (err) {
+        this.showError(err);
+        break;
+      }
+      this.selected.delete(t.id);
+    }
+    if (rest.length) this.showError(`${rest.length} taş bu pere uymadı, elinde kaldı.`);
+    else this.errorUntil = 0;
     this.sync();
   }
 
@@ -712,7 +904,6 @@ export class TableScene extends Phaser.Scene {
   private toggleSound() {
     sfx.setMuted(!sfx.muted);
     sfx.unlock();
-    this.buttons.sound.setLabel(sfx.muted ? 'Ses ✗' : 'Ses');
   }
 
   /** İpucu: açılabilecek / dizilebilecek perleri hazırlık alanına koyar. */
@@ -1049,7 +1240,14 @@ export class TableScene extends Phaser.Scene {
       else t = 'Per diz · taş seçip pere dokunarak işle · taş at';
       this.setStatus(t + this.turnClock(), 'turn');
     } else if (s.phase === 'claim') {
-      this.setStatus(s.claim!.queue[0] === 0 ? 'Yan taşı istiyor musun?' : 'Yan taş isteniyor mu…', 'info');
+      this.setStatus(
+        s.claim!.queue[0] === 0
+          ? 'Yan taşı istiyor musun?'
+          : s.current === 0
+            ? 'Yan taşı almadın · diğerlerine soruluyor, sonra ortadan çekeceksin…'
+            : 'Yan taş isteniyor mu…',
+        'info',
+      );
     } else if (s.phase === 'draw' || s.phase === 'action') {
       this.setStatus(`${s.players[s.current].name} oynuyor…`, 'info');
     } else {
@@ -1693,6 +1891,67 @@ export class TableScene extends Phaser.Scene {
     if (!this.ctrl.online || !this.turnStartedAt) return '';
     const left = 45 - Math.floor((Date.now() - this.turnStartedAt) / 1000);
     return left <= 15 ? ` · ⏱ ${Math.max(0, left)} sn` : '';
+  }
+
+  /** Oyun içi küçük menü: ses, devam, maçtan çık (onaylı). */
+  private showGameMenu() {
+    if (this.overlayKind === 'round' || this.overlayKind === 'final' || this.overlayKind === 'claim') return;
+    if (this.overlayKind === 'menu') {
+      this.closeOverlay();
+      return;
+    }
+    const cx = GAME_W / 2;
+    const cy = GAME_H / 2;
+    const c = this.openOverlay('menu', 400, 330, true);
+    c.add(txt(this, cx, cy - 140, 'Menü', 28, UI.goldHex, 900).setOrigin(0.5, 0));
+    const sound = new Button(this, cx, cy - 58, 300, 56, '', () => {
+      this.toggleSound();
+      label();
+    }, UI.slate, 19);
+    const label = () => sound.setLabel(sfx.muted ? '🔇  Ses: Kapalı' : '🔊  Ses: Açık');
+    label();
+    c.add(sound);
+    c.add(new Button(this, cx, cy + 10, 300, 56, 'Oyuna Dön', () => this.closeOverlay(), UI.green, 19));
+    c.add(new Button(this, cx, cy + 78, 300, 56, 'Maçtan Çık', () => this.confirmExit(), UI.red, 19));
+    c.setScale(0.94).setPosition(cx * 0.06, cy * 0.06);
+    this.tweens.add({ targets: c, scale: 1, x: 0, y: 0, duration: 200, ease: 'Back.easeOut' });
+  }
+
+  /** Online maç sürerken çıkan ceza alır; botlu oyunda, öğreticide ve oyun bitmişse ceza yok. */
+  private get leaveIsPenalized() {
+    return this.ctrl.online && this.s.phase !== 'gameOver';
+  }
+
+  private confirmExit() {
+    const cx = GAME_W / 2;
+    const cy = GAME_H / 2;
+    const c = this.openOverlay('menu', 520, 330, true);
+    c.add(txt(this, cx, cy - 140, 'Maçtan çıkmak istediğine emin misin?', 22, '#fff', 900).setOrigin(0.5, 0));
+    let info: string;
+    if (this.leaveIsPenalized) {
+      const pen = leavePenalty();
+      info = [
+        'Masadan çıkarsan yerine bot oynar ve ceza alırsın:',
+        `• ${pen.kp} ${KP} kesilir`,
+        `• ${pen.min} dakika online oyuna giremezsin`,
+        'Art arda çıkışlarda ceza büyür (1 → 5 → 10 dk).',
+      ].join('\n');
+    } else if (this.tutorial) {
+      info = 'Öğreticiyi istediğin zaman ana menüden yeniden açabilirsin.';
+    } else {
+      info = 'Bu oyundaki ilerlemen kaybolur.\n(Botlu oyunda ceza yok.)';
+    }
+    c.add(txt(this, cx, cy - 92, info, 16, UI.cream, 700, { align: 'center', lineSpacing: 6 }).setOrigin(0.5, 0));
+    c.add(new Button(this, cx - 120, cy + 110, 210, 56, 'Evet, Çık', () => this.leaveMatch(), UI.red, 19));
+    c.add(new Button(this, cx + 120, cy + 110, 210, 56, 'Vazgeç', () => this.closeOverlay(), UI.slate, 19));
+  }
+
+  private leaveMatch() {
+    if (this.leaveIsPenalized) {
+      const pen = recordLeave();
+      this.registry.set('leavePenalty', pen);
+    }
+    this.exitToMenu();
   }
 
   /** Menüye dön: online'da odadan çıkılır (koltuğu bot devralır). */
