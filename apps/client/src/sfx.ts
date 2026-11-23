@@ -1,11 +1,9 @@
 /**
  * Dosyasız, WebAudio ile üretilen ses efektleri + titreşim.
  *
- * Ses dili "kahvehane": kemik/bakalit taşın ahşap masaya konması, marimba ve tahta
- * vurmalılar, sıcak bakır üflemeliler ve timpani. Doğal duyulsun diye:
+ * Ses dili "kahvehane": sadece fiziksel sesler — kemik/bakalit taşın ahşap masaya konması,
+ * masaya vuruş, sıçrayan taşlar, tok damga. Müzikal nota yok. Doğal duyulsun diye:
  *  - taş sesleri saf ton değil, filtrelenmiş kısa bir darbe + gövde rezonansı (fiziksel model),
- *  - notalar marimba gibi kısmi seslerden (1 : 3,93 : 9,2) oluşur, tokmak vuruşu da duyulur,
- *  - üflemeliler hafif akortsuz iki testere dalgasının açılan filtreden geçmesiyle çalar,
  *  - hepsi kısa, karanlık bir oda yankısından geçer (kuru/steril değil).
  * Sürekli çalan hiçbir şey yoktur: ses bitince grafik sessizdir (arka plan hışırtısı yok).
  */
@@ -157,56 +155,6 @@ class Sfx {
     this.partial(170 * j, when, 0.09, 0.16 * gain, 0.1, 0.002);
   }
 
-  /** Marimba: tokmak vuruşu + temel ses + 3,93× ve 9,2× kısmi sesler. */
-  private marimba(freq: number, gain = 0.1, when = 0, dur = 0.7) {
-    this.burst(when, 0.012, gain * 0.5, 'bandpass', Math.min(5000, freq * 4), 2, 0.1);
-    this.partial(freq, when, dur, gain, 0.35, 0.002);
-    this.partial(freq * 3.93, when, dur * 0.28, gain * 0.32, 0.3, 0.001);
-    this.partial(freq * 9.2, when, dur * 0.1, gain * 0.12, 0.2, 0.001);
-  }
-
-  /** Bakır üflemeli: iki hafif akortsuz testere dalgası, açılan filtre, hafif vibrato. */
-  private brass(freq: number, when: number, dur: number, gain = 0.05) {
-    const c = this.ready();
-    if (!c) return;
-    const t = c.currentTime + when;
-    const f = c.createBiquadFilter();
-    f.type = 'lowpass';
-    f.Q.value = 0.8;
-    f.frequency.setValueAtTime(freq * 1.2, t);
-    f.frequency.exponentialRampToValueAtTime(Math.min(4500, freq * 5), t + 0.07);
-    f.frequency.exponentialRampToValueAtTime(Math.min(3000, freq * 3), t + 0.3);
-    const g = c.createGain();
-    g.gain.setValueAtTime(0.0001, t);
-    g.gain.exponentialRampToValueAtTime(gain, t + 0.04);
-    g.gain.setValueAtTime(gain * 0.85, t + Math.max(0.06, dur - 0.18));
-    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    f.connect(g);
-    this.route(g, 0.45);
-    const vib = c.createOscillator();
-    vib.frequency.value = 5.2;
-    const vibAmt = c.createGain();
-    vibAmt.gain.setValueAtTime(0, t);
-    vibAmt.gain.linearRampToValueAtTime(freq * 0.004, t + Math.min(0.5, dur));
-    vib.connect(vibAmt);
-    for (const cents of [-6, 6]) {
-      const o = c.createOscillator();
-      o.type = 'sawtooth';
-      o.frequency.value = freq;
-      o.detune.value = cents;
-      vibAmt.connect(o.frequency);
-      o.connect(f);
-      o.start(t);
-      o.stop(t + dur + 0.05);
-    }
-    vib.start(t);
-    vib.stop(t + dur + 0.05);
-  }
-
-  private brassChord(freqs: number[], when: number, dur: number, gain = 0.035) {
-    freqs.forEach((fr) => this.brass(fr, when, dur, gain));
-  }
-
   /** Timpani: derin, hafif aşağı kayan gövde + deri vuruşu. */
   private timpani(freq: number, when = 0, gain = 0.3) {
     const c = this.ready();
@@ -228,18 +176,38 @@ class Sfx {
     this.burst(when, 0.06, gain * 0.35, 'lowpass', 900, 0.7, 0.3);
   }
 
-  /** Küçük metal çan / jeton: uyumsuz kısmi seslerle (2,76×, 5,4×) parlak tını. */
-  private bell(freq: number, when = 0, gain = 0.04, dur = 0.5) {
-    this.partial(freq, when, dur, gain, 0.4, 0.001);
-    this.partial(freq * 2.76, when, dur * 0.5, gain * 0.45, 0.4, 0.001);
-    this.partial(freq * 5.4, when, dur * 0.25, gain * 0.2, 0.3, 0.001);
+  /**
+   * Yumuşak koyma: taş keçeye/ıstakaya usulca konur. Kulağı yoran tiz temas tıkı yok;
+   * sadece boğuk orta frekans ve kısa gövde sesi. Her hamlede çalar, bu yüzden kısık.
+   */
+  private tap(gain = 1, when = 0, pitch = 1) {
+    const j = pitch * (1 + (Math.random() - 0.5) * 0.1);
+    this.burst(when, 0.025, 0.09 * gain, 'bandpass', 1300 * j, 0.8, 0.08);
+    this.partial(480 * j, when, 0.05, 0.035 * gain, 0.08, 0.002);
+    this.partial(150 * j, when, 0.07, 0.07 * gain, 0.05, 0.003);
+  }
+
+  /** Masaya tok bir vuruş: gövde gümbürtüsü + ahşap titreşimi + kısa boğuk darbe. */
+  private thump(gain = 1, when = 0, low = 92) {
+    this.partial(low, when, 0.32, 0.32 * gain, 0.25, 0.002);
+    this.partial(low * 2.23, when, 0.18, 0.12 * gain, 0.25, 0.002);
+    this.burst(when, 0.09, 0.3 * gain, 'lowpass', 650, 0.7, 0.25);
+  }
+
+  /** Masadaki birkaç taşın sıçrayıp yerine oturması. */
+  private rattle(n: number, when: number, gain = 0.12, spread = 0.05) {
+    for (let i = 0; i < n; i++) {
+      const g = gain * (1 - (i / n) * 0.6);
+      this.clack(g, when + i * spread + Math.random() * 0.02, 1.05 + Math.random() * 0.35);
+    }
   }
 
   // ------------------------------------------------------------ oyun sesleri
+  // Hepsi fiziksel: taş, masa, ahşap. Müzikal nota (marimba, fanfar, çan) yok.
 
-  /** Taşın masaya konması. */
+  /** Taşın masaya konması (her hamle): yumuşak ve kısık. Sert vuruş sadece bitişte. */
   tok() {
-    this.clack(1);
+    this.tap(2.5);
   }
   /** Taş seçme / buton: çok hafif, kuru tık. */
   select() {
@@ -249,104 +217,87 @@ class Sfx {
   /** Desteden çekme: taş keçeden kayar ve elde durur. */
   draw() {
     this.burst(0, 0.14, 0.035, 'bandpass', 1500, 0.9, 0.1);
-    this.clack(0.28, 0.13, 1.08);
+    this.tap(0.9, 0.13, 1.05);
   }
   /** Taşların karılması / dağıtılması: birbirine çarpan taşlar. */
   shuffle() {
-    for (let i = 0; i < 9; i++) this.clack(0.12 + Math.random() * 0.12, i * 0.055 + Math.random() * 0.03, 0.85 + Math.random() * 0.35);
+    for (let i = 0; i < 9; i++) this.tap(0.5 + Math.random() * 0.4, i * 0.055 + Math.random() * 0.03, 0.85 + Math.random() * 0.35);
   }
-  /** Yan taş isteği. */
+  /** Yan taş isteği / küçük bildirim: iki hafif taş tıkı. */
   pop() {
-    this.marimba(784, 0.09);
-    this.marimba(1047, 0.08, 0.09);
+    this.tap(1.2, 0, 1.1);
+    this.tap(1, 0.09, 1.25);
   }
-  /** Okeyi alma. */
+  /** Okeyi alma: taş yerine oturur, okey çekilip alınır. */
   swap() {
-    this.clack(0.45);
-    this.marimba(659, 0.08, 0.06);
-    this.marimba(988, 0.08, 0.14);
-    this.marimba(1319, 0.07, 0.22, 0.9);
+    this.tap(1.4, 0, 0.95);
+    this.burst(0.07, 0.1, 0.03, 'bandpass', 1700, 0.9, 0.1);
+    this.tap(1.1, 0.17, 1.1);
   }
-  /** Kural açma. */
+  /** Kural açma / ödül: perin taşları art arda masaya dizilir. */
   chime() {
-    this.marimba(523, 0.09);
-    this.marimba(659, 0.09, 0.09);
-    this.marimba(784, 0.1, 0.18, 0.9);
+    [0, 0.07, 0.14, 0.21].forEach((t, i) => this.tap(1.1 + i * 0.1, t, 0.95 + i * 0.04));
   }
-  /** Sıra sende. */
+  /** Sıra sende: masaya iki hafif parmak vuruşu ("tık tık"). */
   turn() {
-    this.marimba(880, 0.06, 0, 0.5);
-    this.marimba(1175, 0.055, 0.11, 0.6);
+    this.thump(0.25, 0, 140);
+    this.tap(0.9, 0, 0.8);
+    this.thump(0.22, 0.13, 140);
+    this.tap(0.8, 0.13, 0.8);
   }
-  /** Uyarı: yumuşak, alçak iki tahta nota. */
+  /** Uyarı: boğuk, alçak tek vuruş. */
   error() {
-    this.marimba(330, 0.09, 0, 0.4);
-    this.marimba(262, 0.09, 0.12, 0.5);
+    this.thump(0.4, 0, 78);
+    this.clack(0.25, 0, 0.6);
   }
-  /** Eli kazanma (okeysiz). */
+  /** Kazanma (oyun sonu / öğretici / mağaza): taş vuruşu + dökülen çipler. */
   win() {
-    [523, 659, 784, 1047].forEach((f, i) => this.marimba(f, 0.09, i * 0.1, 0.8));
-    this.marimba(1319, 0.06, 0.4, 1.1);
+    this.finish(true);
+    this.coins(0.25, 8);
   }
+  lose() {
+    this.thump(0.8, 0, 85);
+  }
+
   /**
    * Normal bitiş (okeysiz): son taş masanın ortasına vurulur — müzik yok.
-   * Ağır taş darbesi + masanın gümbürtüsü + ahşabın titreşimi + sıçrayan birkaç taş.
    * mine=false (başkası bitirdi) biraz daha hafif.
    */
   finish(mine = true) {
     const k = mine ? 1 : 0.7;
     this.clack(0.95 * k, 0, 0.72);
-    this.partial(92, 0, 0.32, 0.32 * k, 0.25, 0.002);
-    this.partial(205, 0, 0.18, 0.12 * k, 0.25, 0.002);
-    this.burst(0, 0.09, 0.3 * k, 'lowpass', 650, 0.7, 0.25);
-    // masadaki taşlar hafifçe sıçrayıp yerine oturur
-    [0.05, 0.09, 0.14, 0.2].forEach((t, i) => this.clack((0.12 - i * 0.02) * k, t + Math.random() * 0.02, 1.1 + Math.random() * 0.25));
+    this.thump(k, 0);
+    this.rattle(4, 0.05, 0.12 * k);
   }
 
-  lose() {
-    this.marimba(440, 0.08, 0, 0.6);
-    this.marimba(349, 0.08, 0.16, 0.8);
-  }
-
-  /** Okey ile bitiş (×2): timpani, kısa "ta-daa" bakır, marimba parıltısı. */
+  /** Okey ile bitiş (×2): okey taşı daha ağır vurulur, masa sarsılır, taşlar sıçrar. */
   fanfare() {
-    this.timpani(98, 0, 0.28);
-    this.brass(392, 0.05, 0.16, 0.045);
-    this.brassChord([523, 659, 784], 0.22, 1.3, 0.032);
-    [1047, 1319, 1568, 2093].forEach((f, i) => this.marimba(f, 0.045, 0.35 + i * 0.07, 0.8));
+    this.clack(1.1, 0, 0.66);
+    this.thump(1.25, 0, 82);
+    this.timpani(73, 0, 0.18);
+    this.rattle(6, 0.05, 0.14);
   }
 
-  /** Çift Eli'nde okey (×4): aynı fanfar, üstte bir oktav daha ve ikinci akor. */
+  /** Çift Eli'nde okey (×4): aynı vuruş, damga anında ikinci bir tok darbe gelir (doubleUp). */
   fanfareRoyal() {
-    this.timpani(98, 0, 0.3);
-    this.brass(392, 0.05, 0.16, 0.045);
-    this.brassChord([523, 659, 784], 0.22, 0.6, 0.032);
-    this.brassChord([698, 880, 1047], 0.82, 0.3, 0.028);
-    this.brassChord([523, 659, 784, 1047], 1.1, 1.3, 0.03);
-    [1047, 1319, 1568, 2093].forEach((f, i) => this.marimba(f, 0.045, 1.15 + i * 0.07, 0.8));
+    this.fanfare();
   }
 
   /**
-   * Çift okey (×4): iki taşın çarpışması (timpani + taş darbesi), ardından "ta-ta-TAAA"
-   * bakır fanfarı ve dökülen jetonlar. Çift Eli'nde üstte ölçülü bir oktav katmanı eklenir.
+   * Çift okey (×4): iki okeyin çarpışması (taş darbesi + timpani), ardından sadece
+   * masadaki taşların sıçrayıp oturması — müzik yok. Çift Eli'nde çarpışma biraz daha ağır.
    */
   doubleOkey(royal = false) {
     const hit = 0.5; // görseldeki çarpışma anı
     this.clack(0.6, hit - 0.01, 0.8);
-    this.timpani(73, hit, 0.34);
-    const G = [392, 494, 587];
-    const C = [523, 659, 784];
-    this.brassChord(G, hit + 0.42, 0.16, 0.03);
-    this.brassChord(G, hit + 0.6, 0.16, 0.03);
-    this.timpani(98, hit + 0.8, 0.22);
-    this.brassChord(C, hit + 0.8, 1.6, 0.033);
-    if (royal) this.brass(1047, hit + 0.8, 1.5, 0.022);
-    this.coins(hit + 1.0, royal ? 12 : 9);
+    this.timpani(73, hit, royal ? 0.4 : 0.34);
+    this.thump(royal ? 0.9 : 0.7, hit, 80);
+    this.rattle(7, hit + 0.06, 0.13, 0.045);
   }
 
-  /** Dökülen jetonlar: rastgele, kısa çan şıkırtıları. */
+  /** Dökülen çipler: birbirine çarpan küçük taş sesleri. */
   coins(when = 0, n = 10) {
-    for (let i = 0; i < n; i++) this.bell(2200 + Math.random() * 1200, when + i * 0.075 + Math.random() * 0.04, 0.04, 0.35);
+    for (let i = 0; i < n; i++) this.tap(0.6 + Math.random() * 0.4, when + i * 0.06 + Math.random() * 0.03, 1.3 + Math.random() * 0.4);
   }
 
   /** Çarpan damgası: tok "güm". */
@@ -355,11 +306,11 @@ class Sfx {
     this.clack(0.55, 0, 0.7);
   }
 
-  /** Çift Eli çarpanı ikiye katlanınca: yükselen beşli + çan. */
+  /** Çift Eli çarpanı ikiye katlanınca: ikinci, daha ağır damga. */
   doubleUp() {
-    this.brass(523, 0, 0.18, 0.04);
-    this.brass(784, 0.16, 0.7, 0.04);
-    this.bell(1568, 0.16, 0.05, 0.9);
+    this.timpani(65, 0, 0.3);
+    this.thump(0.8, 0, 70);
+    this.clack(0.6, 0, 0.62);
   }
 }
 

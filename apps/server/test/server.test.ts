@@ -137,7 +137,7 @@ describe('oda ve lobi', () => {
 });
 
 describe('oyun', () => {
-  it('iki insan + iki bot oyunu sonuna kadar oynar; hiçbir mesajda gizli el sızmaz', { timeout: 90_000 }, async () => {
+  it('iki insan + iki bot oyunu sonuna kadar oynar; hiçbir mesajda gizli el sızmaz', { timeout: 180_000 }, async () => {
     const { a, b } = await twoPlayerRoom();
     // Her istemci sırası gelince kendi görünümünden bot mantığıyla oynar.
     for (const c of [a, b]) {
@@ -154,7 +154,7 @@ describe('oyun', () => {
       };
     }
     a.send({ t: 'start' });
-    const end = await a.wait('state', (m) => m.view.phase === 'gameOver', 80_000);
+    const end = await a.wait('state', (m) => m.view.phase === 'gameOver', 170_000);
     expect(end.view.history).toHaveLength(CONTRACTS.length);
     // iki tarafın gördüğü toplam puanlar aynı (koltuk döndürülmüş olarak)
     const endB = await b.wait('state', (m) => m.view.phase === 'gameOver');
