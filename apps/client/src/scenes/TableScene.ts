@@ -310,6 +310,7 @@ export class TableScene extends Phaser.Scene {
       },
       deck: () => DECK,
       discardSpot: () => DISCARD_POS[0],
+      sideSpot: () => DISCARD_POS[3],
       rulePanel: () => ({ x: 10, y: 8, w: 404, h: 72 }),
       selected: () => this.selected,
       stagedCount: () => this.staged.length,

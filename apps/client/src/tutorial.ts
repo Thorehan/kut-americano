@@ -18,6 +18,9 @@ import { panel, txt } from './ui/text';
 export type TutorialStage = 'basic' | 'okey';
 
 const C: Record<string, Color> = { r: 'red', y: 'yellow', b: 'blue', k: 'black' };
+/** Öğretici kutusunun üst kenarı ve genişliği (kural panelinin altında, destenin üstünde). */
+const BOX_TOP = 84;
+const BOX_W = 900;
 
 /** Öğretici eli: taşlar gerçek taş setinden seçilir (id'ler benzersiz kalsın). */
 export function setupTutorialGame(game: Game, stage: TutorialStage = 'basic') {
@@ -66,13 +69,14 @@ export function setupTutorialGame(game: Game, stage: TutorialStage = 'basic') {
       { ...kut, id: 902, owner: 1 },
     ];
     const deckTop = take('k2'); // oyuncunun çekeceği taş
+    const side = take('k11'); // Bot 3'ün oyuncuya atacağı, işe yaramayan yan taş
     // Botlara işe yaramaz (işlek olmayan) taşlar ver
-    const safe = (t: Tile) => !t.joker && !(t.color === 'red' && t.value <= 5) && t.value !== 9;
+    const safe = (t: Tile) => !t.joker && !(t.color === 'red' && t.value <= 5) && t.value !== 9 && !(t.color === 'yellow' && (t.value === 3 || t.value === 7 || t.value === 11));
     const filler = pool.filter(safe);
     const rest = pool.filter((t) => !safe(t));
     bot1.hand = filler.splice(0, 8);
     s.players[2].hand = filler.splice(0, 14);
-    s.players[3].hand = filler.splice(0, 14);
+    s.players[3].hand = [...filler.splice(0, 13), side];
     s.deck = [...rest, ...filler, deckTop]; // pop() → en sondaki çekilir
     s.extraTile = me.hand[me.hand.length - 1];
     s.turnJokers = 0;
@@ -90,8 +94,10 @@ export function tutorialBotAction(game: Game, seat: number, lastGot: Map<number,
   if (s.phase === 'claim') return { type: 'claim', want: false };
   if (s.phase === 'draw') return s.pendingDiscard ? { type: 'takeDiscard' } : { type: 'drawDeck' };
   const hand = s.players[seat].hand;
+  // Bot 3 oyuncuya işe yaramayan siyah 11'i atar (öğretici "yan taşı alma" adımı için)
+  const scripted = seat === 3 ? hand.find((t) => !t.joker && t.color === 'black' && t.value === 11) : undefined;
   const id = lastGot.get(seat);
-  const tile = hand.find((t) => t.id === id) ?? hand[hand.length - 1];
+  const tile = scripted ?? hand.find((t) => t.id === id) ?? hand[hand.length - 1];
   return { type: 'discard', tileId: tile.id };
 }
 
@@ -112,6 +118,8 @@ export interface SpotCtx {
   myZone(): SpotRect;
   deck(): { x: number; y: number };
   discardSpot(): { x: number; y: number };
+  /** Sana atılan yan taşın yeri (sol alt). */
+  sideSpot(): { x: number; y: number };
   rulePanel(): SpotRect;
   selected(): Set<number>;
   stagedCount(): number;
@@ -122,6 +130,12 @@ interface Ellipse {
   y: number;
   rx: number;
   ry: number;
+  /** Işığın üstündeki kısa etiket ("Seç", "Buraya sürükle"…). */
+  label?: string;
+  /** 'no': yapılmayacak olanı gösterir (kırmızı halka). */
+  tone?: 'no';
+  /** Etiketin yeri (varsayılan: üstte, yer yoksa altta). */
+  labelPos?: 'right' | 'below';
 }
 
 /** Ekranı karartır, verilen alanları yumuşak kenarlı yuvarlak ışıkla açar. Dokunmayı engellemez. */
@@ -151,12 +165,40 @@ class Spotlight {
     const shown = spots.length ? spots : this.last;
     this.paint(this.level > 0 ? shown : []);
     this.rings.clear();
+    this.labels.forEach((l) => l.setVisible(false));
     if (this.level <= 0 || !spots.length) return;
     const pulse = 0.5 + 0.5 * Math.sin((this.scene.time.now / 1000) * 4);
+    let li = 0;
     for (const s of spots) {
-      this.rings.lineStyle(3, UI.gold, (0.45 + 0.45 * pulse) * this.level);
+      const color = s.tone === 'no' ? 0xe0574a : UI.gold;
+      this.rings.lineStyle(3, color, (0.45 + 0.45 * pulse) * this.level);
       this.rings.strokeEllipse(s.x, s.y, s.rx * 2 + 6 + pulse * 6, s.ry * 2 + 6 + pulse * 6);
+      if (!s.label) continue;
+      const l = this.label(li++);
+      l.setText(s.label)
+        .setBackgroundColor(s.tone === 'no' ? '#c0392b' : '#f2c14e')
+        .setColor(s.tone === 'no' ? '#ffffff' : '#2a1d02')
+        .setAlpha(this.level)
+        .setVisible(true);
+      // üstte yer yoksa altına yaz (ya da istenirse sağına)
+      const above = s.y - s.ry - 10 - pulse * 3;
+      if (s.labelPos === 'right') l.setOrigin(0, 0.5).setPosition(s.x + s.rx + 10 + pulse * 3, s.y);
+      else if (s.labelPos === 'below' || above - l.height < 6) l.setOrigin(0.5, 0).setPosition(s.x, s.y + s.ry + 10 + pulse * 3);
+      else l.setOrigin(0.5, 1).setPosition(s.x, above);
     }
+  }
+
+  private labels: Phaser.GameObjects.Text[] = [];
+
+  private label(i: number) {
+    while (this.labels.length <= i) {
+      this.labels.push(
+        txt(this.scene, 0, 0, '', 14, '#2a1d02', 900, { padding: { x: 9, y: 4 } })
+          .setDepth(1502)
+          .setVisible(false),
+      );
+    }
+    return this.labels[i];
   }
 
   private last: Ellipse[] = [];
@@ -199,6 +241,7 @@ class Spotlight {
   destroy() {
     this.img.destroy();
     this.rings.destroy();
+    this.labels.forEach((l) => l.destroy());
     this.scene.textures.remove('spot-dim');
   }
 }
@@ -217,7 +260,10 @@ type Target = 'lay' | 'meld' | 'discard' | 'center' | 'deck' | 'rule';
 
 interface Step {
   title: string;
+  /** Ne yapıyoruz. */
   text: string;
+  /** Neden yapıyoruz. */
+  why: string;
   /** Seçilecek ıstaka taşları (renk+sayı; J = okey). */
   tiles?: string[];
   melds?: number[];
@@ -228,6 +274,8 @@ interface Step {
   info?: boolean;
   /** Son adım: "okeyle bitiş örneği" seçeneği sunulur. */
   offerExample?: boolean;
+  /** Bilgi adımında gösterilen taşın etiketi. */
+  spotLabel?: string;
 }
 
 const find = (s: GameState, spec: string) =>
@@ -239,46 +287,53 @@ const over = (s: GameState) => s.phase === 'roundOver' || s.phase === 'gameOver'
 const BASIC: Step[] = [
   {
     title: 'Hoş geldin!',
-    text: "Küt'te her elin bir kuralı var (sol üstte). Bu elin kuralı 3'lü Küt: aynı sayıdan 3 farklı renk taş. Rakiplerden Bot 1 kuralını çoktan açmış.",
+    text: "Amaç: elindeki taşları perlere dizip eli ilk bitiren olmak. Her elin bir kuralı var (sol üstte); bu elin kuralı 3'lü Küt: aynı sayıdan 3 farklı renk taş.",
+    why: 'El bitince elinde kalan her taş sana ceza puanı yazar; en az puanla oyunu bitiren kazanır. O yüzden taşlarını bir an önce yere indirmek istersin.',
     info: true,
     target: 'rule',
     done: () => false,
   },
   {
     title: '1 · Kuralı aç',
-    text: "Işıklı üç 7'ye dokunarak seç. Sonra hepsini birlikte kendi alanına sürükle (ya da Per Ekle) → Kuralı Aç.",
+    text: "Işıklı üç 7'yi seç, birlikte kendi alanına sürükle (ya da Per Ekle) → Kuralı Aç.",
+    why: "Kural açılmadan hiçbir per yere inmez, işleme de yapamazsın. Kırmızı-mavi-siyah 7 aynı sayıda 3 farklı renk: tam 3'lü Küt, kuralı karşılıyor.",
     tiles: ['r7', 'b7', 'k7'],
     target: 'lay',
     done: (s) => s.players[0].opened,
   },
   {
     title: '2 · Taş at',
-    text: "Kural açıldı! Açtığın sırada fazlalıklar inmez. Siyah 1'i seç → Taş At (ya da atma yerine sürükle).",
+    text: "Her sıra bir taş atarak biter. Siyah 1'i seç → Taş At (ya da atma yerine sürükle).",
+    why: "Siyah 1 hiçbir perine uymuyor ve yerde işlenecek yeri de yok: elindeki en gereksiz taş o. Sarı 4-5-6 gibi işe yarayanları elde tut. (Açtığın sırada fazlalıklar inmez, sonraki sırayı bekle.)",
     tiles: ['k1'],
     target: 'discard',
     done: (s) => !myAction(s),
   },
   {
     title: 'Rakipler oynuyor…',
-    text: 'Sıra sırayla döner. Her oyuncu çeker, oynar ve bir taş atar.',
+    text: 'Sıra sırayla döner: her oyuncu çeker, oynar ve bir taş atar.',
+    why: 'Bir oyuncunun attığı taş, sıradaki oyuncunun "yan taşı" olur: isterse onu alır, istemezse ortadan çeker. Sana yan taşı Bot 3 atacak.',
     done: (s) => s.phase === 'draw' && s.current === 0,
   },
   {
-    title: '3 · Taş çek',
-    text: 'Sıra sende: masanın ortasındaki desteye dokun.',
+    title: '3 · Yan taşı alma, ortadan çek',
+    text: 'Bot 3 siyah 11 attı (sol altta, senin yan taşın). Almıyoruz: ortadaki desteye dokun.',
+    why: 'Siyah 11 hiçbir perine uymuyor; işine yaramayan taşı alırsan elin kalabalıklaşır. Ortaya dokununca önce diğerlerine "yan taşı istiyor musun?" diye sorulur (isteyen, ortadaki üst taşla birlikte alır), sonra sen ortadan çekersin.',
     target: 'deck',
     done: (s) => myAction(s),
   },
   {
     title: '4 · Per diz',
-    text: 'Sarı 4-5-6 bir seri. Üçünü seç, birlikte kendi alanına sürükle (ya da Per Ekle) → Yere Koy.',
+    text: 'Kimse yan taşı istemedi, ortadan siyah 2 geldi. Şimdi sarı 4-5-6\'yı seç, birlikte kendi alanına sürükle → Yere Koy.',
+    why: 'Kuralı açtığın için artık başka perleri de yere dizebilirsin. Aynı renk ardışık 3 taş bir seri; yere inen taş el bitince sana ceza yazmaz.',
     tiles: ['y4', 'y5', 'y6'],
     target: 'lay',
     done: (s) => s.melds.some((m) => m.owner === 0 && m.kind === 'seri' && m.color === 'yellow' && m.value === 4),
   },
   {
     title: '5 · İşle',
-    text: "Kırmızı 4, Bot 1'in 1-2-3 serisine eklenebilir. Böyle taşlara İŞLEK denir; yere atan +50 ceza yer! Kırmızı 4'ü seç → ışıklı seriye dokun ya da sürükle.",
+    text: "Kırmızı 4'ü seç → Bot 1'in kırmızı 1-2-3 serisine dokun ya da sürükle.",
+    why: 'Kırmızı 4 tek başına per olamaz ama o serinin sonuna uyar; işlersen elin bir taş daha azalır. Yerdeki bir pere uyan taşa İŞLEK denir: onu yere atsaydın +50 ceza yerdin.',
     tiles: ['r4'],
     melds: [901],
     target: 'meld',
@@ -286,7 +341,8 @@ const BASIC: Step[] = [
   },
   {
     title: '6 · Okeyi al',
-    text: "Bot 1'in 4'lü kütünde okey eksik rengin, yani mavi 9'un yerini tutuyor. Mavi 9'u seç → küte dokun: okey senin olur, Bot 1'e +50.",
+    text: "Mavi 9'u seç → Bot 1'in 9 kütüne dokun: okey senin olur.",
+    why: "Okey her taşın yerine geçer, elde çok değerli. O kütte okey eksik rengi, yani mavi 9'u tutuyor; gerçek mavi 9 sende. Değiştirince okeyi alırsın, okeyini kaptıran Bot 1'e +50 ceza.",
     tiles: ['b9'],
     melds: [902],
     target: 'meld',
@@ -294,14 +350,16 @@ const BASIC: Step[] = [
   },
   {
     title: '7 · Okeyle diz',
-    text: 'Okey istediğin taşın yerine geçer: okey + sarı 12 + sarı 13 bir seri. Üçünü seç, birlikte sürükle → Yere Koy.',
+    text: 'Okey + sarı 12 + sarı 13\'ü seç, birlikte kendi alanına sürükle → Yere Koy.',
+    why: 'Sarı 12-13 tek başına per değil; okeyi sarı 11 yerine kullanınca 11-12-13 serisi olur ve elinde tek taş kalır. (Okeyi saklamak da bir yol: sonda örneğini gösteriyoruz.)',
     tiles: ['J', 'y12', 'y13'],
     target: 'lay',
     done: (s) => s.players[0].hand.length <= 1 || over(s),
   },
   {
     title: '8 · Bitir!',
-    text: 'Elinde tek taş kaldı. Son taş yana atılmaz, ortaya vurulur: Bitir! İstersen önce okeyle bitmenin bir örneğini gör.',
+    text: 'Son taşı (siyah 2) ortaya vur: Bitir! İstersen önce okeyle bitmenin örneğini gör.',
+    why: 'Son taş yana atılmaz, ortaya vurulur ve el biter. Senin elinde taş kalmadığı için ceza yazılmaz; rakiplerin elinde kalan taşlar onlara ceza olur.',
     tiles: ['k2'],
     target: 'center',
     offerExample: true,
@@ -312,13 +370,17 @@ const BASIC: Step[] = [
 const OKEY: Step[] = [
   {
     title: 'Örnek · Okeyi saklamak',
-    text: 'Okeyi yere koymayıp elde tutmaya "okeyi saklamak" denir. Son taşın okey olursa okeyle bitersin: puanlar ×2! Elinde okey, mavi 6 ve sarı 11 var.',
+    text: 'Okeyi yere koymayıp elde tutmaya "okeyi saklamak" denir. Elinde okey, mavi 6 ve sarı 11 var.',
+    why: 'Son taşın okey olursa OKEYLE bitersin: o eldeki tüm puanlar ×2. Riski de var: el başkası bitirirse elinde kalan okey sana +50 ek ceza yazar.',
     info: true,
+    tiles: ['J'],
+    spotLabel: 'Okeyi elde tut',
     done: () => false,
   },
   {
     title: "1 · Sarı 11'i işle",
-    text: "Sarı 11, Bot 3'ün sarı 8-9-10 serisinin sonuna eklenir. Seç → ışıklı seriye dokun ya da sürükle.",
+    text: "Sarı 11'i seç → Bot 3'ün sarı 8-9-10 serisine dokun ya da sürükle.",
+    why: 'Okeyle bitmek için elinde okeyden başka taş kalmamalı. Sarı 11 o serinin sonuna uyuyor, işleyerek elinden çıkarıyoruz.',
     tiles: ['y11'],
     melds: [912],
     target: 'meld',
@@ -326,7 +388,8 @@ const OKEY: Step[] = [
   },
   {
     title: "2 · Mavi 6'yı işle",
-    text: "Mavi 6, Bot 1'in mavi 3-4-5 serisine eklenir. Seç → ışıklı seriye dokun ya da sürükle.",
+    text: "Mavi 6'yı seç → Bot 1'in mavi 3-4-5 serisine dokun ya da sürükle.",
+    why: 'Mavi 6 da o serinin sonuna uyuyor. Bunu da işleyince elinde sadece okey kalacak.',
     tiles: ['b6'],
     melds: [911],
     target: 'meld',
@@ -334,7 +397,8 @@ const OKEY: Step[] = [
   },
   {
     title: '3 · Okeyle bit!',
-    text: 'Elinde sadece okey kaldı. Ortaya vur → OKEYLE BİTTİN, puanlar ×2. (İstersen okeyi işleyip normal de bitebilirsin.)',
+    text: 'Elinde sadece okey kaldı: ortaya vur → OKEYLE BİTTİN.',
+    why: 'Okeyi bir pere işleyip başka bir taşla da bitebilirdin ama o normal bitiş (×1) olurdu. Okeyi son taş olarak vurmak puanları ×2 yapar.',
     tiles: ['J'],
     target: 'center',
     done: over,
@@ -348,12 +412,16 @@ export class TutorialRunner {
   private step = 0;
   private steps: Step[];
   private box: Phaser.GameObjects.Container;
+  private boxBg: Phaser.GameObjects.Graphics;
   private titleT: Phaser.GameObjects.Text;
   private bodyT: Phaser.GameObjects.Text;
+  private whyLabel: Phaser.GameObjects.Text;
+  private whyT: Phaser.GameObjects.Text;
   private countT: Phaser.GameObjects.Text;
   private next: Button;
   private example: Button;
   private finished = false;
+  private rendered = -1;
   private spot: Spotlight;
   private visibleAt: number;
 
@@ -365,17 +433,17 @@ export class TutorialRunner {
     private onExit: (action: 'play' | 'menu' | 'example' | 'again') => void,
   ) {
     this.steps = stage === 'okey' ? OKEY : BASIC;
-    const x = GAME_W / 2;
-    const y = 122;
-    this.box = scene.add.container(x, y).setDepth(3200);
-    const g = scene.add.graphics();
-    panel(g, -400, -46, 800, 92, 18, 0x10372a, 0.97, UI.gold, 1);
-    this.titleT = txt(scene, -380, -34, '', 18, UI.goldHex, 900);
-    this.bodyT = txt(scene, -380, -8, '', 15, '#ffffff', 700, { wordWrap: { width: 600 }, lineSpacing: 3 });
-    this.countT = txt(scene, 380, -34, '', 12, UI.muted, 800).setOrigin(1, 0);
-    this.next = new Button(scene, 320, 14, 120, 44, 'Devam', () => this.advance(), UI.green, 17);
-    this.example = new Button(scene, 310, 14, 140, 44, 'Okeyle Bitiş', () => this.onExit('example'), UI.amber, 15);
-    this.box.add([g, this.titleT, this.bodyT, this.countT, this.next, this.example]);
+    // Kutu: başlık · ne yapıyoruz (beyaz) · Neden? (krem). Yüksekliği metne göre ayarlanır.
+    this.box = scene.add.container(GAME_W / 2, BOX_TOP).setDepth(3200);
+    this.boxBg = scene.add.graphics();
+    this.titleT = txt(scene, -BOX_W / 2 + 20, 11, '', 18, UI.goldHex, 900);
+    this.bodyT = txt(scene, -BOX_W / 2 + 20, 38, '', 15, '#ffffff', 800, { wordWrap: { width: 680 }, lineSpacing: 3 });
+    this.whyLabel = txt(scene, -BOX_W / 2 + 20, 0, 'Neden?', 14, UI.goldHex, 900);
+    this.whyT = txt(scene, -BOX_W / 2 + 84, 0, '', 14, UI.cream, 700, { wordWrap: { width: 616 }, lineSpacing: 3 });
+    this.countT = txt(scene, BOX_W / 2 - 20, 13, '', 12, UI.muted, 800).setOrigin(1, 0);
+    this.next = new Button(scene, BOX_W / 2 - 85, 0, 130, 46, 'Devam', () => this.advance(), UI.green, 17);
+    this.example = new Button(scene, BOX_W / 2 - 85, 0, 140, 46, 'Okeyle Bitiş', () => this.onExit('example'), UI.amber, 15);
+    this.box.add([this.boxBg, this.titleT, this.bodyT, this.whyLabel, this.whyT, this.countT, this.next, this.example]);
     this.box.setAlpha(0).setScale(0.95);
     this.visibleAt = scene.time.now + 2700;
     scene.tweens.add({ targets: this.box, alpha: 1, scale: 1, delay: 2700, duration: 260, ease: 'Back.easeOut' });
@@ -411,12 +479,24 @@ export class TutorialRunner {
 
   private render() {
     const st = this.steps[this.step];
-    this.titleT.setText(st.title);
-    this.bodyT.setText(st.text);
-    this.countT.setText(`${this.stage === 'okey' ? 'Örnek' : 'Öğretici'} · ${this.step + 1}/${this.steps.length}`);
-    this.next.setVisible(!!st.info);
-    this.example.setVisible(!!st.offerExample);
-    this.bodyT.setWordWrapWidth(st.offerExample ? 570 : 600);
+    if (this.rendered !== this.step) {
+      this.rendered = this.step;
+      const button = !!st.info || !!st.offerExample;
+      this.titleT.setText(st.title);
+      this.bodyT.setWordWrapWidth(button ? 680 : 840).setText(st.text);
+      this.whyT.setWordWrapWidth(button ? 616 : 776).setText(st.why);
+      this.countT.setText(`${this.stage === 'okey' ? 'Örnek' : 'Öğretici'} · ${this.step + 1}/${this.steps.length}`);
+      const whyY = 38 + this.bodyT.height + 8;
+      this.whyLabel.setY(whyY);
+      this.whyT.setY(whyY);
+      const h = whyY + this.whyT.height + 14;
+      this.boxBg.clear();
+      panel(this.boxBg, -BOX_W / 2, 0, BOX_W, h, 18, 0x10372a, 0.97, UI.gold, 1);
+      this.boxBg.fillStyle(0xffffff, 0.06);
+      this.boxBg.fillRoundedRect(-BOX_W / 2 + 10, whyY - 5, (button ? 710 : BOX_W - 20), this.whyT.height + 10, 10);
+      this.next.setVisible(!!st.info).setY(h / 2 + 8);
+      this.example.setVisible(!!st.offerExample).setY(h / 2 + 8);
+    }
     const s = this.getState();
     this.highlights.clear();
     for (const spec of st.tiles ?? []) {
@@ -433,45 +513,61 @@ export class TutorialRunner {
     const st = this.steps[this.step];
     const c = this.ctx;
     const out: Ellipse[] = [];
-    if (st.target === 'rule') return [around(c.rulePanel(), 6)];
-    if (st.target === 'deck') return myDrawPhase(s) ? [dot(c.deck(), 72)] : [];
+    const lbl = (e: Ellipse, label: string, tone?: 'no'): Ellipse => ({ ...e, label, tone });
+    // deste kutunun hemen altında: etiketi altına yaz
+    const deckSpot = (label: string): Ellipse => ({ ...lbl(dot(c.deck(), 72), label), labelPos: 'below' });
+    if (st.target === 'rule') return [{ ...lbl(around(c.rulePanel(), 6), '← Bu elin kuralı'), labelPos: 'right' }];
+    if (st.target === 'deck') {
+      if (!myDrawPhase(s)) return [];
+      out.push(deckSpot('Buradan çek'));
+      if (s.pendingDiscard) out.push(lbl(dot(c.sideSpot(), 48), 'Almıyoruz ✗', 'no'));
+      return out;
+    }
+    // bilgi adımı: sadece anlatılan taşı göster
+    if (st.info && st.tiles) {
+      return [...this.highlights]
+        .map((id) => c.tilePos(id))
+        .filter((p): p is { x: number; y: number } => !!p)
+        .map((p, i) => ({ x: p.x, y: p.y, rx: 34, ry: 44, label: i === 0 ? st.spotLabel : undefined }));
+    }
     if (!myAction(s) || !st.target) return [];
 
     const ids = [...this.highlights];
     const sel = c.selected();
     const allSel = ids.length > 0 && ids.every((id) => sel.has(id));
-    // her taşa ayrı yuvarlak ışık (yan yana olanlar birleşip tek alan gibi görünür)
-    const tileSpots = (): Ellipse[] =>
+    // her taşa ayrı yuvarlak ışık (yan yana olanlar birleşip tek alan gibi görünür); etiket ilk taşta
+    const tileSpots = (label?: string): Ellipse[] =>
       ids
         .map((id) => c.tilePos(id))
         .filter((p): p is { x: number; y: number } => !!p)
-        .map((p) => ({ x: p.x, y: p.y, rx: 34, ry: 44 }));
+        .map((p, i) => ({ x: p.x, y: p.y, rx: 34, ry: 44, label: i === 0 ? label : undefined }));
+    const pick = allSel ? undefined : ids.length > 1 ? 'Hepsini seç' : 'Seç';
 
     if (st.target === 'lay') {
       if (c.stagedCount() > 0) {
-        out.push(around(c.button('lay'), 6), around(c.myZone(), -10));
+        out.push(lbl(around(c.button('lay'), 6), 'Şimdi bas'), around(c.myZone(), -10));
         return out;
       }
-      out.push(...tileSpots());
-      if (allSel) out.push(around(c.myZone(), -10), around(c.button('group'), 6));
+      out.push(...tileSpots(pick));
+      if (allSel) out.push(lbl(around(c.myZone(), -10), 'Buraya sürükle'), lbl(around(c.button('group'), 6), 'ya da bas'));
       return out;
     }
     if (st.target === 'meld') {
-      out.push(...tileSpots());
+      out.push(...tileSpots(pick));
       if (allSel)
         for (const id of st.melds ?? []) {
           const r = c.meld(id);
-          if (r) out.push(around(r, 10));
+          if (r) out.push(lbl(around(r, 10), 'Buraya işle'));
         }
       return out;
     }
     if (st.target === 'discard') {
-      out.push(...tileSpots());
-      if (allSel) out.push(dot(c.discardSpot(), 52), around(c.button('discard'), 6));
+      out.push(...tileSpots(pick));
+      if (allSel) out.push(lbl(dot(c.discardSpot(), 52), 'Buraya at'), around(c.button('discard'), 6));
       return out;
     }
     if (st.target === 'center') {
-      out.push(...tileSpots(), dot(c.deck(), 72), around(c.button('discard'), 6));
+      out.push(...tileSpots(), deckSpot('Ortaya vur'), around(c.button('discard'), 6));
       return out;
     }
     return out;
