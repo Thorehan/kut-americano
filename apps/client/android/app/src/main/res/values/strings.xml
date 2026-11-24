@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Küt</string>
+    <string name="title_activity_main">Küt</string>
+    <string name="package_name">com.kuralokey.app</string>
+    <string name="custom_url_scheme">com.kuralokey.app</string>
+</resources>

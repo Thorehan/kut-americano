@@ -149,6 +149,13 @@ export class LobbyScene extends Phaser.Scene {
     this.scene.start('table', { mode: view.mode, ruleOrder: view.ruleOrder, online: ctrl });
   }
 
+  /** Android geri tuşu: bağlanma penceresi açıksa iptal, değilse ana menü (odadaysa odadan çıkar). */
+  onBack(): boolean {
+    if (this.busy) this.cancelBusy();
+    else this.backToMenu();
+    return true;
+  }
+
   private backToMenu() {
     if (this.lobby) {
       this.leaving = true;

@@ -8,6 +8,7 @@ import { PreviewScene } from './scenes/PreviewScene';
 import { ProfileScene } from './scenes/ProfileScene';
 import { TableScene } from './scenes/TableScene';
 import { GAME_H, GAME_W, RENDER_SCALE } from './layout';
+import { setupNative } from './native';
 
 /** Yazı tipi yüklenmeden taş dokuları çizilmesin (sayılar yanlış fontla çıkmasın). */
 async function loadFonts() {
@@ -30,6 +31,7 @@ void loadFonts().then(() => {
       ? [PreviewScene, MenuScene, LobbyScene, ProfileScene, TableScene]
       : [MenuScene, LobbyScene, ProfileScene, TableScene, PreviewScene],
   });
+  setupNative(game);
   // Geliştirme sırasında konsoldan erişim için (prod build'de yok).
   if (import.meta.env.DEV) (window as unknown as { __game: Phaser.Game }).__game = game;
 });

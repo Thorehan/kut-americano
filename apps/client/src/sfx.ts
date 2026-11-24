@@ -81,6 +81,14 @@ class Sfx {
     return buf;
   }
 
+  /** Uygulama arka plana gidince sesi durdur (pil ve diğer uygulamalar için); öne gelince devam. */
+  suspend() {
+    if (this.ctx && this.ctx.state === 'running') void this.ctx.suspend();
+  }
+  resume() {
+    if (this.ctx && this.ctx.state === 'suspended') void this.ctx.resume();
+  }
+
   setMuted(m: boolean) {
     this.muted = m;
     try {
@@ -316,9 +324,16 @@ class Sfx {
 
 export const sfx = new Sfx();
 
+/** Uygulamada (Capacitor) yerel titreşim; tarayıcıda navigator.vibrate. native.ts kurar. */
+let nativeHaptic: ((ms: number) => void) | null = null;
+export function setNativeHaptic(fn: (ms: number) => void) {
+  nativeHaptic = fn;
+}
+
 export function haptic(ms: number) {
   try {
-    navigator.vibrate?.(ms);
+    if (nativeHaptic) nativeHaptic(ms);
+    else navigator.vibrate?.(ms);
   } catch {
     /* desteklenmiyor */
   }

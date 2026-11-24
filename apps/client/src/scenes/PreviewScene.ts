@@ -44,6 +44,11 @@ export class PreviewScene extends Phaser.Scene {
     new Button(this, cx, GAME_H - 56, 240, 54, 'Ana Menü', () => this.scene.start('menu'), UI.green, 20);
   }
 
+  onBack(): boolean {
+    this.scene.start('menu');
+    return true;
+  }
+
   private open(p: PreviewSpec) {
     sfx.select();
     this.scene.start('table', { mode: 'solo', preview: p } satisfies TableData);

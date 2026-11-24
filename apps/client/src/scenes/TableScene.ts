@@ -2091,6 +2091,13 @@ export class TableScene extends Phaser.Scene {
     return left <= 15 ? ` · ⏱ ${Math.max(0, left)} sn` : '';
   }
 
+  /** Android geri tuşu: açık küçük pencereyi kapatır, yoksa oyun menüsünü açar (doğrudan çıkmaz). */
+  onBack(): boolean {
+    if (this.overlayKind === 'menu' || this.overlayKind === 'scores') this.closeOverlay();
+    else if (this.overlayKind === 'none') this.showGameMenu();
+    return true;
+  }
+
   /** Oyun içi küçük menü: ses, devam, maçtan çık (onaylı). */
   private showGameMenu() {
     if (this.overlayKind === 'round' || this.overlayKind === 'final' || this.overlayKind === 'claim') return;

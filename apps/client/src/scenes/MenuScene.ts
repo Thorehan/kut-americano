@@ -189,6 +189,14 @@ export class MenuScene extends Phaser.Scene {
     this.kpText.setText(fmt(profile().kp));
   }
 
+  /** Android geri tuşu: açık pencere (ayarlar, kurallar) kapanır; yoksa uygulama arka plana alınır. */
+  onBack(): boolean {
+    if (!this.overlay) return false;
+    this.overlay.destroy();
+    this.overlay = null;
+    return true;
+  }
+
   // ------------------------------------------------------------ ayarlar
 
   private showSettings() {

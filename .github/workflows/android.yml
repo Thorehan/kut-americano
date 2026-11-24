@@ -1,0 +1,81 @@
+name: Android derlemesi
+
+# Her push'ta:
+#  - telefona doğrudan kurulabilen deneme APK'sı (kut-android-apk) üretilir,
+#  - yükleme anahtarı tanımlıysa Play Console'a yüklenecek imzalı AAB (kut-android-aab) de üretilir.
+# Anahtar depoda tutulmaz; Settings → Secrets and variables → Actions → Secrets altında:
+#   KUT_KEYSTORE_BASE64 (anahtar dosyasının base64 hali), KUT_KEYSTORE_PASSWORD, KUT_KEY_ALIAS, KUT_KEY_PASSWORD
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/client/**'
+      - 'packages/core/**'
+      - 'package-lock.json'
+      - '.github/workflows/android.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android
+  cancel-in-progress: true
+
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    env:
+      KUT_VERSION_CODE: ${{ github.run_number }}
+      HAS_KEY: ${{ secrets.KUT_KEYSTORE_BASE64 != '' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Web derlemesi
+        run: npm run build
+        env:
+          VITE_SERVER_URL: ${{ vars.VITE_SERVER_URL }}
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: gradle
+      - name: Web derlemesini uygulamaya kopyala
+        working-directory: apps/client
+        run: npx cap sync android
+
+      - name: Deneme APK'sı (telefona doğrudan kurulur)
+        working-directory: apps/client/android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon
+      - uses: actions/upload-artifact@v4
+        with:
+          name: kut-android-apk
+          path: apps/client/android/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 14
+
+      - name: Yükleme anahtarı
+        if: env.HAS_KEY == 'true'
+        run: |
+          echo "${{ secrets.KUT_KEYSTORE_BASE64 }}" | base64 -d > "$RUNNER_TEMP/upload.keystore"
+          echo "KUT_KEYSTORE_PATH=$RUNNER_TEMP/upload.keystore" >> "$GITHUB_ENV"
+      - name: İmzalı AAB (Play Console'a yüklenir)
+        if: env.HAS_KEY == 'true'
+        working-directory: apps/client/android
+        env:
+          KUT_KEYSTORE_PASSWORD: ${{ secrets.KUT_KEYSTORE_PASSWORD }}
+          KUT_KEY_ALIAS: ${{ secrets.KUT_KEY_ALIAS }}
+          KUT_KEY_PASSWORD: ${{ secrets.KUT_KEY_PASSWORD }}
+        run: ./gradlew bundleRelease --no-daemon
+      - uses: actions/upload-artifact@v4
+        if: env.HAS_KEY == 'true'
+        with:
+          name: kut-android-aab
+          path: apps/client/android/app/build/outputs/bundle/release/app-release.aab
+          retention-days: 30

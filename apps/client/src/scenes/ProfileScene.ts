@@ -94,6 +94,15 @@ export class ProfileScene extends Phaser.Scene {
     if (data?.toast) this.time.delayedCall(250, () => showBubble(this, GAME_W / 2, 104, data.toast!, UI.green, false));
   }
 
+  /** Android geri tuşu: satın alma sayfası açıksa kapanır, yoksa ana menüye döner. */
+  onBack(): boolean {
+    if (this.sheet) {
+      this.sheet.destroy();
+      this.sheet = null;
+    } else this.scene.start('menu');
+    return true;
+  }
+
   private show(i: number, animate = true) {
     if (animate && i === this.tab && this.body) return;
     const dir = i >= this.tab ? 1 : -1;

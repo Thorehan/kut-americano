@@ -264,7 +264,9 @@ Botlar sadece açık bilgiyle (kendi eli, masa, atılan taşlar, rakiplerin taş
 
 ## 13. App Store ve Google Play hazırlığı (karar: 2026-11-19)
 
-**Kararlar:** iki mağazaya **birlikte** çıkılacak · geliştirici hesabı **kişisel** · görsel yön: **Kahvehane premium** (bkz. `docs/GORSEL.md`) · görseller OpenAI görsel API'siyle **otomatik** üretilecek.
+**Kararlar:** iki mağazaya **birlikte** çıkılacak · geliştirici hesabı **kişisel** · görsel yön: ~~Kahvehane premium~~ → **Çini** (24.11.2026: gece turkuazı + safran, 8 köşeli çini yıldızı, okey taşı biçimli kartlar; hepsi kodla çiziliyor).
+
+**Durum (24.11.2026):** Adım 1 büyük ölçüde bitti (mağaza ikonu kaldı). Adım 2 başladı: Capacitor 8 Android projesi (`apps/client/android`, appId `com.kuralokey.app`), yatay kilit, tam ekran, ekran açık kalır, Android geri tuşu, arka planda ses durur, yerel titreşim. Derleme GitHub Actions'ta (`.github/workflows/android.yml`): her push'ta kurulabilir deneme APK'sı; yükleme anahtarı gizli değişken olarak eklenince imzalı AAB. iOS projesi ve davet linkiyle uygulamayı açma sonraki adımda.
 
 ### Sıralı adımlar
 | # | Adım | Kim | Çıktı |
