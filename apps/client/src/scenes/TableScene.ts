@@ -67,6 +67,7 @@ import {
   saveProfile,
 } from '../profile';
 import { fmt, showBadge, showGain } from '../ui/rewards';
+import { icon } from '../ui/icons';
 import { playRewardedVideo } from '../ui/videoAd';
 
 type Obj = Phaser.GameObjects.GameObject;
@@ -385,8 +386,8 @@ export class TableScene extends Phaser.Scene {
       discard: new Button(this, c1, r1, w, h, 'Taş At', () => this.discardSelected(), UI.red),
       hint: new Button(this, c0, r2, w, h, 'Öner', () => this.suggest(), UI.amber),
       sort: new Button(this, c1, r2, w, h, 'Küt Diz', () => this.toggleSort(), UI.amber),
-      scores: new Button(this, 1138, 34, 68, 38, 'Puan', () => this.showScores(), UI.slate, 14),
-      menu: new Button(this, 1212, 34, 68, 38, 'Menü', () => this.showGameMenu(), UI.slate, 14),
+      scores: new Button(this, 1156, 40, 54, 54, '', () => this.showScores(), UI.slate).setIcon(icon('list'), 28),
+      menu: new Button(this, 1220, 40, 54, 54, '', () => this.showGameMenu(), UI.slate).setIcon(icon('menu'), 28),
     };
     Object.values(this.buttons).forEach((b) => b.setDepth(80));
   }
@@ -1836,7 +1837,7 @@ export class TableScene extends Phaser.Scene {
     if (fg) {
       const rt = txt(this, cx - 250, cy + 100, `Ödülün: +${fmt(fg.kp)} ${KP}   +${fg.xp} XP`, 20, UI.goldHex, 900).setOrigin(0, 0.5);
       c.add(rt);
-      const dbl = new Button(this, cx + 170, cy + 100, 230, 52, `🎬 2 Kat Al · +${fmt(fg.kp)} ${KP}`, async () => {
+      const dbl = new Button(this, cx + 170, cy + 100, 230, 52, `2 Kat Al · +${fmt(fg.kp)} ${KP}`, async () => {
         if (fg.doubled) return;
         const ok = await playRewardedVideo(this, `+${fmt(fg.kp)} ${KP}`);
         if (!ok) return;
@@ -1845,7 +1846,7 @@ export class TableScene extends Phaser.Scene {
         rt.setText(`Ödülün: +${fmt(fg.kp * 2)} ${KP}   +${fg.xp} XP  (2 kat ✓)`);
         dbl.setEnabled(false).setPulse(false);
       }, UI.green, 16);
-      dbl.setEnabled(!fg.doubled).setPulse(!fg.doubled);
+      dbl.setIcon(icon('video'), 24).setEnabled(!fg.doubled).setPulse(!fg.doubled);
       c.add(dbl);
     }
     if (this.ctrl.online) {

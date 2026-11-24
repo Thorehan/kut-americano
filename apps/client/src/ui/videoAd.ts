@@ -4,6 +4,7 @@ import { award, countVideo } from '../profile';
 import { showBadge } from './rewards';
 import { haptic, sfx } from '../sfx';
 import { Button } from './Button';
+import { icon } from './icons';
 import { txt } from './text';
 
 /**
@@ -74,14 +75,13 @@ export function playRewardedVideo(scene: Phaser.Scene, rewardText: string): Prom
     };
 
     // erken kapatma: ödül yok
-    const close = new Button(scene, vx + vw / 2 - 30, vy - vh / 2 - 34, 48, 40, '✕', () => {
+    const close = new Button(scene, vx + vw / 2 - 30, vy - vh / 2 - 34, 44, 44, '', () => {
       if (prog.v >= 1) return finish(true);
       sub.setText('Videoyu bitirmeden kapatırsan ödül verilmez.');
-      close.setLabel('Çık');
       close.setColor(UI.red);
       if (close.getData('armed')) finish(false);
       close.setData('armed', true);
-    }, UI.slate, 18);
+    }, UI.slate, 18).setIcon(icon('close'), 20);
     c.add(close);
 
     const claim = new Button(scene, vx, vy + vh / 2 + 48, 320, 62, `Ödülü Al · ${rewardText}`, () => finish(true), UI.green, 20);

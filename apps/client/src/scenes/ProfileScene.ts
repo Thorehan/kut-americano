@@ -23,6 +23,7 @@ import { promptText } from '../ui/htmlPrompt';
 import { fmt, showGain } from '../ui/rewards';
 import { panel, txt } from '../ui/text';
 import { playRewardedVideo } from '../ui/videoAd';
+import { icon } from '../ui/icons';
 import { showBubble } from '../view/SeatView';
 
 const TABS = ['Profil', 'Rozetler', 'Mağaza'];
@@ -49,7 +50,7 @@ export class ProfileScene extends Phaser.Scene {
     this.body = null;
     this.tabBtns = [];
 
-    new Button(this, 92, 40, 150, 56, '← Ana Menü', () => this.scene.start('menu'), UI.slate, 16);
+    new Button(this, 48, 44, 56, 56, '', () => this.scene.start('menu'), UI.slate).setIcon(icon('back'), 30);
     const kg = this.add.graphics();
     panel(kg, GAME_W - 226, 12, 210, 56, 28, UI.panel, 0.9, UI.gold, 0.8);
     this.add.image(GAME_W - 196, 40, 'coin').setScale(0.5);
@@ -232,12 +233,12 @@ export class ProfileScene extends Phaser.Scene {
       txt(this, 330, 112, 'Oynayarak, günlük ödülle ve video izleyerek kazanılır.\nSatılmaz; temaları açmak için harcanır.', 15, UI.cream, 700, { lineSpacing: 5 }),
     );
     const left = videosLeft();
-    const vb = new Button(this, 1080, 144, 250, 64, left > 0 ? `🎬 Video İzle · +${VIDEO_REWARD} ${KP}` : '🎬 Yarın tekrar', async () => {
+    const vb = new Button(this, 1080, 144, 250, 64, left > 0 ? `Video İzle · +${VIDEO_REWARD} ${KP}` : 'Yarın tekrar', async () => {
       const ok = await playRewardedVideo(this, `+${VIDEO_REWARD} ${KP}`);
       if (ok) showGain(this, grant(VIDEO_REWARD));
       this.show(2);
     }, UI.green, 17);
-    vb.setEnabled(left > 0);
+    vb.setIcon(icon('video'), 28).setEnabled(left > 0);
     c.add(vb);
     c.add(txt(this, 1080, 182, `bugün kalan: ${left}/5`, 12, UI.muted, 800).setOrigin(0.5, 0));
 

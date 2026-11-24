@@ -3,28 +3,34 @@ import { FONT, RENDER_SCALE, TEXT_RES } from '../layout';
 import { sfx } from '../sfx';
 
 /**
- * "Kahvehane premium" buton: pirinç çerçeve içinde emaye (ya da ahşap) yüz, gerçek degrade,
- * üstte ışık, altta gölge. Görünüm, boyut+renk+durum başına bir kez çizilip doku olarak saklanır.
+ * "Çini" buton: mobil oyunlardaki gibi kalın, basılabilir görünen şeker buton — parlak yüz,
+ * altta koyu "dudak" (derinlik), üstte ışık bandı, köşede küçük çini yıldızı. Yazı beyaz ve
+ * koyu konturlu. Görünüm, boyut+renk+durum başına bir kez çizilip doku olarak saklanır.
  */
 
 interface Finish {
   top: string;
   bottom: string;
-  wood?: boolean;
+  /** Alt dudak (derinlik) ve yazı konturu. */
+  lip: string;
   text: string;
 }
 
-/** Eski düz renk kodlarını malzemelere eşler (çağıran kodlar değişmeden yeni görünümü alır). */
+/** Eski renk kodlarını yeni malzemelere eşler (çağıran kodlar değişmeden yeni görünümü alır). */
 const FINISHES: Record<number, Finish> = {
-  0x2e9a5c: { top: '#3f9a63', bottom: '#1d5535', text: '#fff6e0' }, // yeşil emaye (ana)
-  0x2f8f57: { top: '#3f9a63', bottom: '#1d5535', text: '#fff6e0' },
-  0x2d68b8: { top: '#3a74b8', bottom: '#173c6b', text: '#fff6e0' }, // çini laciverti
-  0xc0453a: { top: '#c24a4f', bottom: '#7a1f26', text: '#fff6e0' }, // nar kırmızısı
-  0x31574a: { top: '#8a5a30', bottom: '#4e2c12', wood: true, text: '#fff6e0' }, // ceviz (ikincil)
-  0x8a6420: { top: '#a8742c', bottom: '#5e3a0e', text: '#fff6e0' }, // bakır
-  0x5b3f8f: { top: '#7a5ab0', bottom: '#43296e', text: '#fff6e0' }, // mor emaye
-  0xf5c451: { top: '#fbe39a', bottom: '#c99a3a', text: '#2a1a05' }, // seçili: parlak pirinç
+  0x2e9a5c: { top: '#5fe08a', bottom: '#21a957', lip: '#11743a', text: '#ffffff' }, // yeşil: ana eylem
+  0x2f8f57: { top: '#5fe08a', bottom: '#21a957', lip: '#11743a', text: '#ffffff' },
+  0x2d68b8: { top: '#5cc0ff', bottom: '#2384e0', lip: '#14589e', text: '#ffffff' }, // çini mavisi
+  0xc0453a: { top: '#ff8a7a', bottom: '#e8483c', lip: '#a52a22', text: '#ffffff' }, // nar
+  0x31574a: { top: '#3d8f94', bottom: '#256a70', lip: '#123f43', text: '#ffffff' }, // turkuaz cam (ikincil)
+  0x8a6420: { top: '#ffd76a', bottom: '#ffa928', lip: '#bd6d06', text: '#ffffff' }, // safran
+  0x5b3f8f: { top: '#c39bff', bottom: '#8a55ec', lip: '#5a2fb0', text: '#ffffff' }, // lale moru
+  0x7a4bb8: { top: '#c39bff', bottom: '#8a55ec', lip: '#5a2fb0', text: '#ffffff' },
+  0xf5c451: { top: '#fff1b0', bottom: '#ffc845', lip: '#c58a0c', text: '#5a3300' }, // seçili: parlak safran
 };
+
+/** Butonun alt "dudağı" (basılabilirlik derinliği). */
+const LIP = 5;
 
 function hex(n: number) {
   return `#${n.toString(16).padStart(6, '0')}`;
@@ -36,8 +42,22 @@ function shade(c: string, f: number): string {
   return `rgb(${ch(16)},${ch(8)},${ch(0)})`;
 }
 
-function finishFor(color: number): Finish {
-  return FINISHES[color] ?? { top: shade(hex(color), 1.15), bottom: shade(hex(color), 0.62), text: '#fff6e0' };
+export function finishFor(color: number): Finish {
+  return FINISHES[color] ?? { top: shade(hex(color), 1.3), bottom: hex(color), lip: shade(hex(color), 0.55), text: '#ffffff' };
+}
+
+/** Küçük 8 köşeli çini yıldızı (iki iç içe kare). */
+function star8(ctx: CanvasRenderingContext2D, cx: number, cy: number, r: number) {
+  ctx.beginPath();
+  for (let i = 0; i < 16; i++) {
+    const a = (i * Math.PI) / 8 - Math.PI / 2;
+    const rr = i % 2 === 0 ? r : r * 0.62;
+    const x = cx + Math.cos(a) * rr;
+    const y = cy + Math.sin(a) * rr;
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  }
+  ctx.closePath();
 }
 
 function rr(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
@@ -64,70 +84,57 @@ function buttonTexture(scene: Phaser.Scene, w: number, h: number, color: number,
   ctx.scale(S, S);
   ctx.translate(pad, pad);
   const f = finishFor(color);
-  const r = Math.min(14, h / 2.6);
+  const r = Math.min(18, h * 0.34);
+  const lip = Math.min(LIP, h * 0.1);
+  const fh = h - lip; // yüz yüksekliği
 
-  // gölge
+  // yumuşak gölge
   ctx.save();
-  ctx.shadowColor = 'rgba(0,0,0,0.55)';
-  ctx.shadowBlur = 8;
-  ctx.shadowOffsetY = 4;
+  ctx.shadowColor = 'rgba(0,0,0,0.45)';
+  ctx.shadowBlur = 7;
+  ctx.shadowOffsetY = 3;
   rr(ctx, 0, 0, w, h, r);
-  ctx.fillStyle = '#3a2808';
+  ctx.fillStyle = f.lip;
   ctx.fill();
   ctx.restore();
 
-  // pirinç çerçeve
+  // koyu dış hat + alt dudak
   rr(ctx, 0, 0, w, h, r);
-  const brass = ctx.createLinearGradient(0, 0, 0, h);
-  brass.addColorStop(0, '#f6dc8f');
-  brass.addColorStop(0.45, '#c9a24a');
-  brass.addColorStop(1, '#7a5a1c');
-  ctx.fillStyle = brass;
+  ctx.fillStyle = f.lip;
   ctx.fill();
-  ctx.lineWidth = 1.2;
-  ctx.strokeStyle = 'rgba(60,40,8,0.9)';
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = 'rgba(10,20,22,0.55)';
   ctx.stroke();
 
-  // emaye / ahşap yüz
-  const b = 3.2;
-  rr(ctx, b, b, w - b * 2, h - b * 2, Math.max(2, r - b));
-  const face = ctx.createLinearGradient(0, b, 0, h - b);
-  face.addColorStop(0, hover ? shade(f.top, 1.12) : f.top);
-  face.addColorStop(1, hover ? shade(f.bottom, 1.12) : f.bottom);
+  // yüz
+  rr(ctx, 1.5, 1.5, w - 3, fh - 1.5, Math.max(2, r - 1.5));
+  const face = ctx.createLinearGradient(0, 0, 0, fh);
+  face.addColorStop(0, hover ? shade(f.top, 1.07) : f.top);
+  face.addColorStop(1, hover ? shade(f.bottom, 1.07) : f.bottom);
   ctx.fillStyle = face;
   ctx.fill();
   ctx.save();
   ctx.clip();
-  if (f.wood) {
-    // ahşap damarı
+  // üst ışık bandı (yumuşak, yuvarlak)
+  rr(ctx, 6, 4, w - 12, fh * 0.42, Math.max(2, r - 5));
+  const gloss = ctx.createLinearGradient(0, 4, 0, 4 + fh * 0.42);
+  gloss.addColorStop(0, 'rgba(255,255,255,0.55)');
+  gloss.addColorStop(1, 'rgba(255,255,255,0.06)');
+  ctx.fillStyle = gloss;
+  ctx.fill();
+  // köşede soluk çini yıldızı (imza detay)
+  if (w >= 90 && h >= 40) {
     ctx.globalAlpha = 0.16;
-    ctx.strokeStyle = '#1e0f04';
-    ctx.lineWidth = 1;
-    for (let yy = b + 3; yy < h; yy += 4.5) {
-      ctx.beginPath();
-      ctx.moveTo(0, yy);
-      ctx.bezierCurveTo(w * 0.3, yy + 2, w * 0.7, yy - 2, w, yy + 1);
-      ctx.stroke();
-    }
+    ctx.fillStyle = '#ffffff';
+    star8(ctx, w - fh * 0.34, fh * 0.62, fh * 0.26);
+    ctx.fill();
     ctx.globalAlpha = 1;
   }
-  // üst parlama
-  const gloss = ctx.createLinearGradient(0, b, 0, h * 0.55);
-  gloss.addColorStop(0, 'rgba(255,255,255,0.32)');
-  gloss.addColorStop(1, 'rgba(255,255,255,0)');
-  ctx.fillStyle = gloss;
-  ctx.fillRect(0, 0, w, h * 0.55);
-  // alt iç gölge
-  const inner = ctx.createLinearGradient(0, h * 0.7, 0, h);
-  inner.addColorStop(0, 'rgba(0,0,0,0)');
-  inner.addColorStop(1, 'rgba(0,0,0,0.28)');
-  ctx.fillStyle = inner;
-  ctx.fillRect(0, h * 0.7, w, h * 0.3);
   ctx.restore();
-  // ince iç pirinç çizgi
-  rr(ctx, b + 0.6, b + 0.6, w - b * 2 - 1.2, h - b * 2 - 1.2, Math.max(2, r - b));
-  ctx.lineWidth = 1;
-  ctx.strokeStyle = 'rgba(255,236,180,0.35)';
+  // ince iç ışık çizgisi
+  rr(ctx, 3, 3, w - 6, fh - 4, Math.max(2, r - 3));
+  ctx.lineWidth = 1.2;
+  ctx.strokeStyle = 'rgba(255,255,255,0.35)';
   ctx.stroke();
   tex.refresh();
   return key;
@@ -157,16 +164,16 @@ export class Button extends Phaser.GameObjects.Container {
     super(scene, x, y);
     this.bg = scene.add.image(0, 0, buttonTexture(scene, bw, bh, color, false));
     this.label = scene.add
-      .text(0, -1, text, {
+      .text(0, -Math.min(LIP, bh * 0.1) / 2 - 0.5, text, {
         fontFamily: FONT,
         fontSize: `${fontSize}px`,
-        fontStyle: '800',
+        fontStyle: '900',
         color: finishFor(color).text,
         align: 'center',
         resolution: TEXT_RES,
       })
-      .setOrigin(0.5)
-      .setShadow(0, 2, 'rgba(20,10,0,0.6)', 2);
+      .setOrigin(0.5);
+    this.styleLabel();
     this.add([this.bg, this.label]);
     this.setSize(bw, bh);
     this.setInteractive({ useHandCursor: true });
@@ -193,18 +200,39 @@ export class Button extends Phaser.GameObjects.Container {
     scene.add.existing(this);
   }
 
-  /** Yazının soluna küçük bir ikon (ör. üretilmiş pirinç ikonlar). Doku yoksa sessizce atlanır. */
+  /** Yazı konturu ve gölgesi: koyu dudak renginde kalın kontur (mobil oyun yazısı). */
+  private styleLabel() {
+    const f = finishFor(this.color);
+    const dark = this.labelColorFixed ? this.labelColorFixed !== '#ffffff' : f.text !== '#ffffff';
+    if (dark) this.label.setStroke('#000000', 0).setShadow(0, 1, 'rgba(255,255,255,0.4)', 0);
+    else this.label.setStroke(f.lip, Math.max(3, Math.round(Number.parseInt(String(this.label.style.fontSize), 10) / 5))).setShadow(0, 2, 'rgba(0,0,0,0.35)', 0, true, false);
+  }
+
+  /** Yazının soluna ikon; yazı boşsa ikon ortalanır. Doku yoksa sessizce atlanır. */
   setIcon(key: string, size = 28): this {
     if (!this.scene.textures.exists(key)) return this;
     this.icon?.destroy();
-    this.icon = this.scene.add.image(0, 0, key);
+    this.icon = this.scene.add.image(0, this.label.y, key);
     this.icon.setScale(size / Math.max(this.icon.width, this.icon.height));
     this.add(this.icon);
+    this.iconSize = size;
+    this.layoutIcon();
+    return this;
+  }
+
+  private iconSize = 0;
+
+  private layoutIcon() {
+    if (!this.icon) return;
+    const size = this.iconSize;
+    if (!this.label.text) {
+      this.icon.setX(0);
+      return;
+    }
     const gap = 8;
     const total = size + gap + this.label.width;
     this.icon.setX(-total / 2 + size / 2);
     this.label.setX(-total / 2 + size + gap + this.label.width / 2);
-    return this;
   }
 
   setEnabled(v: boolean): this {
@@ -220,7 +248,10 @@ export class Button extends Phaser.GameObjects.Container {
   setLabel(t: string): this {
     if (this.label.text !== t) {
       this.label.setText(t);
-      if (this.icon) this.setIcon(this.icon.texture.key, this.icon.displayHeight);
+      if (this.icon) {
+        this.label.setX(0);
+        this.layoutIcon();
+      }
     }
     return this;
   }
@@ -229,6 +260,7 @@ export class Button extends Phaser.GameObjects.Container {
     if (this.color !== c) {
       this.color = c;
       if (!this.labelColorFixed) this.label.setColor(finishFor(c).text);
+      this.styleLabel();
       this.draw();
     }
     return this;
@@ -236,9 +268,9 @@ export class Button extends Phaser.GameObjects.Container {
 
   /** Yazı rengini sabitle (açık zeminlerde koyu yazı için). */
   setLabelColor(css: string): this {
-    this.labelColorFixed = css;
-    this.label.setColor(css);
-    this.label.setShadow(0, css === '#ffffff' || css === '#fff6e0' ? 2 : 0, 'rgba(20,10,0,0.6)', 2);
+    this.labelColorFixed = css === '#fff6e0' ? '#ffffff' : css;
+    this.label.setColor(this.labelColorFixed);
+    this.styleLabel();
     return this;
   }
 
@@ -247,7 +279,7 @@ export class Button extends Phaser.GameObjects.Container {
     this.labelColorFixed = null;
     this.setColor(on ? 0xf5c451 : offColor);
     this.label.setColor(finishFor(on ? 0xf5c451 : offColor).text);
-    this.label.setShadow(0, on ? 0 : 2, 'rgba(20,10,0,0.6)', 2);
+    this.styleLabel();
     return this;
   }
 

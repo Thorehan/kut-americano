@@ -4,7 +4,8 @@ import type { OnlineController } from '../controller';
 import { connection } from '../net/connection';
 import { createTextures } from '../textures';
 import { Button } from '../ui/Button';
-import { panel, txt } from '../ui/text';
+import { header, panel, popIn, star8, txt } from '../ui/text';
+import { IconName, icon } from '../ui/icons';
 import { GAME_H, GAME_W, RENDER_SCALE, UI } from '../layout';
 import { haptic, sfx } from '../sfx';
 import { KP, VIDEO_REWARD, grant, levelOf, onlineLockLeft, profile, videosLeft, xpForLevel } from '../profile';
@@ -60,16 +61,6 @@ function save(key: string, v: string) {
 
 const VERSION = 'v0.5 · deneme sürümü';
 
-interface CardSpec {
-  x: number;
-  title: string;
-  sub: string;
-  color: number;
-  tiles: string[];
-  locked?: string;
-  onTap: () => void;
-}
-
 /** Ana ekran: telefon için büyük dokunma alanları, tek bakışta oyun seçimi. */
 export class MenuScene extends Phaser.Scene {
   private ruleOrder: RuleOrder = 'classic';
@@ -96,10 +87,10 @@ export class MenuScene extends Phaser.Scene {
 
     this.buildTopBar();
     this.buildHero();
-    this.buildRuleToggle();
-    this.buildQuickPlay();
-    this.buildModeCards();
-    txt(this, GAME_W / 2, 704, VERSION, 12, 'rgba(255,255,255,0.35)', 800).setOrigin(0.5, 1);
+    this.buildPlayArea();
+    this.buildSideCards();
+    this.buildDock();
+    txt(this, GAME_W - 14, 708, VERSION, 11, 'rgba(255,255,255,0.3)', 800).setOrigin(1, 1);
 
     this.renderOrder();
 
@@ -130,52 +121,106 @@ export class MenuScene extends Phaser.Scene {
 
   private kpText!: Phaser.GameObjects.Text;
   private videoBtn!: Button;
+  private videoBadge!: Phaser.GameObjects.Container;
+  private videoBadgeT!: Phaser.GameObjects.Text;
 
   private buildTopBar() {
     const p = profile();
     const lvl = levelOf(p.xp);
-    // profil çipi → profil ekranı
+    // profil çipi → profil ekranı (avatar + seviye yıldızı + isim + XP çubuğu)
     const g = this.add.graphics();
-    panel(g, 16, 12, 270, 56, 28, UI.panel, 0.9, UI.stroke, 1);
+    panel(g, 16, 14, 292, 60, 30, UI.panel, 0.92, UI.stroke, 1);
     const av = this.add.graphics();
+    av.fillStyle(0x06191b, 1);
+    av.fillCircle(50, 44, 27);
     av.fillStyle(p.color, 1);
-    av.fillCircle(44, 40, 21);
-    av.lineStyle(2, 0xffffff, 0.7);
-    av.strokeCircle(44, 40, 21);
-    txt(this, 44, 41, p.avatar, 22, '#fff', 900).setOrigin(0.5);
-    txt(this, 74, 19, p.name, 16, '#fff', 900);
-    txt(this, 74, 40, `Seviye ${lvl}`, 12, UI.goldHex, 900);
-    const xb = this.add.graphics();
+    av.fillCircle(50, 44, 24);
+    av.fillStyle(0xffffff, 0.18);
+    av.fillCircle(50, 37, 17);
+    txt(this, 50, 45, p.avatar, 24, '#fff', 900).setOrigin(0.5);
+    // seviye: safran çini yıldızı
+    const st = this.add.graphics();
+    st.fillStyle(0x06191b, 1);
+    star8(st, 72, 64, 15, 0.7);
+    st.fillStyle(UI.gold, 1);
+    star8(st, 72, 64, 12.5, 0.7);
+    txt(this, 72, 65, String(lvl), 12, '#5a3300', 900).setOrigin(0.5);
+    txt(this, 92, 21, p.name, 20, '#fff', 900).setShadow(0, 2, 'rgba(0,0,0,0.35)', 0, true, false);
     const frac = (p.xp - xpForLevel(lvl)) / (xpForLevel(lvl + 1) - xpForLevel(lvl));
-    xb.fillStyle(0x000000, 0.35);
-    xb.fillRoundedRect(140, 45, 130, 8, 4);
-    xb.fillStyle(UI.gold, 1);
-    xb.fillRoundedRect(140, 45, Math.max(6, 130 * frac), 8, 4);
-    this.add.zone(151, 40, 270, 56).setInteractive({ useHandCursor: true }).on('pointerdown', () => this.scene.start('profile', { tab: 0 }));
+    const xb = this.add.graphics();
+    xb.fillStyle(0x06191b, 0.85);
+    xb.fillRoundedRect(92, 50, 198, 12, 6);
+    xb.fillStyle(0x5fe08a, 1);
+    xb.fillRoundedRect(94, 52, Math.max(8, 194 * frac), 8, 4);
+    xb.fillStyle(0xffffff, 0.35);
+    xb.fillRoundedRect(96, 53, Math.max(4, 190 * frac), 3, 2);
+    this.add.zone(162, 44, 292, 60).setInteractive({ useHandCursor: true }).on('pointerdown', () => this.scene.start('profile', { tab: 0 }));
 
-    // Küt Puanı çipi + video
+    // Küt Puanı: koyu hap + jeton + yeşil "+" (mağaza)
     const kg = this.add.graphics();
-    panel(kg, 298, 12, 190, 56, 28, UI.panel, 0.9, UI.gold, 0.8);
-    this.add.image(328, 40, 'coin').setScale(0.5);
-    this.kpText = txt(this, 350, 40, fmt(p.kp), 21, UI.goldHex, 900).setOrigin(0, 0.5);
-    this.add.zone(393, 40, 190, 56).setInteractive({ useHandCursor: true }).on('pointerdown', () => this.scene.start('profile', { tab: 2 }));
-    this.videoBtn = new Button(this, 572, 40, 150, 56, '', () => this.watchVideo(), UI.green, 15);
-    this.refreshVideo();
+    kg.fillStyle(0x06191b, 0.9);
+    kg.fillRoundedRect(328, 22, 206, 44, 22);
+    kg.lineStyle(2, UI.gold, 0.55);
+    kg.strokeRoundedRect(328, 22, 206, 44, 22);
+    this.add.image(340, 44, 'coin').setScale(0.66);
+    this.kpText = txt(this, 370, 44, fmt(p.kp), 25, '#ffffff', 900).setOrigin(0, 0.5).setStroke('#06191b', 4);
+    this.add.zone(431, 44, 206, 44).setInteractive({ useHandCursor: true }).on('pointerdown', () => this.scene.start('profile', { tab: 2 }));
+    new Button(this, 514, 44, 42, 42, '', () => this.scene.start('profile', { tab: 2 }), UI.green).setIcon(icon('plus'), 22);
 
-    const soundBtn = new Button(this, 1012, 40, 120, 56, sfx.muted ? 'Ses ✗' : 'Ses ✓', () => {
-      sfx.setMuted(!sfx.muted);
-      sfx.unlock();
-      soundBtn.setLabel(sfx.muted ? 'Ses ✗' : 'Ses ✓');
-    }, UI.slate, 16);
-    new Button(this, 1150, 40, 140, 56, 'Nasıl Oynanır', () => this.showHowTo(), UI.amber, 15);
-    new Button(this, 872, 40, 140, 56, 'Mağaza', () => this.scene.start('profile', { tab: 2 }), 0x5b3f8f, 16);
+    // ücretsiz KP (ödüllü video) + ayarlar
+    this.videoBtn = new Button(this, 1100, 44, 176, 56, '', () => this.watchVideo(), UI.amber, 18).setIcon(icon('video'), 30);
+    this.videoBadge = this.add.container(1180, 20);
+    const bb = this.add.graphics();
+    bb.fillStyle(0x06191b, 1);
+    bb.fillCircle(0, 0, 13);
+    bb.fillStyle(0xe8483c, 1);
+    bb.fillCircle(0, 0, 11);
+    this.videoBadgeT = txt(this, 0, 0.5, '', 12, '#fff', 900).setOrigin(0.5);
+    this.videoBadge.add([bb, this.videoBadgeT]).setDepth(5);
+    new Button(this, 1236, 44, 56, 56, '', () => this.showSettings(), UI.slate).setIcon(icon('gear'), 32);
+    this.refreshVideo();
   }
 
   private refreshVideo() {
     const left = videosLeft();
-    this.videoBtn.setLabel(left > 0 ? `🎬 +${VIDEO_REWARD} ${KP}
-${left}/5 bugün` : '🎬 Yarın').setEnabled(left > 0);
+    this.videoBtn.setLabel(left > 0 ? `+${VIDEO_REWARD}` : 'Yarın').setEnabled(left > 0);
+    this.videoBadge.setVisible(left > 0);
+    this.videoBadgeT.setText(String(left));
     this.kpText.setText(fmt(profile().kp));
+  }
+
+  // ------------------------------------------------------------ ayarlar
+
+  private showSettings() {
+    this.overlay?.destroy();
+    const c = this.add.container(0, 0).setDepth(1000);
+    this.overlay = c;
+    c.add(this.add.rectangle(0, 0, GAME_W, GAME_H, 0x000000, 0.6).setOrigin(0).setInteractive());
+    const W = 440;
+    const H = 400;
+    const x0 = GAME_W / 2 - W / 2;
+    const y0 = GAME_H / 2 - H / 2;
+    const g = this.add.graphics();
+    panel(g, x0, y0, W, H, 22, UI.panel, 0.98, UI.stroke, 1);
+    c.add(g);
+    c.add(header(this, GAME_W / 2, y0, 'AYARLAR'));
+    const close = () => {
+      this.tweens.add({ targets: c, alpha: 0, duration: 120, onComplete: () => c.destroy() });
+      this.overlay = null;
+    };
+    c.add(new Button(this, x0 + W - 8, y0 + 8, 46, 46, '', close, UI.red).setIcon(icon('close'), 22));
+    const sound = new Button(this, GAME_W / 2, y0 + 110, 320, 60, '', () => {
+      sfx.setMuted(!sfx.muted);
+      sfx.unlock();
+      paint();
+    }, UI.slate, 20);
+    const paint = () => sound.setLabel(sfx.muted ? 'Ses: Kapalı' : 'Ses: Açık').setIcon(icon(sfx.muted ? 'mute' : 'sound'), 30);
+    paint();
+    c.add(sound);
+    c.add(new Button(this, GAME_W / 2, y0 + 190, 320, 60, 'Nasıl Oynanır', () => this.showHowTo(), UI.blue, 20).setIcon(icon('book'), 30));
+    c.add(new Button(this, GAME_W / 2, y0 + 270, 320, 60, 'Öğreticiyi Oyna', () => this.startTutorial(), UI.amber, 20).setIcon(icon('cap'), 32));
+    c.add(txt(this, GAME_W / 2, y0 + H - 34, VERSION, 13, UI.muted, 800).setOrigin(0.5));
+    popIn(this, c);
   }
 
   private async watchVideo() {
@@ -188,34 +233,70 @@ ${left}/5 bugün` : '🎬 Yarın').setEnabled(left > 0);
   // ------------------------------------------------------------ başlık
 
   private buildHero() {
-    const deco = ['tile-red-7', 'tile-yellow-7', 'tile-blue-7', 'tile-joker', 'tile-black-7'];
+    const deco = ['tile-red-7', 'tile-yellow-7', 'tile-joker', 'tile-blue-7', 'tile-black-7'];
     deco.forEach((k, i) => {
       const img = this.add
-        .image(GAME_W / 2 - 128 + i * 64, -80, k)
-        .setScale(0.5)
-        .setAngle((i - 2) * 6);
-      this.tweens.add({ targets: img, y: 122 + Math.abs(i - 2) * 6, duration: 620, delay: 120 + i * 90, ease: 'Back.easeOut' });
-      // hafif süzülme
+        .image(GAME_W / 2 - 124 + i * 62, -80, k)
+        .setScale(0.46)
+        .setAngle((i - 2) * 7);
+      this.tweens.add({ targets: img, y: 104 + Math.abs(i - 2) * 7, duration: 620, delay: 120 + i * 90, ease: 'Back.easeOut' });
       this.tweens.add({ targets: img, y: '+=4', duration: 1600 + i * 120, delay: 900, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
     });
-    const title = txt(this, GAME_W / 2, 200, 'KÜT', 64, UI.goldHex, 900).setOrigin(0.5).setShadow(0, 5, 'rgba(0,0,0,0.5)', 10);
+    // KÜT: safran harfler, kalın gece turkuazı kontur, altta gölge
+    const title = txt(this, GAME_W / 2, 178, 'KÜT', 76, UI.goldHex, 900)
+      .setOrigin(0.5)
+      .setStroke('#06191b', 12)
+      .setShadow(0, 6, 'rgba(0,0,0,0.45)', 0, true, false);
     title.setAlpha(0).setScale(0.8);
     this.tweens.add({ targets: title, alpha: 1, scale: 1, duration: 500, delay: 550, ease: 'Back.easeOut' });
-    txt(this, GAME_W / 2, 242, 'KURAL OKEY', 15, UI.cream, 900, { letterSpacing: 6 } as Phaser.Types.GameObjects.Text.TextStyle).setOrigin(0.5);
+    // alt başlık: küçük turkuaz şerit
+    const sub = this.add.container(GAME_W / 2, 230);
+    const sg = this.add.graphics();
+    sg.fillStyle(0x06191b, 0.9);
+    sg.fillRoundedRect(-118, -17, 236, 34, 17);
+    sg.lineStyle(2, UI.stroke, 0.8);
+    sg.strokeRoundedRect(-118, -17, 236, 34, 17);
+    sg.fillStyle(UI.gold, 1);
+    star8(sg, -100, 0, 5);
+    star8(sg, 100, 0, 5);
+    sub.add([sg, txt(this, 0, 1, 'KURAL OKEY', 17, UI.cream, 900, { letterSpacing: 5 } as Phaser.Types.GameObjects.Text.TextStyle).setOrigin(0.5)]);
   }
 
-  // ------------------------------------------------------------ kural sırası
+  // ------------------------------------------------------------ oyna: mod + kural sırası + büyük buton
 
-  private buildRuleToggle() {
-    const y = 296;
+  private segSolo!: Button;
+  private segTeam!: Button;
+
+  private buildPlayArea() {
+    const y = 300;
+    // iki segmentli seçici: oyun modu ve kural sırası (koyu oluklar içinde)
     const g = this.add.graphics();
-    g.fillStyle(0x000000, 0.28);
-    g.fillRoundedRect(GAME_W / 2 - 214, y - 30, 428, 60, 30);
-    this.segClassic = new Button(this, GAME_W / 2 - 106, y, 204, 48, 'Sıralı Kurallar', () => this.setOrder('classic'), UI.slate, 16);
-    this.segRandom = new Button(this, GAME_W / 2 + 106, y, 204, 48, '🎲 Rastgele Mod', () => this.setOrder('random'), UI.slate, 16);
-    this.segHint = txt(this, GAME_W / 2, y + 38, '', 14, UI.muted, 800).setOrigin(0.5, 0);
-    const info = new Button(this, GAME_W / 2 + 244, y, 44, 44, '?', () => this.showHowTo(this.ruleOrder === 'random' ? 2 : 1), UI.slate, 18);
+    for (const cx of [GAME_W / 2 - 166, GAME_W / 2 + 166]) {
+      g.fillStyle(0x06191b, 0.75);
+      g.fillRoundedRect(cx - 158, y - 34, 316, 68, 24);
+      g.lineStyle(2, UI.stroke, 0.35);
+      g.strokeRoundedRect(cx - 158, y - 34, 316, 68, 24);
+    }
+    const seg = (x: number, label: string, ic: IconName, fn: () => void) =>
+      new Button(this, x, y, 150, 54, label, fn, UI.slate, 20).setIcon(icon(ic), 26);
+    this.segSolo = seg(GAME_W / 2 - 243, 'Tekli', 'user', () => this.setMode('solo'));
+    this.segTeam = seg(GAME_W / 2 - 89, 'Takım', 'team', () => this.setMode('team'));
+    this.segClassic = seg(GAME_W / 2 + 89, 'Sıralı', 'list', () => this.setOrder('classic'));
+    this.segRandom = seg(GAME_W / 2 + 243, 'Rastgele', 'dice', () => this.setOrder('random'));
+
+    const play = new Button(this, GAME_W / 2, 412, 360, 104, 'OYNA', () => this.start(this.lastMode), UI.green, 44).setIcon(icon('play'), 50);
+    this.tweens.add({ targets: play, scale: 1.03, duration: 900, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+    this.quickSub = txt(this, GAME_W / 2, 474, '', 20, UI.cream, 900).setOrigin(0.5, 0);
+    this.segHint = txt(this, GAME_W / 2, 504, '', 17, UI.muted, 800, { align: 'center', wordWrap: { width: 620 } }).setOrigin(0.5, 0);
+    const info = new Button(this, GAME_W / 2 + 354, y, 44, 44, '?', () => this.showHowTo(this.ruleOrder === 'random' ? 3 : 1), UI.slate, 20);
     void info;
+  }
+
+  private setMode(m: GameMode) {
+    if (this.lastMode === m) return;
+    this.lastMode = m;
+    save('kut-last-mode', m);
+    this.renderOrder();
   }
 
   private setOrder(o: RuleOrder) {
@@ -227,31 +308,127 @@ ${left}/5 bugün` : '🎬 Yarın').setEnabled(left > 0);
 
   private renderOrder() {
     const random = this.ruleOrder === 'random';
+    const team = this.lastMode === 'team';
+    this.segSolo.setSelected(!team, UI.slate);
+    this.segTeam.setSelected(team, UI.slate);
     this.segClassic.setSelected(!random, UI.slate);
     this.segRandom.setSelected(random, UI.slate);
+    this.quickSub.setText(team ? "2'ye 2 takım · karşındaki ortağın" : '1 kişi + 3 bot');
     this.segHint.setText(
-      random ? `Her elin kuralı oranlarla çekilir · ilk el bile 5'li seri olabilir` : `${CONTRACTS.length} el sırayla: 3'lü küt → … → 5'li seri + 4'lü küt → elden bitme → çift eli`,
+      random
+        ? 'Rastgele: her elin kuralı oranlarla çekilir · ilk el bile 5\'li seri olabilir'
+        : `Sıralı: ${CONTRACTS.length} el · 3'lü küt → … → elden bitme → çift eli`,
     );
-    this.quickSub?.setText(`${this.lastMode === 'team' ? 'Takım' : 'Tekli'} · ${random ? 'Rastgele' : 'Sıralı'}`);
   }
 
-  // ------------------------------------------------------------ hızlı oyun
+  // ------------------------------------------------------------ yan kartlar (okey taşı biçiminde)
 
-  private buildQuickPlay() {
-    const y = 400;
-    const btn = new Button(this, GAME_W / 2, y, 380, 84, 'HIZLI OYUN  ▶', () => this.start(this.lastMode), UI.green, 26);
-    this.tweens.add({ targets: btn, scale: 1.035, duration: 900, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
-    this.quickSub = txt(this, GAME_W / 2, y + 50, '', 15, UI.cream, 800).setOrigin(0.5, 0);
-
-    // Öğretici: kısa, rehberli tek el
+  private buildSideCards() {
+    const online = connection.available;
+    this.tileCard(156, 400, 'Online', 'Arkadaşlarınla\noda kur', 'globe', 0x8a55ec, online ? undefined : 'YAKINDA', 0, () => {
+      const left = onlineLockLeft();
+      if (left > 0) {
+        const m = Math.floor(left / 60_000);
+        const s = Math.ceil((left % 60_000) / 1000);
+        showBubble(this, 156, 262, `Çıkış cezası: ${m > 0 ? `${m} dk ` : ''}${s} sn`, UI.red, false);
+        sfx.error();
+        return;
+      }
+      this.scene.start('lobby', {});
+    });
     const done = load('kut-tutorial-done') === '1';
-    new Button(this, GAME_W / 2 + 320, y, 200, 64, '🎓 Öğretici', () => this.startTutorial(), UI.amber, 18);
-    if (!done) {
+    this.tileCard(1124, 400, 'Öğretici', 'Adım adım\nöğren', 'cap', 0xffa928, undefined, 1, () => this.startTutorial(), done ? undefined : '2 DK');
+  }
+
+  /** Büyük okey taşı gibi görünen kart: krem yüz, alt kalınlık, renkli ikon yuvarlağı. */
+  private tileCard(
+    x: number,
+    y: number,
+    title: string,
+    sub: string,
+    ic: IconName,
+    color: number,
+    locked: string | undefined,
+    i: number,
+    onTap: () => void,
+    badge?: string,
+  ) {
+    const w = 196;
+    const h = 236;
+    const c = this.add.container(x, y + 40).setAlpha(0);
+    const g = this.add.graphics();
+    g.fillStyle(0x000000, 0.35);
+    g.fillRoundedRect(-w / 2 + 2, -h / 2 + 10, w, h, 26);
+    g.fillStyle(0x06191b, 1);
+    g.fillRoundedRect(-w / 2 - 2, -h / 2 - 2, w + 4, h + 4, 28);
+    g.fillStyle(0xcdb98e, 1); // taşın kalınlığı
+    g.fillRoundedRect(-w / 2, -h / 2, w, h, 26);
+    g.fillStyle(0xfff8ea, 1);
+    g.fillRoundedRect(-w / 2, -h / 2, w, h - 10, 26);
+    g.fillStyle(0xffffff, 0.7);
+    g.fillRoundedRect(-w / 2 + 10, -h / 2 + 8, w - 20, 16, 8);
+    // ikon yuvarlağı
+    g.fillStyle(0x06191b, 0.25);
+    g.fillCircle(0, -40, 50);
+    g.fillStyle(color, 1);
+    g.fillCircle(0, -44, 46);
+    g.fillStyle(0xffffff, 0.22);
+    g.fillCircle(0, -58, 30);
+    c.add(g);
+    c.add(this.add.image(0, -44, icon(ic)).setScale(0.58));
+    c.add(txt(this, 0, 26, title, 29, '#123c41', 900).setOrigin(0.5));
+    c.add(txt(this, 0, 50, sub, 17, '#4d6b68', 800, { align: 'center', lineSpacing: 2 }).setOrigin(0.5, 0));
+    const tag = locked ?? badge;
+    if (tag) {
       const bg = this.add.graphics();
-      bg.fillStyle(UI.gold, 1);
-      bg.fillRoundedRect(GAME_W / 2 + 320 + 48, y - 44, 56, 20, 10);
-      txt(this, GAME_W / 2 + 320 + 76, y - 34, '2 DK', 11, '#2a1d02', 900).setOrigin(0.5);
+      bg.fillStyle(0x06191b, 1);
+      bg.fillRoundedRect(w / 2 - 74, -h / 2 - 12, 82, 28, 14);
+      bg.fillStyle(locked ? 0x8a9a98 : 0xe8483c, 1);
+      bg.fillRoundedRect(w / 2 - 72, -h / 2 - 10, 78, 24, 12);
+      c.add(bg);
+      c.add(txt(this, w / 2 - 33, -h / 2 + 2, tag, 12, '#fff', 900).setOrigin(0.5));
     }
+    if (locked) c.setAlpha(0.75);
+    c.setSize(w, h);
+    c.setInteractive({ useHandCursor: !locked });
+    c.on('pointerdown', () => {
+      if (locked) {
+        sfx.error();
+        showBubble(this, x, y - h / 2 - 22, 'Online sunucu henüz yayında değil', UI.gold);
+        return;
+      }
+      sfx.select();
+      this.tweens.add({ targets: c, scale: 0.94, duration: 70, yoyo: true, onComplete: () => onTap() });
+    });
+    this.tweens.add({ targets: c, alpha: locked ? 0.75 : 1, y, duration: 420, delay: 600 + i * 120, ease: 'Back.easeOut' });
+    // hafif süzülme
+    this.tweens.add({ targets: c, angle: i ? 1 : -1, duration: 2200, delay: 1100, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+  }
+
+  // ------------------------------------------------------------ alt sekme çubuğu
+
+  private buildDock() {
+    const items: { label: string; ic: IconName; color: number; onTap: () => void }[] = [
+      { label: 'Profil', ic: 'user', color: UI.blue, onTap: () => this.scene.start('profile', { tab: 0 }) },
+      { label: 'Rozetler', ic: 'trophy', color: UI.amber, onTap: () => this.scene.start('profile', { tab: 1 }) },
+      { label: 'Mağaza', ic: 'shop', color: 0x5b3f8f, onTap: () => this.scene.start('profile', { tab: 2 }) },
+      { label: 'Kurallar', ic: 'book', color: UI.green, onTap: () => this.showHowTo() },
+    ];
+    const w = 560;
+    const x0 = GAME_W / 2 - w / 2;
+    const y = 656;
+    const g = this.add.graphics();
+    g.fillStyle(0x000000, 0.3);
+    g.fillRoundedRect(x0, y - 40 + 6, w, 84, 30);
+    g.fillStyle(0x06191b, 0.92);
+    g.fillRoundedRect(x0, y - 40, w, 84, 30);
+    g.lineStyle(2, UI.stroke, 0.45);
+    g.strokeRoundedRect(x0, y - 40, w, 84, 30);
+    items.forEach((it, i) => {
+      const cx = x0 + 70 + i * 140;
+      new Button(this, cx, y - 8, 64, 58, '', it.onTap, it.color).setIcon(icon(it.ic), 32);
+      txt(this, cx, y + 31, it.label, 16, UI.cream, 900).setOrigin(0.5);
+    });
   }
 
   private startTutorial() {
@@ -267,81 +444,6 @@ ${left}/5 bugün` : '🎬 Yarın').setEnabled(left > 0);
     this.cameras.main.once('camerafadeoutcomplete', () =>
       this.scene.start('table', { mode, ruleOrder: this.ruleOrder, ...urlOptions() } satisfies TableData),
     );
-  }
-
-  // ------------------------------------------------------------ mod kartları
-
-  private buildModeCards() {
-    const specs: CardSpec[] = [
-      { x: 330, title: 'Tekli', sub: '1 kişi + 3 bot', color: UI.green, tiles: ['tile-red-5', 'tile-red-6', 'tile-red-7'], onTap: () => this.start('solo') },
-      {
-        x: 640,
-        title: 'Takım',
-        sub: "2'ye 2 · karşın ortağın",
-        color: UI.blue,
-        tiles: ['tile-blue-9', 'tile-yellow-9', 'tile-black-9'],
-        onTap: () => this.start('team'),
-      },
-      {
-        x: 950,
-        title: 'Online Oda',
-        sub: 'Arkadaşlarınla oda kodu',
-        color: 0x7a4bb8,
-        tiles: ['tile-back', 'tile-joker', 'tile-back'],
-        locked: connection.available ? undefined : 'SUNUCU YOK',
-        onTap: () => {
-          const left = onlineLockLeft();
-          if (left > 0) {
-            const m = Math.floor(left / 60_000);
-            const s = Math.ceil((left % 60_000) / 1000);
-            showBubble(this, 950, 222, `Maçtan çıkış cezası: ${m > 0 ? `${m} dk ` : ''}${s} sn sonra online oynayabilirsin`, UI.red, false);
-            sfx.error();
-            return;
-          }
-          this.scene.start('lobby', {});
-        },
-      },
-    ];
-    specs.forEach((sp, i) => this.modeCard(sp, i));
-  }
-
-  private modeCard(sp: CardSpec, i: number) {
-    const w = 290;
-    const h = 150;
-    const y = 586;
-    const c = this.add.container(sp.x, y + 40).setAlpha(0);
-    const g = this.add.graphics();
-    g.fillStyle(0x000000, 0.35);
-    g.fillRoundedRect(-w / 2, -h / 2 + 5, w, h, 22);
-    g.fillStyle(sp.color, sp.locked ? 0.55 : 1);
-    g.fillRoundedRect(-w / 2, -h / 2, w, h, 22);
-    g.fillStyle(0xffffff, 0.08);
-    g.fillRoundedRect(-w / 2 + 4, -h / 2 + 4, w - 8, h / 2 - 4, { tl: 18, tr: 18, bl: 6, br: 6 });
-    g.lineStyle(2, 0xffffff, 0.25);
-    g.strokeRoundedRect(-w / 2, -h / 2, w, h, 22);
-    c.add(g);
-    sp.tiles.forEach((k, j) => c.add(this.add.image(-w / 2 + 52 + j * 30, 2, k).setScale(0.36).setAngle((j - 1) * 7)));
-    c.add(txt(this, -w / 2 + 140, -26, sp.title, 26, '#fff', 900).setShadow(0, 2, 'rgba(0,0,0,0.3)', 2));
-    c.add(txt(this, -w / 2 + 140, 10, sp.sub, 15, 'rgba(255,255,255,0.9)', 800, { wordWrap: { width: 140 } }));
-    if (sp.locked) {
-      const bg = this.add.graphics();
-      bg.fillStyle(UI.gold, 1);
-      bg.fillRoundedRect(w / 2 - 92, -h / 2 + 12, 80, 22, 11);
-      c.add(bg);
-      c.add(txt(this, w / 2 - 52, -h / 2 + 23, sp.locked, 11, '#2a1d02', 900).setOrigin(0.5));
-    }
-    c.setSize(w, h);
-    c.setInteractive({ useHandCursor: !sp.locked });
-    c.on('pointerdown', () => {
-      if (sp.locked) {
-        sfx.error();
-        showBubble(this, sp.x, y - h / 2 - 18, 'Online sunucu henüz yayında değil', UI.gold);
-        return;
-      }
-      sfx.select();
-      this.tweens.add({ targets: c, scale: 0.95, duration: 70, yoyo: true, onComplete: () => sp.onTap() });
-    });
-    this.tweens.add({ targets: c, alpha: 1, y, duration: 420, delay: 700 + i * 110, ease: 'Back.easeOut' });
   }
 
   // ------------------------------------------------------------ nasıl oynanır
@@ -360,7 +462,7 @@ ${left}/5 bugün` : '🎬 Yarın').setEnabled(left > 0);
     const g = this.add.graphics();
     panel(g, x0, y0, W, H, 24, 0x0c2c21, 0.98, UI.gold, 0.9);
     c.add(g);
-    c.add(txt(this, GAME_W / 2, y0 + 22, 'NASIL OYNANIR', 24, UI.goldHex, 900).setOrigin(0.5, 0));
+    c.add(header(this, GAME_W / 2, y0, 'NASIL OYNANIR'));
 
     const tabs = ['Temel', `Eller (${CONTRACTS.length})`, 'Kural & İşleme', 'Puan & Modlar'];
     const body = txt(this, x0 + 44, y0 + 130, '', 21, UI.cream, 700, { lineSpacing: 8, wordWrap: { width: W - 88 } });

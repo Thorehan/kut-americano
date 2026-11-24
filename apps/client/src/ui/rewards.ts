@@ -3,7 +3,8 @@ import { GAME_H, GAME_W, UI } from '../layout';
 import { Badge, DAILY_REWARDS, Gain, KP, claimDaily, dailyAvailable } from '../profile';
 import { haptic, sfx } from '../sfx';
 import { Button } from './Button';
-import { panel, txt } from './text';
+import { header, panel, popIn, txt } from './text';
+import { icon } from './icons';
 import { playRewardedVideo } from './videoAd';
 
 export function fmt(n: number): string {
@@ -53,25 +54,28 @@ export function showDailyPopup(scene: Phaser.Scene, onDone?: () => void) {
   const g = scene.add.graphics();
   panel(g, GAME_W / 2 - 400, 150, 800, 420, 24, 0x0c2c21, 0.98, UI.gold, 1);
   c.add(g);
-  c.add(txt(scene, GAME_W / 2, 176, 'GÜNLÜK ÖDÜL', 30, UI.goldHex, 900).setOrigin(0.5, 0));
-  c.add(txt(scene, GAME_W / 2, 218, `Her gün gel, ödül büyüsün · ${d.day}. gün`, 16, UI.cream, 800).setOrigin(0.5, 0));
+  c.add(header(scene, GAME_W / 2, 150, 'GÜNLÜK ÖDÜL'));
+  c.add(txt(scene, GAME_W / 2, 196, `Her gün gel, ödül büyüsün · ${d.day}. gün`, 19, UI.cream, 800).setOrigin(0.5, 0));
   DAILY_REWARDS.forEach((amt, i) => {
     const x = GAME_W / 2 - 330 + i * 110;
     const y = 320;
     const past = i + 1 < d.day;
     const now = i + 1 === d.day;
+    const big = i === DAILY_REWARDS.length - 1;
     const bg = scene.add.graphics();
-    bg.fillStyle(now ? UI.gold : past ? 0x1e6b43 : 0x000000, now ? 1 : past ? 0.9 : 0.3);
-    bg.fillRoundedRect(x - 48, y - 52, 96, 110, 14);
-    if (now) {
-      bg.lineStyle(3, 0xffffff, 0.9);
-      bg.strokeRoundedRect(x - 48, y - 52, 96, 110, 14);
-    }
+    bg.fillStyle(0x06191b, 1);
+    bg.fillRoundedRect(x - 50, y - 54, 100, 116, 16);
+    bg.fillStyle(now ? 0xc58a0c : past ? 0x11743a : 0x0d2c30, 1);
+    bg.fillRoundedRect(x - 48, y - 52, 96, 112, 14);
+    bg.fillStyle(now ? UI.gold : past ? 0x21a957 : 0x184a50, 1);
+    bg.fillRoundedRect(x - 48, y - 52, 96, 106, 14);
+    bg.fillStyle(0xffffff, now ? 0.35 : 0.08);
+    bg.fillRoundedRect(x - 42, y - 47, 84, 22, 10);
     c.add(bg);
-    c.add(txt(scene, x, y - 40, `${i + 1}. gün`, 13, now ? '#2a1d02' : UI.muted, 900).setOrigin(0.5, 0));
-    if (past) c.add(txt(scene, x, y - 6, '✓', 30, '#fff', 900).setOrigin(0.5));
-    else c.add(scene.add.image(x, y - 6, 'coin').setScale(0.55));
-    c.add(txt(scene, x, y + 30, fmt(amt), 17, now ? '#2a1d02' : UI.cream, 900).setOrigin(0.5));
+    c.add(txt(scene, x, y - 42, big ? 'BÜYÜK' : `${i + 1}. gün`, 15, now ? '#5a3300' : UI.muted, 900).setOrigin(0.5, 0));
+    if (past) c.add(txt(scene, x, y - 2, '✓', 34, '#fff', 900).setOrigin(0.5).setStroke('#11743a', 5));
+    else c.add(scene.add.image(x, y - 2, 'coin').setScale(big ? 0.72 : 0.6));
+    c.add(txt(scene, x, y + 32, fmt(amt), 20, now ? '#5a3300' : '#ffffff', 900).setOrigin(0.5));
   });
   const close = (gain: Gain | null) => {
     scene.tweens.add({ targets: c, alpha: 0, duration: 160, onComplete: () => c.destroy() });
@@ -79,14 +83,13 @@ export function showDailyPopup(scene: Phaser.Scene, onDone?: () => void) {
     onDone?.();
   };
   c.add(new Button(scene, GAME_W / 2 - 150, 500, 260, 62, `Al · +${fmt(d.amount)} ${KP}`, () => close(claimDaily(1)), UI.slate, 19));
-  const dbl = new Button(scene, GAME_W / 2 + 150, 500, 280, 62, `🎬 2 Kat · +${fmt(d.amount * 2)} ${KP}`, async () => {
+  const dbl = new Button(scene, GAME_W / 2 + 150, 500, 280, 62, `2 Kat · +${fmt(d.amount * 2)} ${KP}`, async () => {
     c.setVisible(false);
     const ok = await playRewardedVideo(scene, `+${fmt(d.amount * 2)} ${KP}`);
     c.setVisible(true);
     if (ok) close(claimDaily(2));
   }, UI.green, 19);
-  dbl.setPulse(true);
+  dbl.setIcon(icon('video'), 28).setPulse(true);
   c.add(dbl);
-  c.setAlpha(0);
-  scene.tweens.add({ targets: c, alpha: 1, duration: 200 });
+  popIn(scene, c);
 }

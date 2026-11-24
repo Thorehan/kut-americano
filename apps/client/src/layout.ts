@@ -9,15 +9,19 @@ export const TEXT_RES = 2;
 
 export const FONT = 'Nunito, "Segoe UI", Roboto, Arial, sans-serif';
 
+/**
+ * "Çini" teması: gece turkuazı zemin, safran vurgu, krem yazı. Butonların malzemeleri
+ * ui/Button.ts'de; buradaki renk kodları buton renk anahtarı olarak da kullanılır.
+ */
 export const UI = {
-  bg: 0x1a0f07,
-  panel: 0x24170c,
-  panelHi: 0x3a2414,
-  stroke: 0x9c7a34,
-  gold: 0xf5c451,
-  goldHex: '#f5c451',
-  cream: '#f6eeda',
-  muted: '#cdb994',
+  bg: 0x0a2a2e,
+  panel: 0x113a3f,
+  panelHi: 0x1c5158,
+  stroke: 0x4cc0b2,
+  gold: 0xffc845,
+  goldHex: '#ffc845',
+  cream: '#fff4dc',
+  muted: '#a9d2cb',
   white: '#ffffff',
   green: 0x2e9a5c,
   greenHex: '#7ee2a0',

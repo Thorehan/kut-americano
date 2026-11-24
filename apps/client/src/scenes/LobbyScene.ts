@@ -9,6 +9,7 @@ import { Button } from '../ui/Button';
 import { promptText, shareLink } from '../ui/htmlPrompt';
 import { panel, txt } from '../ui/text';
 import { showBubble } from '../view/SeatView';
+import { icon } from '../ui/icons';
 import { profile, saveProfile } from '../profile';
 
 export interface LobbyData {
@@ -75,7 +76,7 @@ export class LobbyScene extends Phaser.Scene {
     this.createMode = load('kut-last-mode') === 'team' ? 'team' : 'solo';
 
     // üst çubuk
-    new Button(this, 92, 40, 150, 56, '← Ana Menü', () => this.backToMenu(), UI.slate, 16);
+    new Button(this, 48, 44, 56, 56, '', () => this.backToMenu(), UI.slate).setIcon(icon('back'), 30);
     txt(this, GAME_W / 2, 40, 'ONLINE ODA', 26, UI.goldHex, 900).setOrigin(0.5);
     const g = this.add.graphics();
     panel(g, GAME_W - 296, 12, 280, 56, 28, UI.panel, 0.9, UI.stroke, 1);
@@ -286,7 +287,7 @@ export class LobbyScene extends Phaser.Scene {
     const team = new Button(this, 490, 284, 210, 52, "Takım 2'ye 2", () => setMode('team'), UI.slate, 17);
     c.add(txt(this, 140, y + 20, 'KURALLAR', 13, UI.muted, 900));
     const classic = new Button(this, 270, y + 68, 210, 52, 'Sıralı', () => setOrder('classic'), UI.slate, 17);
-    const random = new Button(this, 490, y + 68, 210, 52, '🎲 Rastgele', () => setOrder('random'), UI.slate, 17);
+    const random = new Button(this, 490, y + 68, 210, 52, 'Rastgele', () => setOrder('random'), UI.slate, 17).setIcon(icon('dice'), 24);
     const setMode = (m: GameMode) => {
       this.createMode = m;
       solo.setSelected(m === 'solo', UI.slate);
@@ -389,7 +390,7 @@ export class LobbyScene extends Phaser.Scene {
       const solo = new Button(this, GAME_W / 2 - 330, 512, 150, 46, 'Tekli', () => this.settings('solo', l.ruleOrder), UI.slate, 15);
       const team = new Button(this, GAME_W / 2 - 170, 512, 150, 46, 'Takım', () => this.settings('team', l.ruleOrder), UI.slate, 15);
       const cl = new Button(this, GAME_W / 2 + 170, 512, 150, 46, 'Sıralı', () => this.settings(l.mode, 'classic'), UI.slate, 15);
-      const rn = new Button(this, GAME_W / 2 + 330, 512, 150, 46, '🎲 Rastgele', () => this.settings(l.mode, 'random'), UI.slate, 15);
+      const rn = new Button(this, GAME_W / 2 + 330, 512, 150, 46, 'Rastgele', () => this.settings(l.mode, 'random'), UI.slate, 15).setIcon(icon('dice'), 20);
       solo.setSelected(l.mode === 'solo', UI.slate);
       team.setSelected(l.mode === 'team', UI.slate);
       cl.setSelected(l.ruleOrder === 'classic', UI.slate);

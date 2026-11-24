@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { COLORS, Color, Tile } from '@kut/core';
 import { FONT, GAME_H, GAME_W, RACK, RENDER_SCALE, TABLE } from './layout';
 import { profile } from './profile';
+import { createIcons } from './ui/icons';
 
 /** Taş yüzü temaları (profilde KP ile açılır). */
 interface TileStyle {
@@ -151,7 +152,45 @@ function drawRosette(ctx: CanvasRenderingContext2D, cx: number, cy: number, r: n
 /** Çizili dokuların hangi temayla çizildiği; tema değişince yeniden çizilir. */
 let drawnSig = '';
 
+/**
+ * Çini yıldız kafesi: her ızgara noktasında 8 köşeli yıldız, aralarında baklava bağlantılar.
+ * (Klasik geometrik desenin sade, kendi çizimimiz olan yorumu.)
+ */
+export function drawCiniPattern(ctx: CanvasRenderingContext2D, w: number, h: number, cell: number, color: string) {
+  ctx.save();
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 1.6;
+  const r = cell * 0.27;
+  for (let gy = 0; gy <= h / cell + 1; gy++) {
+    for (let gx = 0; gx <= w / cell + 1; gx++) {
+      const cx = gx * cell + (gy % 2 ? cell / 2 : 0);
+      const cy = gy * cell * 0.75;
+      ctx.beginPath();
+      for (let i = 0; i < 16; i++) {
+        const a = (i * Math.PI) / 8 - Math.PI / 2;
+        const rr = i % 2 === 0 ? r : r * 0.62;
+        const x = cx + Math.cos(a) * rr;
+        const y = cy + Math.sin(a) * rr;
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.closePath();
+      ctx.stroke();
+      // sağdaki ve alttaki komşuya baklava bağlantı
+      ctx.beginPath();
+      ctx.moveTo(cx + r, cy);
+      ctx.lineTo(cx + cell / 2, cy - r * 0.45);
+      ctx.lineTo(cx + cell - r, cy);
+      ctx.lineTo(cx + cell / 2, cy + r * 0.45);
+      ctx.closePath();
+      ctx.stroke();
+    }
+  }
+  ctx.restore();
+}
+
 export function createTextures(scene: Phaser.Scene) {
+  createIcons(scene);
   const p = profile();
   const sig = `${p.tileTheme}|${p.feltTheme}`;
   if (scene.textures.exists('tile-back') && sig === drawnSig) return;
@@ -311,20 +350,28 @@ export function createTextures(scene: Phaser.Scene) {
     ctx.stroke();
   });
 
-  // Menü arka planı: koyu çuha + yumuşak ışık
+  // Menü arka planı: gece turkuazı + soluk çini yıldız deseni + logonun arkasında ışık
   canvas(scene, 'menu-bg', GAME_W * S, GAME_H * S, (ctx) => {
     ctx.scale(S, S);
-    const bg = ctx.createRadialGradient(GAME_W / 2, 220, 60, GAME_W / 2, GAME_H / 2, GAME_W * 0.8);
-    bg.addColorStop(0, '#22845a');
-    bg.addColorStop(0.45, '#135437');
-    bg.addColorStop(1, '#061a12');
+    const bg = ctx.createRadialGradient(GAME_W / 2, 200, 40, GAME_W / 2, GAME_H / 2, GAME_W * 0.78);
+    bg.addColorStop(0, '#1f6b70');
+    bg.addColorStop(0.5, '#0f3e43');
+    bg.addColorStop(1, '#061d20');
     ctx.fillStyle = bg;
     ctx.fillRect(0, 0, GAME_W, GAME_H);
-    ctx.globalAlpha = 0.04;
-    for (let i = 0; i < 5000; i++) {
-      ctx.fillStyle = i % 2 ? '#000' : '#fff';
-      ctx.fillRect(Math.random() * GAME_W, Math.random() * GAME_H, 1.5, 1.5);
-    }
+    drawCiniPattern(ctx, GAME_W, GAME_H, 96, 'rgba(255,244,220,0.055)');
+    // logonun arkasında safran parıltı
+    const glow = ctx.createRadialGradient(GAME_W / 2, 175, 10, GAME_W / 2, 175, 330);
+    glow.addColorStop(0, 'rgba(255,200,69,0.22)');
+    glow.addColorStop(1, 'rgba(255,200,69,0)');
+    ctx.fillStyle = glow;
+    ctx.fillRect(0, 0, GAME_W, GAME_H);
+    // kenar karartma
+    const vig = ctx.createRadialGradient(GAME_W / 2, GAME_H / 2, GAME_H * 0.45, GAME_W / 2, GAME_H / 2, GAME_W * 0.72);
+    vig.addColorStop(0, 'rgba(0,0,0,0)');
+    vig.addColorStop(1, 'rgba(0,0,0,0.45)');
+    ctx.fillStyle = vig;
+    ctx.fillRect(0, 0, GAME_W, GAME_H);
   });
 
   // Ahşap ıstaka
