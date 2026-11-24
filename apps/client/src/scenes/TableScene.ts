@@ -72,7 +72,7 @@ import {
   saveProfile,
 } from '../profile';
 import { fmt, showBadge, showGain } from '../ui/rewards';
-import { icon } from '../ui/icons';
+import { IconName, icon } from '../ui/icons';
 import { playRewardedVideo } from '../ui/videoAd';
 
 type Obj = Phaser.GameObjects.GameObject;
@@ -81,7 +81,7 @@ type Rect = Phaser.Geom.Rectangle;
 const SLOT_COUNT = RACK.cols * RACK.rows;
 const CLAIM_SECONDS = 8;
 const ZONE_SCALES = [0.4, 0.36, 0.32, 0.28, 0.25, 0.22, 0.19, 0.16, 0.14];
-type OverlayKind = 'none' | 'claim' | 'round' | 'scores' | 'final' | 'menu';
+type OverlayKind = 'none' | 'claim' | 'round' | 'scores' | 'final' | 'menu' | 'confirm';
 
 export class TableScene extends Phaser.Scene {
   private ctrl!: GameController;
@@ -97,6 +97,8 @@ export class TableScene extends Phaser.Scene {
   private sortBy: 'seri' | 'kut' = 'seri';
 
   private zoneGfx!: Phaser.GameObjects.Graphics;
+  /** Hazırlıkta bekleyen (yere inmemiş) perlerin "AÇILMADI" etiketleri. */
+  private stagedTags!: Phaser.GameObjects.Container;
   private rackGlow!: Phaser.GameObjects.Graphics;
   private deckGlow!: Phaser.GameObjects.Graphics;
   private deckTop!: Phaser.GameObjects.Image;
@@ -232,6 +234,8 @@ export class TableScene extends Phaser.Scene {
 
     this.tiles = new TileLayer(this, (id, kind) => this.onTileTap(id, kind));
     this.zoneGfx = this.add.graphics().setDepth(5);
+    this.stagedTags = this.add.container(0, 0).setDepth(170);
+    this.tweens.add({ targets: this.stagedTags, alpha: { from: 1, to: 0.45 }, duration: 600, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
     this.rackGlow = this.add.graphics().setDepth(-9);
     this.buildStaticTable();
     this.buildRulePanel();
@@ -838,7 +842,7 @@ export class TableScene extends Phaser.Scene {
   }
 
   /** Birden çok taşı aynı pere işler; uygun sırayı önceden hesaplar. */
-  private addGroupToMeld(ids: number[], meldId: number) {
+  private addGroupToMeld(ids: number[], meldId: number, okeyConfirmed = false) {
     if (!this.ctrl.game.canAddToMelds(0)) {
       this.showError(this.me.opened ? 'Kuralı bu sırada açtın — işleme sonraki sırada.' : 'İşlemek için önce kuralı açmalısın.');
       return;
@@ -848,6 +852,11 @@ export class TableScene extends Phaser.Scene {
       // tek taşsa okey alma da olabilir
       if (ids.length === 1) return this.meldAction(ids[0], meldId);
       this.showError('Bu taşlar bu pere işlenemez.');
+      return;
+    }
+    // grupta okey varsa önce sor
+    if (!okeyConfirmed && !this.tutorial && order.some((t) => t.joker)) {
+      this.confirmOkeyAdd(() => this.addGroupToMeld(ids, meldId, true));
       return;
     }
     for (const t of order) {
@@ -924,9 +933,67 @@ export class TableScene extends Phaser.Scene {
     return this.me.opened && h.length === 2 && h.every((t) => t.joker);
   }
 
+  /**
+   * Küçük onay penceresi (geri alınamayan hamlelerden önce). Butonlar soldan sağa;
+   * ilki önerilen eylem. Arkadaki masaya dokunmak "Vazgeç" sayılır.
+   */
+  private askConfirm(title: string, body: string, buttons: { label: string; color: number; ic?: IconName; onTap: () => void }[]) {
+    if (this.overlayKind === 'round' || this.overlayKind === 'final' || this.overlayKind === 'claim') return;
+    const cx = GAME_W / 2;
+    const W = Math.max(520, buttons.length * 200 + 40);
+    const H = 250;
+    const top = GAME_H / 2 - H / 2 - 30;
+    const c = this.openOverlay('confirm', W, H, true, top + H / 2);
+    (c.list[0] as Phaser.GameObjects.Rectangle).on('pointerdown', () => this.closeOverlay());
+    c.add(header(this, cx, top, title, UI.gold));
+    c.add(txt(this, cx, top + 92, body, 19, UI.cream, 800, { align: 'center', wordWrap: { width: W - 60 }, lineSpacing: 4 }).setOrigin(0.5));
+    const bw = Math.min(220, (W - 40) / buttons.length - 14);
+    buttons.forEach((b, i) => {
+      const x = cx + (i - (buttons.length - 1) / 2) * (bw + 14);
+      const btn = new Button(this, x, top + H - 50, bw, 58, b.label, () => {
+        this.closeOverlay();
+        b.onTap();
+      }, b.color, 19);
+      if (b.ic) btn.setIcon(icon(b.ic), 24);
+      c.add(btn);
+    });
+    c.setScale(0.94).setPosition(cx * 0.06, (top + H / 2) * 0.06);
+    this.tweens.add({ targets: c, scale: 1, x: 0, y: 0, duration: 180, ease: 'Back.easeOut' });
+    haptic(15);
+  }
+
+  /** Okeyi yerdeki bir pere işlemeden önce sor (yanlışlıkla işlemek geri alınamaz). */
+  private confirmOkeyAdd(onYes: () => void) {
+    this.askConfirm('OKEYİ İŞLE?', 'Okeyi bu pere işlemek istediğine emin misin?\nYere inen okeyi rakipler yerini tutan taşla alabilir.', [
+      { label: 'İşle', color: UI.amber, ic: 'check', onTap: onYes },
+      { label: 'Vazgeç', color: UI.slate, ic: 'close', onTap: () => this.sync() },
+    ]);
+  }
+
   /** İşlek taş atılmadan önce bir kez uyarır (atarsa +50 ceza). */
-  private tryDiscard(id: number) {
+  private tryDiscard(id: number, skipStagedCheck = false) {
     const t = this.tileById(id);
+    // Dizilip yere inmemiş per varken taş atmak: "açtım sandım" hatası → sor
+    if (!skipStagedCheck && this.staged.length && this.me.hand.length > 1 && this.myAction) {
+      const c = this.ctrl.game.contract;
+      const opened = this.me.opened;
+      const groups = this.staged.map((g) => g.map((i) => this.tileById(i)).filter((x): x is Tile => !!x));
+      const canLay =
+        !this.me.openedThisTurn &&
+        (c.mode !== 'normal' || (opened ? groups.every((g) => this.groupValid(g)) : groups.length === c.reqs.length && !!matchContract(groups, c.reqs)));
+      const buttons: { label: string; color: number; ic?: IconName; onTap: () => void }[] = [];
+      if (canLay) buttons.push({ label: opened ? 'Yere Koy' : 'Kuralı Aç', color: UI.green, ic: 'check', onTap: () => this.layStaged() });
+      buttons.push({ label: 'Yine de at', color: UI.red, onTap: () => this.tryDiscard(id, true) });
+      buttons.push({ label: 'Vazgeç', color: UI.slate, onTap: () => this.sync() });
+      this.askConfirm(
+        opened ? 'PERLER YERE İNMEDİ' : 'HENÜZ AÇMADIN',
+        opened
+          ? 'Kendi alanına dizdiğin perler henüz yere inmedi.\nİnmeleri için önce "Yere Koy"a bas.'
+          : 'Kural açılmadı! Dizdiğin taşlar henüz yere inmedi.\nAçmak için önce "Kuralı Aç"a bas.',
+        buttons,
+      );
+      return;
+    }
     // Son taş her zaman ortaya vurulup biter (işlek uyarısı yok).
     if (this.assist && t && this.me.hand.length > 1 && this.ctrl.game.isIslek(t) && this.islekConfirm !== id) {
       this.islekConfirm = id;
@@ -942,6 +1009,7 @@ export class TableScene extends Phaser.Scene {
     const t = this.tileById(tileId);
     const m = this.s.melds.find((x) => x.id === meldId);
     if (t && m && jokerSwapIndex(m, t) !== null) this.humanAct({ type: 'swapJoker', tileId, meldId });
+    else if (t?.joker && !this.tutorial && this.myAction && this.ctrl.game.canAddToMelds(0)) this.confirmOkeyAdd(() => this.humanAct({ type: 'addToMeld', tileId, meldId }));
     else this.humanAct({ type: 'addToMeld', tileId, meldId });
   }
 
@@ -1049,6 +1117,7 @@ export class TableScene extends Phaser.Scene {
     this.stagedHits = [];
     const sel = this.selectedSingle();
     const canAdd = this.myAction && this.ctrl.game.canAddToMelds(0);
+    const stagedFrames: Phaser.Geom.Rectangle[] = [];
     for (let seat = 0; seat < 4; seat++) {
       const melds = s.melds.filter((m) => m.owner === seat);
       const groups: { tiles: Tile[]; meldId?: number; staged?: number }[] = melds.map((m) => ({ tiles: m.tiles, meldId: m.id }));
@@ -1078,6 +1147,7 @@ export class TableScene extends Phaser.Scene {
           this.zoneGfx.lineStyle(2.5, valid ? 0x5fd38a : 0xe0574a, 0.95);
           this.zoneGfx.strokeRoundedRect(frame.x, frame.y, frame.width, frame.height, 8);
           this.stagedHits.push({ gi: g.staged!, rect: frame });
+          stagedFrames.push(frame);
           g.tiles.forEach((t, i) =>
             targets.set(t.id, {
               tile: t,
@@ -1087,6 +1157,14 @@ export class TableScene extends Phaser.Scene {
           );
         }
       });
+    }
+
+    // --- hazırlıkta bekleyen perler: "AÇILMADI" etiketi (yere inmediği belli olsun)
+    this.stagedTags.removeAll(true);
+    const tagText = this.me.opened ? 'YERE İNMEDİ' : 'AÇILMADI';
+    for (const f of stagedFrames) {
+      const t = txt(this, f.centerX, f.y - 4, tagText, 12, '#ffffff', 900, { backgroundColor: '#e8483c', padding: { x: 7, y: 2 } }).setOrigin(0.5, 1);
+      this.stagedTags.add(t);
     }
 
     // --- yan taş parlaması (alınabilir / istenebilir)
@@ -1286,6 +1364,8 @@ export class TableScene extends Phaser.Scene {
       let t: string;
       if (this.doubleOkeyReady()) t = 'Elinde iki okey kaldı! Ortaya sürükle ya da "Çift Okey!"';
       else if (me.hand.length === 1 && me.opened) t = me.hand[0].joker ? 'Son taş okey! Ortaya vur → okeyle bit' : 'Son taş! Ortaya vur ve bit → "Bitir!"';
+      else if (this.staged.length && !me.opened) t = 'Henüz açmadın — kural açılmadı · "Kuralı Aç"a bas';
+      else if (this.staged.length && c.mode === 'normal' && !me.openedThisTurn) t = 'Dizdiğin perler yere inmedi · "Yere Koy"a bas';
       else if (c.mode !== 'normal') t = 'Tek seferde açabiliyorsan "Öner" · yoksa bir taş at';
       else if (!me.opened) t = `Sadece kuralı aç (${c.name}) ya da taş at`;
       else if (me.openedThisTurn) t = 'Kural açıldı! Fazlalıklar sonraki sırada · bir taş at';
