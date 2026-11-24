@@ -513,6 +513,13 @@ export class TableScene extends Phaser.Scene {
 
   private humanAct(action: Action): boolean {
     sfx.unlock();
+    // öğretici: senaryoyu kilitleyecek hamleyi açıklayarak engelle
+    const blocked = this.tutorial?.guard(action);
+    if (blocked) {
+      this.showError(blocked);
+      this.sync();
+      return false;
+    }
     const err = this.ctrl.act(action);
     if (err) this.showError(err);
     else this.errorUntil = 0; // başarılı hamle eski uyarıyı kaldırır
@@ -844,7 +851,8 @@ export class TableScene extends Phaser.Scene {
       return;
     }
     for (const t of order) {
-      const err = this.ctrl.act({ type: 'addToMeld', tileId: t.id, meldId });
+      const action: Action = { type: 'addToMeld', tileId: t.id, meldId };
+      const err = this.tutorial?.guard(action) ?? this.ctrl.act(action);
       if (err) {
         this.showError(err);
         break;
@@ -2153,19 +2161,33 @@ export class TableScene extends Phaser.Scene {
       return;
     }
     const cx = GAME_W / 2;
-    const cy = GAME_H / 2;
-    const c = this.openOverlay('menu', 400, 330, true);
-    c.add(txt(this, cx, cy - 140, 'Menü', 28, UI.goldHex, 900).setOrigin(0.5, 0));
-    const sound = new Button(this, cx, cy - 58, 300, 56, '', () => {
+    const tut = !!this.tutorial;
+    const H = tut ? 410 : 340;
+    const top = GAME_H / 2 - H / 2;
+    const c = this.openOverlay('menu', 420, H, true);
+    c.add(header(this, cx, top, 'MENÜ'));
+    let y = top + 82;
+    const sound = new Button(this, cx, y, 320, 58, '', () => {
       this.toggleSound();
       label();
-    }, UI.slate, 19);
-    const label = () => sound.setLabel(sfx.muted ? '🔇  Ses: Kapalı' : '🔊  Ses: Açık');
+    }, UI.slate, 20);
+    const label = () => sound.setLabel(sfx.muted ? 'Ses: Kapalı' : 'Ses: Açık').setIcon(icon(sfx.muted ? 'mute' : 'sound'), 28);
     label();
     c.add(sound);
-    c.add(new Button(this, cx, cy + 10, 300, 56, 'Oyuna Dön', () => this.closeOverlay(), UI.green, 19));
-    c.add(new Button(this, cx, cy + 78, 300, 56, 'Maçtan Çık', () => this.confirmExit(), UI.red, 19));
-    c.setScale(0.94).setPosition(cx * 0.06, cy * 0.06);
+    y += 72;
+    c.add(new Button(this, cx, y, 320, 58, 'Oyuna Dön', () => this.closeOverlay(), UI.green, 20).setIcon(icon('play'), 26));
+    if (tut) {
+      // öğretici takılırsa: hazır eli baştan kur
+      y += 72;
+      c.add(
+        new Button(this, cx, y, 320, 58, 'Öğreticiyi baştan başlat', () => {
+          this.scene.restart({ mode: 'solo', tutorial: this.mode.tutorial } satisfies TableData);
+        }, UI.amber, 19).setIcon(icon('cap'), 28),
+      );
+    }
+    y += 72;
+    c.add(new Button(this, cx, y, 320, 58, 'Maçtan Çık', () => this.confirmExit(), UI.red, 20).setIcon(icon('exit'), 26));
+    c.setScale(0.94).setPosition(cx * 0.06, (GAME_H / 2) * 0.06);
     this.tweens.add({ targets: c, scale: 1, x: 0, y: 0, duration: 200, ease: 'Back.easeOut' });
   }
 

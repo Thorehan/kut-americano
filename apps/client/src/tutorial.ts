@@ -461,6 +461,33 @@ export class TutorialRunner {
     this.render();
   }
 
+  /**
+   * Senaryoyu kilitleyecek hamleleri engeller ve sebebini söyler (null = serbest).
+   * Öğretici hazır bir elle oynanır: okey sarı 12-13 serisi için lazım, taş atmak
+   * sırayı rakiplere geçirip adımları bozar. Diğer hamleler serbest kalır.
+   */
+  guard(a: Action): string | null {
+    if (this.finished) return null;
+    const s = this.getState();
+    const st = this.steps[this.step];
+    const hand = s.players[0].hand;
+    if (a.type === 'discard') {
+      if (hand.length === 1 || st.target === 'center') return null;
+      if (st.target === 'discard') {
+        // sadece ışıklı taş: diğerleri sonraki adımlarda lazım
+        if (!this.highlights.size || this.highlights.has(a.tileId)) return null;
+        return 'Işıklı taşı at — elindeki diğer taşlar sonraki adımlarda lazım.';
+      }
+      if (st.info) return "Önce kutudaki \"Devam\"a bas.";
+      return `Öğreticide şimdi taş atmıyoruz — önce bu adımı yap: ${st.title.replace(/^\d+ · /, '')}.`;
+    }
+    if (a.type === 'addToMeld' && this.stage === 'basic') {
+      const t = hand.find((x) => x.id === a.tileId);
+      if (t?.joker) return 'Okeyi elde tut: az sonra sarı 12 ve sarı 13 ile seri yapacağız.';
+    }
+    return null;
+  }
+
   /** Her çizimde çağrılır: tamamlanan adımları geçer. */
   update() {
     if (this.finished) return;
