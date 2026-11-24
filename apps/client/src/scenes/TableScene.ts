@@ -13,6 +13,7 @@ import {
   addPosition,
   jokerSwapIndex,
   withTile,
+  matchContract,
   Meld,
   asCift,
   asKut,
@@ -726,6 +727,7 @@ export class TableScene extends Phaser.Scene {
         if (last && !this.groupValid(last.map((i) => this.tileById(i)!))) last.push(id);
         else this.staged.push([id]);
         this.selected.delete(id);
+        this.autoLay();
       }
     }
     this.sync();
@@ -752,6 +754,7 @@ export class TableScene extends Phaser.Scene {
         this.staged.push(ids);
         this.selected.clear();
         sfx.tok();
+        this.autoLay();
       } else this.showError('Per dizmek için sıranı bekle.');
     } else if (Phaser.Math.Distance.Between(x, y, DISCARD_POS[0].x, DISCARD_POS[0].y) < 70) {
       this.showError('Bir seferde tek taş atılır.');
@@ -859,6 +862,21 @@ export class TableScene extends Phaser.Scene {
   private selectedSingle(): Tile | null {
     if (this.selected.size !== 1) return null;
     return this.tileById([...this.selected][0]) ?? null;
+  }
+
+  /**
+   * Sürükle-bırak kısayolu: kendi alanına bırakılan perler geçerli ve şu an yere inebiliyorsa
+   * butona basmadan hemen iner (kuralı açar ya da per dizer). Eksikse hazırlıkta bekler
+   * (ör. 4'lü Küt + 4'lü Seri'de ikinci per bırakılınca açılır). Butonlu yol aynen geçerli.
+   */
+  private autoLay() {
+    if (!this.myAction || !this.staged.length) return;
+    const c = this.ctrl.game.contract;
+    const me = this.me;
+    if (c.mode !== 'normal' || me.openedThisTurn) return; // elden bitme / çift eli: tüm el tek seferde, butonla
+    const groups = this.staged.map((g) => g.map((id) => this.tileById(id)).filter((t): t is Tile => !!t));
+    const ok = me.opened ? groups.every((g) => this.groupValid(g)) : groups.length === c.reqs.length && !!matchContract(groups, c.reqs);
+    if (ok) this.layStaged();
   }
 
   private stageSelected() {

@@ -296,7 +296,7 @@ const BASIC: Step[] = [
   },
   {
     title: '1 · Kuralı aç',
-    text: "Işıklı üç 7'yi seç, birlikte kendi alanına sürükle (ya da Per Ekle) → Kuralı Aç.",
+    text: "Işıklı üç 7'yi seç. İki yol var: birlikte kendi alanına sürükleyip bırak (kural hemen açılır) ya da Per Ekle → Kuralı Aç butonlarına bas.",
     why: "Kural açılmadan hiçbir per yere inmez, işleme de yapamazsın. Kırmızı-mavi-siyah 7 aynı sayıda 3 farklı renk: tam 3'lü Küt, kuralı karşılıyor.",
     tiles: ['r7', 'b7', 'k7'],
     target: 'lay',
@@ -325,7 +325,7 @@ const BASIC: Step[] = [
   },
   {
     title: '4 · Per diz',
-    text: 'Kimse yan taşı istemedi, ortadan siyah 2 geldi. Şimdi sarı 4-5-6\'yı seç, birlikte kendi alanına sürükle → Yere Koy.',
+    text: 'Kimse yan taşı istemedi, ortadan siyah 2 geldi. Sarı 4-5-6\'yı seç; kendi alanına sürükleyip bırak (hemen iner) ya da Per Ekle → Yere Koy.',
     why: 'Kuralı açtığın için artık başka perleri de yere dizebilirsin. Aynı renk ardışık 3 taş bir seri; yere inen taş el bitince sana ceza yazmaz.',
     tiles: ['y4', 'y5', 'y6'],
     target: 'lay',
@@ -351,7 +351,7 @@ const BASIC: Step[] = [
   },
   {
     title: '7 · Okeyle diz',
-    text: 'Okey + sarı 12 + sarı 13\'ü seç, birlikte kendi alanına sürükle → Yere Koy.',
+    text: 'Okey + sarı 12 + sarı 13\'ü seç; sürükleyip kendi alanına bırak ya da Per Ekle → Yere Koy.',
     why: 'Sarı 12-13 tek başına per değil; okeyi sarı 11 yerine kullanınca 11-12-13 serisi olur ve elinde tek taş kalır. (Okeyi saklamak da bir yol: sonda örneğini gösteriyoruz.)',
     tiles: ['J', 'y12', 'y13'],
     target: 'lay',
@@ -550,7 +550,7 @@ export class TutorialRunner {
         return out;
       }
       out.push(...tileSpots(pick));
-      if (allSel) out.push(lbl(around(c.myZone(), -10), 'Buraya sürükle'), lbl(around(c.button('group'), 6), 'ya da bas'));
+      if (allSel) out.push(lbl(around(c.myZone(), -10), 'Sürükle, bırak'), lbl(around(c.button('group'), 6), 'ya da butonla'));
       return out;
     }
     if (st.target === 'meld') {
