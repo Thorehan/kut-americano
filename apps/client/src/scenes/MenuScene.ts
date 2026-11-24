@@ -493,7 +493,7 @@ export class MenuScene extends Phaser.Scene {
       }, UI.slate, 20),
     );
     c.add(
-      new Button(this, GAME_W / 2 + 130, y0 + H - 46, 230, 58, '🎓 Öğreticiyi Oyna', () => this.startTutorial(), UI.green, 18),
+      new Button(this, GAME_W / 2 + 130, y0 + H - 46, 230, 58, 'Öğreticiyi Oyna', () => this.startTutorial(), UI.green, 18).setIcon(icon('cap'), 28),
     );
     show(page);
     c.setAlpha(0);

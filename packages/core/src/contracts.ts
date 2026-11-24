@@ -17,13 +17,15 @@ export interface Contract {
 const kut = (size: number): Requirement => ({ kind: 'kut', size });
 const seri = (size: number): Requirement => ({ kind: 'seri', size });
 
-/** 13 elin sırası (İstişare §2). Açıklamalar el başında ve sol üstteki kural kutusunda görünür. */
+/** 15 elin sırası (İstişare §2). Açıklamalar el başında ve sol üstteki kural kutusunda görünür. */
 export const CONTRACTS: readonly Contract[] = [
   { name: "3'lü Küt", mode: 'normal', reqs: [kut(3)], description: 'Aynı sayıdan 3 farklı renk taş aç (ör. kırmızı 7 · sarı 7 · mavi 7).' },
   { name: "3'lü Seri", mode: 'normal', reqs: [seri(3)], description: 'Aynı renkten 3 ardışık taş aç (ör. mavi 4-5-6).' },
   { name: "3'lü Küt + 3'lü Seri", mode: 'normal', reqs: [kut(3), seri(3)], description: "Bir 3'lü küt ve bir 3'lü seriyi aynı anda aç." },
   { name: "4'lü Küt", mode: 'normal', reqs: [kut(4)], description: 'Aynı sayıdan dört rengin hepsini aç (ör. 9 · 9 · 9 · 9).' },
   { name: "4'lü Seri", mode: 'normal', reqs: [seri(4)], description: 'Aynı renkten 4 ardışık taş aç (ör. sarı 8-9-10-11).' },
+  { name: "4'lü Küt + 3'lü Seri", mode: 'normal', reqs: [kut(4), seri(3)], description: "Bir 4'lü küt ve bir 3'lü seriyi aynı anda aç (7 taş)." },
+  { name: "4'lü Seri + 3'lü Küt", mode: 'normal', reqs: [seri(4), kut(3)], description: "Bir 4'lü seri ve bir 3'lü kütü aynı anda aç (7 taş)." },
   { name: "4'lü Küt + 4'lü Seri", mode: 'normal', reqs: [kut(4), seri(4)], description: "Bir 4'lü küt ve bir 4'lü seriyi aynı anda aç." },
   { name: "İki 4'lü Küt", mode: 'normal', reqs: [kut(4), kut(4)], description: "İki ayrı 4'lü kütü aynı anda aç (8 taş)." },
   { name: "İki 4'lü Seri", mode: 'normal', reqs: [seri(4), seri(4)], description: "İki ayrı 4'lü seriyi aynı anda aç (8 taş)." },
@@ -36,14 +38,14 @@ export const CONTRACTS: readonly Contract[] = [
 
 // ------------------------------------------------------------ rastgele mod
 
-/** classic: 13 el sırayla · random: her elin kuralı aşağıdaki oranlarla rastgele seçilir */
+/** classic: 15 el sırayla · random: her elin kuralı aşağıdaki oranlarla rastgele seçilir */
 export type RuleOrder = 'classic' | 'random';
 
 /**
  * Rastgele modda her kuralın seçilme ağırlığı (toplam 100 → doğrudan yüzde).
  * Kolay kurallar biraz daha sık, özel eller (Elden Bitme, Çift Eli) daha seyrek gelir.
  */
-export const RANDOM_WEIGHTS: readonly number[] = [10, 10, 9, 8, 8, 7, 7, 7, 7, 7, 6, 7, 7];
+export const RANDOM_WEIGHTS: readonly number[] = [9, 9, 8, 7, 7, 7, 7, 6, 6, 6, 6, 6, 5, 6, 5];
 
 /** Aynı kural en fazla bu kadar kez gelebilir. */
 export const RANDOM_MAX_REPEAT = 2;

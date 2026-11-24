@@ -2,7 +2,7 @@
 
 Küt (Amerikano) kurallarıyla oynanan okey.
 
-101 Okey görselliğinde, okey taşlarıyla oynanan kontratlı rummy. 13 el, her elde ayrı bir kural.
+101 Okey görselliğinde, okey taşlarıyla oynanan kontratlı rummy. 15 el, her elde ayrı bir kural.
 Kurallar ve kararlar: [docs/ISTISARE.md](docs/ISTISARE.md)
 
 **Durum:** Faz 3 — botlarla tekli/takım + online oda (sunucu Cloudflare'de yayında).
@@ -22,9 +22,9 @@ npm run server   # online oyun sunucusu (Node): ws://localhost:2567
 npm run worker   # online oyun sunucusu (Cloudflare yerel): ws://localhost:8787
 ```
 
-**Modlar:** Tekli (1 + 3 bot) ya da Takım (2'ye 2). Menüdeki **Kurallar** seçimiyle **Sıralı** (1 → 11) ya da **🎲 Rastgele Mod** (her elin kuralı oranlarla çekilir; oranlar menüde ve [docs/ISTISARE.md](docs/ISTISARE.md) içinde).
+**Modlar:** Tekli (1 + 3 bot) ya da Takım (2'ye 2). Menüdeki **Kurallar** seçimiyle **Sıralı** (1 → 15) ya da **🎲 Rastgele Mod** (her elin kuralı oranlarla çekilir; oranlar menüde ve [docs/ISTISARE.md](docs/ISTISARE.md) içinde).
 
-Deneme parametreleri: `?mod=rastgele` → rastgele mod seçili açılır · `?el=12` → 12. elden (Elden Bitme) başlar · `?seed=42` → aynı dağıtım tekrar gelir.
+Deneme parametreleri: `?mod=rastgele` → rastgele mod seçili açılır · `?el=14` → 14. elden (Elden Bitme) başlar · `?seed=42` → aynı dağıtım tekrar gelir.
 
 ## Nasıl oynanır
 

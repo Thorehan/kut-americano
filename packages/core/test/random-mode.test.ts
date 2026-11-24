@@ -30,7 +30,7 @@ describe('rastgele mod oranları', () => {
 });
 
 describe('rastgele mod oyunu', () => {
-  it('aynı seed aynı sırayı verir; klasik mod 1→13 sırayla gider', () => {
+  it('aynı seed aynı sırayı verir; klasik mod 1→15 sırayla gider', () => {
     const a = new Game({ seed: 77, ruleOrder: 'random' });
     const b = new Game({ seed: 77, ruleOrder: 'random' });
     expect(a.state.contractOrder).toEqual(b.state.contractOrder);
