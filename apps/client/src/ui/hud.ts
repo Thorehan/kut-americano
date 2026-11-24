@@ -52,6 +52,68 @@ export function groove(g: Phaser.GameObjects.Graphics, x: number, y: number, w: 
   g.strokeRoundedRect(x, y, w, h, r);
 }
 
+function starPts(cx: number, cy: number, r: number, inner = 0.62) {
+  const pts: Phaser.Math.Vector2[] = [];
+  for (let i = 0; i < 16; i++) {
+    const a = (i * Math.PI) / 8 - Math.PI / 2;
+    const rr = i % 2 === 0 ? r : r * inner;
+    pts.push(new Phaser.Math.Vector2(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr));
+  }
+  return pts;
+}
+
+/**
+ * Avatar: renkli daire + seçili çerçeve (kozmetik). Çerçeve dairenin etrafına çizilir;
+ * emoji ayrıca eklenir (dönen metin nesnesi).
+ */
+export function avatar(scene: Phaser.Scene, g: Phaser.GameObjects.Graphics, x: number, y: number, r: number, color: number, emoji: string, frame = 'frame-yok') {
+  const w = Math.max(3, r * 0.12);
+  if (frame === 'frame-altin') {
+    g.fillStyle(0x06191b, 1);
+    g.fillPoints(starPts(x, y + r + w * 0.2, r * 0.42), true);
+    g.fillStyle(UI.gold, 1);
+    g.fillPoints(starPts(x, y + r, r * 0.36), true);
+    g.fillStyle(0x06191b, 1);
+    g.fillCircle(x, y, r + w * 2.4);
+    g.fillStyle(0xbd6d06, 1);
+    g.fillCircle(x, y, r + w * 2);
+    g.fillStyle(UI.gold, 1);
+    g.fillCircle(x, y, r + w * 1.6);
+    g.fillStyle(0xfff1b0, 1);
+    g.fillCircle(x, y, r + w * 0.7);
+  } else if (frame === 'frame-cini') {
+    g.fillStyle(0x06191b, 1);
+    g.fillCircle(x, y, r + w * 2);
+    g.fillStyle(0x4cc0b2, 1);
+    g.fillCircle(x, y, r + w * 1.5);
+    g.fillStyle(0xffffff, 1);
+    for (let i = 0; i < 8; i++) {
+      const a = (i / 8) * Math.PI * 2;
+      g.fillPoints(starPts(x + Math.cos(a) * (r + w * 0.75), y + Math.sin(a) * (r + w * 0.75), w * 0.8, 0.55), true);
+    }
+  } else if (frame === 'frame-lale') {
+    // üstte üç lale yaprağı
+    g.fillStyle(0x06191b, 1);
+    for (const dx of [-0.45, 0, 0.45]) g.fillEllipse(x + dx * r, y - r - w * 0.6, r * 0.46, r * 0.62);
+    g.fillStyle(0xe8483c, 1);
+    for (const dx of [-0.45, 0, 0.45]) g.fillEllipse(x + dx * r, y - r - w * 0.4, r * 0.36, r * 0.52);
+    g.fillStyle(0x06191b, 1);
+    g.fillCircle(x, y, r + w * 1.8);
+    g.fillStyle(0xe8483c, 1);
+    g.fillCircle(x, y, r + w * 1.3);
+    g.fillStyle(0x21a957, 1);
+    g.fillCircle(x, y, r + w * 0.55);
+  } else {
+    g.fillStyle(0x06191b, 1);
+    g.fillCircle(x, y, r + w);
+  }
+  g.fillStyle(color, 1);
+  g.fillCircle(x, y, r);
+  g.fillStyle(0xffffff, 0.2);
+  g.fillCircle(x, y - r * 0.28, r * 0.66);
+  return txt(scene, x, y + 1, emoji, Math.round(r * 1.05), '#fff', 900).setOrigin(0.5);
+}
+
 /** Bölüm başlığı: safran küçük yıldız + büyük harf etiket. */
 export function sectionTitle(scene: Phaser.Scene, x: number, y: number, title: string) {
   const g = scene.add.graphics();

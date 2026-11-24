@@ -189,10 +189,61 @@ export function drawCiniPattern(ctx: CanvasRenderingContext2D, w: number, h: num
   ctx.restore();
 }
 
+/** Taş arkası desenleri (mağazada kozmetik). */
+interface BackStyle {
+  top: string;
+  bottom: string;
+  edge: string;
+  motif: string;
+  star?: boolean;
+}
+
+export const BACK_STYLES: Record<string, BackStyle> = {
+  'back-cini': { top: '#2f8a6c', bottom: '#1b5a47', edge: '#0f3a2e', motif: 'rgba(255,255,255,0.32)' },
+  'back-lacivert': { top: '#3a6fc4', bottom: '#183c7a', edge: '#0d2148', motif: 'rgba(255,255,255,0.4)', star: true },
+  'back-nar': { top: '#cf4a40', bottom: '#7a1f26', edge: '#4a0f14', motif: 'rgba(255,235,210,0.38)' },
+  'back-altin': { top: '#f2cd6a', bottom: '#b07a1e', edge: '#6a4508', motif: 'rgba(90,51,0,0.45)', star: true },
+};
+
+function drawTileBack(ctx: CanvasRenderingContext2D, b: BackStyle) {
+  roundRect(ctx, 4, 9, TILE_W - 8, TILE_H - 11, 14);
+  ctx.fillStyle = b.edge;
+  ctx.fill();
+  roundRect(ctx, 4, 3, TILE_W - 8, TILE_H - 14, 14);
+  const g = ctx.createLinearGradient(0, 0, TILE_W, TILE_H);
+  g.addColorStop(0, b.top);
+  g.addColorStop(1, b.bottom);
+  ctx.fillStyle = g;
+  ctx.fill();
+  ctx.strokeStyle = b.motif;
+  ctx.lineWidth = 3;
+  roundRect(ctx, 15, 14, TILE_W - 30, TILE_H - 38, 9);
+  ctx.stroke();
+  if (b.star) {
+    // 8 köşeli çini yıldızı
+    const cx = TILE_W / 2;
+    const cy = TILE_H / 2 - 6;
+    ctx.beginPath();
+    for (let i = 0; i < 16; i++) {
+      const a = (i * Math.PI) / 8 - Math.PI / 2;
+      const r = i % 2 === 0 ? 24 : 15;
+      const x = cx + Math.cos(a) * r;
+      const y = cy + Math.sin(a) * r;
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.closePath();
+    ctx.fillStyle = b.motif;
+    ctx.fill();
+  } else {
+    drawRosette(ctx, TILE_W / 2, TILE_H / 2 - 6, 24, b.motif, 'rgba(0,0,0,0)');
+  }
+}
+
 export function createTextures(scene: Phaser.Scene) {
   createIcons(scene);
   const p = profile();
-  const sig = `${p.tileTheme}|${p.feltTheme}`;
+  const sig = `${p.tileTheme}|${p.feltTheme}|${p.backTheme}`;
   if (scene.textures.exists('tile-back') && sig === drawnSig) return;
   drawnSig = sig;
   style = TILE_STYLES[p.tileTheme] ?? TILE_STYLES['tile-klasik'];
@@ -258,22 +309,7 @@ export function createTextures(scene: Phaser.Scene) {
     ctx.fillText('OKEY', TILE_W / 2, 115);
   });
 
-  canvas(scene, 'tile-back', TILE_W, TILE_H, (ctx) => {
-    roundRect(ctx, 4, 9, TILE_W - 8, TILE_H - 11, 14);
-    ctx.fillStyle = '#0f3a2e';
-    ctx.fill();
-    roundRect(ctx, 4, 3, TILE_W - 8, TILE_H - 14, 14);
-    const g = ctx.createLinearGradient(0, 0, TILE_W, TILE_H);
-    g.addColorStop(0, '#2f8a6c');
-    g.addColorStop(1, '#1b5a47');
-    ctx.fillStyle = g;
-    ctx.fill();
-    ctx.strokeStyle = 'rgba(255,255,255,0.3)';
-    ctx.lineWidth = 3;
-    roundRect(ctx, 15, 14, TILE_W - 30, TILE_H - 38, 9);
-    ctx.stroke();
-    drawRosette(ctx, TILE_W / 2, TILE_H / 2 - 6, 24, 'rgba(255,255,255,0.32)', 'rgba(0,0,0,0)');
-  });
+  canvas(scene, 'tile-back', TILE_W, TILE_H, (ctx) => drawTileBack(ctx, BACK_STYLES[p.backTheme] ?? BACK_STYLES['back-cini']));
 
   // Küt Puanı jetonu
   canvas(scene, 'coin', 64, 64, (ctx) => {
@@ -459,6 +495,11 @@ export function createThemePreviews(scene: Phaser.Scene) {
       ctx.fill();
       style = prev;
     });
+  }
+  for (const [id, b] of Object.entries(BACK_STYLES)) {
+    const key = `preview-${id}`;
+    if (scene.textures.exists(key)) continue;
+    canvas(scene, key, TILE_W, TILE_H, (ctx) => drawTileBack(ctx, b));
   }
   for (const [id, f] of Object.entries(FELT_STYLES)) {
     const key = `preview-${id}`;

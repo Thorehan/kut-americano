@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { GAME_H, GAME_W, UI } from '../layout';
 import { award, countVideo } from '../profile';
+import { record } from '../progress';
 import { showBadge } from './rewards';
 import { haptic, sfx } from '../sfx';
 import { Button } from './Button';
@@ -68,6 +69,7 @@ export function playRewardedVideo(scene: Phaser.Scene, rewardText: string): Prom
       scene.tweens.add({ targets: c, alpha: 0, duration: 180, onComplete: () => c.destroy() });
       if (ok) {
         countVideo();
+        record('video');
         const b = award('video');
         if (b) scene.time.delayedCall(1600, () => showBadge(scene, b));
       }

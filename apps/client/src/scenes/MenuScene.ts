@@ -9,10 +9,13 @@ import { IconName, icon } from '../ui/icons';
 import { GAME_H, GAME_W, RENDER_SCALE, UI } from '../layout';
 import { haptic, sfx } from '../sfx';
 import { KP, VIDEO_REWARD, grant, levelOf, onlineLockLeft, profile, videosLeft, xpForLevel } from '../profile';
-import { fmt, showDailyPopup, showGain } from '../ui/rewards';
+import { fmt, showBadge, showDailyPopup, showGain } from '../ui/rewards';
 import { playRewardedVideo } from '../ui/videoAd';
 import { showBubble } from '../view/SeatView';
 import { clearSave, loadSave } from '../savegame';
+import { PROFILE_TAB } from './ProfileScene';
+import { checkBadges, claimableCount } from '../progress';
+import { avatar } from '../ui/hud';
 import type { PreviewSpec } from '../preview';
 
 export interface TableData {
@@ -119,6 +122,8 @@ export class MenuScene extends Phaser.Scene {
       this.time.delayedCall(250, () => this.scene.start('lobby', {}));
       return;
     }
+    checkBadges().forEach((b, i) => this.time.delayedCall(1200 + i * 2600, () => showBadge(this, b)));
+
     const saved = loadSave();
     if (saved && !this.registry.get('resumeOffered')) {
       // uygulama açılışında bir kez: yarım kalan oyun → devam et / sonra (sonra günlük ödül)
@@ -142,13 +147,7 @@ export class MenuScene extends Phaser.Scene {
     const g = this.add.graphics();
     panel(g, 16, 14, 292, 60, 30, UI.panel, 0.92, UI.stroke, 1);
     const av = this.add.graphics();
-    av.fillStyle(0x06191b, 1);
-    av.fillCircle(50, 44, 27);
-    av.fillStyle(p.color, 1);
-    av.fillCircle(50, 44, 24);
-    av.fillStyle(0xffffff, 0.18);
-    av.fillCircle(50, 37, 17);
-    txt(this, 50, 45, p.avatar, 24, '#fff', 900).setOrigin(0.5);
+    avatar(this, av, 50, 44, 22, p.color, p.avatar, p.frame);
     // seviye: safran çini yıldızı
     const st = this.add.graphics();
     st.fillStyle(0x06191b, 1);
@@ -165,7 +164,7 @@ export class MenuScene extends Phaser.Scene {
     xb.fillRoundedRect(94, 52, Math.max(8, 194 * frac), 8, 4);
     xb.fillStyle(0xffffff, 0.35);
     xb.fillRoundedRect(96, 53, Math.max(4, 190 * frac), 3, 2);
-    this.add.zone(162, 44, 292, 60).setInteractive({ useHandCursor: true }).on('pointerdown', () => this.scene.start('profile', { tab: 0 }));
+    this.add.zone(162, 44, 292, 60).setInteractive({ useHandCursor: true }).on('pointerdown', () => this.scene.start('profile', { tab: PROFILE_TAB.profil }));
 
     // Küt Puanı: koyu hap + jeton + yeşil "+" (mağaza)
     const kg = this.add.graphics();
@@ -175,8 +174,8 @@ export class MenuScene extends Phaser.Scene {
     kg.strokeRoundedRect(328, 22, 206, 44, 22);
     this.add.image(340, 44, 'coin').setScale(0.66);
     this.kpText = txt(this, 370, 44, fmt(p.kp), 25, '#ffffff', 900).setOrigin(0, 0.5).setStroke('#06191b', 4);
-    this.add.zone(431, 44, 206, 44).setInteractive({ useHandCursor: true }).on('pointerdown', () => this.scene.start('profile', { tab: 2 }));
-    new Button(this, 514, 44, 42, 42, '', () => this.scene.start('profile', { tab: 2 }), UI.green).setIcon(icon('plus'), 22);
+    this.add.zone(431, 44, 206, 44).setInteractive({ useHandCursor: true }).on('pointerdown', () => this.scene.start('profile', { tab: PROFILE_TAB.magaza }));
+    new Button(this, 514, 44, 42, 42, '', () => this.scene.start('profile', { tab: PROFILE_TAB.magaza }), UI.green).setIcon(icon('plus'), 22);
 
     // ücretsiz KP (ödüllü video) + ayarlar
     this.videoBtn = new Button(this, 1100, 44, 176, 56, '', () => this.watchVideo(), UI.amber, 18).setIcon(icon('video'), 30);
@@ -535,13 +534,16 @@ export class MenuScene extends Phaser.Scene {
   // ------------------------------------------------------------ alt sekme çubuğu
 
   private buildDock() {
-    const items: { label: string; ic: IconName; color: number; onTap: () => void }[] = [
-      { label: 'Profil', ic: 'user', color: UI.blue, onTap: () => this.scene.start('profile', { tab: 0 }) },
-      { label: 'Rozetler', ic: 'trophy', color: UI.amber, onTap: () => this.scene.start('profile', { tab: 1 }) },
-      { label: 'Mağaza', ic: 'shop', color: 0x5b3f8f, onTap: () => this.scene.start('profile', { tab: 2 }) },
-      { label: 'Kurallar', ic: 'book', color: UI.green, onTap: () => this.showHowTo() },
+    const open = (tab: number) => () => this.scene.start('profile', { tab });
+    const items: { label: string; ic: IconName; color: number; onTap: () => void; badge?: number }[] = [
+      { label: 'Profil', ic: 'user', color: UI.blue, onTap: open(PROFILE_TAB.profil) },
+      { label: 'Görevler', ic: 'check', color: 0x2f8f57, onTap: open(PROFILE_TAB.gorevler), badge: claimableCount() },
+      { label: 'Rozetler', ic: 'trophy', color: UI.amber, onTap: open(PROFILE_TAB.rozetler) },
+      { label: 'Mağaza', ic: 'shop', color: 0x5b3f8f, onTap: open(PROFILE_TAB.magaza) },
+      { label: 'Kurallar', ic: 'book', color: UI.red, onTap: () => this.showHowTo() },
     ];
-    const w = 560;
+    const step = 128;
+    const w = step * items.length + 24;
     const x0 = GAME_W / 2 - w / 2;
     const y = 656;
     const g = this.add.graphics();
@@ -552,9 +554,18 @@ export class MenuScene extends Phaser.Scene {
     g.lineStyle(2, UI.stroke, 0.45);
     g.strokeRoundedRect(x0, y - 40, w, 84, 30);
     items.forEach((it, i) => {
-      const cx = x0 + 70 + i * 140;
+      const cx = x0 + 12 + step / 2 + i * step;
       new Button(this, cx, y - 8, 64, 58, '', it.onTap, it.color).setIcon(icon(it.ic), 32);
       txt(this, cx, y + 31, it.label, 16, UI.cream, 900).setOrigin(0.5);
+      if (it.badge) {
+        // alınacak ödül sayısı
+        const bg = this.add.graphics().setDepth(5);
+        bg.fillStyle(0x06191b, 1);
+        bg.fillCircle(cx + 28, y - 36, 13);
+        bg.fillStyle(0xe8483c, 1);
+        bg.fillCircle(cx + 28, y - 36, 11);
+        txt(this, cx + 28, y - 35.5, String(it.badge), 12, '#fff', 900).setOrigin(0.5).setDepth(6);
+      }
     });
   }
 

@@ -17,6 +17,27 @@ export interface Stats {
   islekPenalties: number;
   onlineGames: number;
   bestScore: number | null;
+  ciftOkeyFinishes: number;
+  eldenBitmeWins: number;
+  ciftEliWins: number;
+  teamWins: number;
+  tasksDone: number;
+  themesBought: number;
+  /** Kural bazında: oynanan el, kuralı açtığın el, bitirdiğin el (anahtar: kural adı). */
+  perContract: Record<string, ContractStat>;
+}
+
+export interface ContractStat {
+  played: number;
+  opened: number;
+  won: number;
+}
+
+/** Bir görevin bugünkü / bu haftaki ilerlemesi. */
+export interface TaskProgress {
+  id: string;
+  progress: number;
+  claimed: boolean;
 }
 
 export interface Profile {
@@ -30,6 +51,11 @@ export interface Profile {
   ownedThemes: string[];
   tileTheme: string;
   feltTheme: string;
+  /** Taş arkası deseni ve avatar çerçevesi (kozmetik). */
+  backTheme: string;
+  frame: string;
+  /** Günlük (her gün) ve haftalık (pazartesi) görevler. */
+  tasks: { day: string; daily: TaskProgress[]; week: string; weekly: TaskProgress[] };
   daily: { last: string; streak: number };
   videos: { day: string; count: number };
   /** Online maçtan çıkış cezaları: art arda çıkışlarda ceza büyür, 24 saat temiz kalınca sıfırlanır. */
@@ -39,9 +65,11 @@ export interface Profile {
 export const AVATARS = ['🦊', '🐺', '🦁', '🐯', '🐻', '🐼', '🐸', '🦉', '🐙', '🦄', '🐢', '🐝', '😎', '🤠', '👑', '🎩'];
 export const AVATAR_COLORS = [0x3b8fe6, 0xd9534f, 0x8e5bd6, 0xe0962a, 0x2e9a5c, 0x1fb5b0, 0xe05d9a, 0x5b6b7a];
 
+export type ThemeKind = 'tile' | 'felt' | 'back' | 'frame';
+
 export interface ThemeItem {
   id: string;
-  kind: 'tile' | 'felt';
+  kind: ThemeKind;
   name: string;
   price: number;
 }
@@ -55,7 +83,20 @@ export const THEMES: ThemeItem[] = [
   { id: 'felt-lacivert', kind: 'felt', name: 'Lacivert', price: 800 },
   { id: 'felt-bordo', kind: 'felt', name: 'Bordo', price: 800 },
   { id: 'felt-mor', kind: 'felt', name: 'Mor', price: 800 },
+  { id: 'back-cini', kind: 'back', name: 'Çini', price: 0 },
+  { id: 'back-lacivert', kind: 'back', name: 'İznik Mavisi', price: 600 },
+  { id: 'back-nar', kind: 'back', name: 'Nar', price: 600 },
+  { id: 'back-altin', kind: 'back', name: 'Altın Yıldız', price: 1500 },
+  { id: 'frame-yok', kind: 'frame', name: 'Sade', price: 0 },
+  { id: 'frame-cini', kind: 'frame', name: 'Çini Halka', price: 500 },
+  { id: 'frame-lale', kind: 'frame', name: 'Lale', price: 900 },
+  { id: 'frame-altin', kind: 'frame', name: 'Altın Yıldız', price: 2000 },
 ];
+
+/** Profilde temanın tutulduğu alan. */
+export function themeSlot(kind: ThemeKind): 'tileTheme' | 'feltTheme' | 'backTheme' | 'frame' {
+  return kind === 'tile' ? 'tileTheme' : kind === 'felt' ? 'feltTheme' : kind === 'back' ? 'backTheme' : 'frame';
+}
 
 export interface Badge {
   id: string;
@@ -74,6 +115,21 @@ export const BADGES: Badge[] = [
   { id: 'online', name: 'Masada', desc: 'Bir online oyunu bitir', icon: '🌐', reward: 200 },
   { id: 'games10', name: 'Müdavim', desc: '10 oyun bitir', icon: '☕', reward: 300 },
   { id: 'video', name: 'Destekçi', desc: 'Bir ödüllü video izle', icon: '🎬', reward: 100 },
+  { id: 'ciftOkey', name: 'Çifte Kavrulmuş', desc: 'Çift okeyle bit', icon: '🃏', reward: 500 },
+  { id: 'eldenBitme', name: 'Tek Hamle', desc: "Elden Bitme'yi sen bitir", icon: '⚡', reward: 400 },
+  { id: 'ciftEli', name: 'Çiftçi', desc: "Çift Eli'ni sen bitir", icon: '✳', reward: 400 },
+  { id: 'teamWin', name: 'Ortaklık', desc: 'Takım oyununu kazan', icon: '🤝', reward: 300 },
+  { id: 'shortWin', name: 'Çabuk El', desc: 'Kısa oyunu birinci bitir', icon: '⚡', reward: 200 },
+  { id: 'cleanGame', name: 'Temiz Masa', desc: 'Bir oyunu hiç işlek cezası almadan bitir', icon: '✔', reward: 300 },
+  { id: 'jokerThief5', name: 'Okey Kartalı', desc: 'Rakiplerden toplam 5 okey al', icon: '🦅', reward: 400 },
+  { id: 'wins10', name: 'Usta', desc: '10 oyunu birinci bitir', icon: '🏆', reward: 600 },
+  { id: 'games50', name: 'Kahvehane Demirbaşı', desc: '50 oyun bitir', icon: '☕', reward: 800 },
+  { id: 'allRules', name: 'Kural Hocası', desc: 'Her kuralda en az bir el bitir', icon: '📖', reward: 1000 },
+  { id: 'streak7', name: 'Sadık Oyuncu', desc: '7 gün üst üste giriş yap', icon: '📅', reward: 500 },
+  { id: 'level5', name: 'Yükselen', desc: '5. seviyeye ulaş', icon: '⭐', reward: 300 },
+  { id: 'level10', name: 'Kıdemli', desc: '10. seviyeye ulaş', icon: '⭐', reward: 800 },
+  { id: 'collector', name: 'Koleksiyoncu', desc: 'Mağazadan bir tema aç', icon: '🛍', reward: 200 },
+  { id: 'tasks10', name: 'Görev Adamı', desc: '10 görev tamamla', icon: '✔', reward: 400 },
 ];
 
 export const DAILY_REWARDS = [100, 150, 200, 250, 300, 400, 500];
@@ -86,9 +142,17 @@ export const PLACE_XP = [100, 50, 25, 10];
 
 const KEY = 'kut-profile';
 
-function today(): string {
+export function today(): string {
   const d = new Date();
   return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
+}
+
+/** Haftanın anahtarı: o haftanın pazartesi günü (görevler pazartesi yenilenir). */
+export function thisWeek(): string {
+  const d = new Date();
+  const back = (d.getDay() + 6) % 7; // pazartesi = 0
+  const m = new Date(d.getFullYear(), d.getMonth(), d.getDate() - back);
+  return `${m.getFullYear()}-${m.getMonth() + 1}-${m.getDate()}`;
 }
 
 function yesterday(): string {
@@ -109,11 +173,31 @@ function defaults(): Profile {
     color: AVATAR_COLORS[0],
     kp: 0,
     xp: 0,
-    stats: { gamesPlayed: 0, gamesWon: 0, roundsPlayed: 0, roundsWon: 0, okeyFinishes: 0, jokersTaken: 0, islekPenalties: 0, onlineGames: 0, bestScore: null },
+    stats: {
+      gamesPlayed: 0,
+      gamesWon: 0,
+      roundsPlayed: 0,
+      roundsWon: 0,
+      okeyFinishes: 0,
+      jokersTaken: 0,
+      islekPenalties: 0,
+      onlineGames: 0,
+      bestScore: null,
+      ciftOkeyFinishes: 0,
+      eldenBitmeWins: 0,
+      ciftEliWins: 0,
+      teamWins: 0,
+      tasksDone: 0,
+      themesBought: 0,
+      perContract: {},
+    },
     badges: [],
-    ownedThemes: ['tile-klasik', 'felt-yesil'],
+    ownedThemes: ['tile-klasik', 'felt-yesil', 'back-cini', 'frame-yok'],
     tileTheme: 'tile-klasik',
     feltTheme: 'felt-yesil',
+    backTheme: 'back-cini',
+    frame: 'frame-yok',
+    tasks: { day: '', daily: [], week: '', weekly: [] },
     daily: { last: '', streak: 0 },
     videos: { day: '', count: 0 },
     leaves: { count: 0, last: 0, lockUntil: 0 },
@@ -131,7 +215,17 @@ export function profile(): Profile {
     const raw = localStorage.getItem(KEY);
     if (raw) {
       const p = JSON.parse(raw) as Partial<Profile>;
-      cache = { ...base, ...p, stats: { ...base.stats, ...p.stats }, daily: { ...base.daily, ...p.daily }, videos: { ...base.videos, ...p.videos }, leaves: { ...base.leaves, ...p.leaves } };
+      cache = {
+        ...base,
+        ...p,
+        stats: { ...base.stats, ...p.stats, perContract: { ...p.stats?.perContract } },
+        daily: { ...base.daily, ...p.daily },
+        videos: { ...base.videos, ...p.videos },
+        leaves: { ...base.leaves, ...p.leaves },
+        tasks: { ...base.tasks, ...p.tasks },
+        // eski kayıtlarda yeni ücretsiz kozmetikler yok
+        ownedThemes: [...new Set([...base.ownedThemes, ...(p.ownedThemes ?? [])])],
+      };
     }
   } catch {
     /* bozuk kayıt: varsayılan */
@@ -290,6 +384,7 @@ export function buyTheme(id: string): 'ok' | 'owned' | 'poor' {
   if (p.ownedThemes.includes(id)) return 'owned';
   if (!spend(t.price)) return 'poor';
   p.ownedThemes.push(id);
+  p.stats.themesBought++;
   equipTheme(id);
   return 'ok';
 }
@@ -298,7 +393,6 @@ export function equipTheme(id: string) {
   const p = profile();
   const t = THEMES.find((x) => x.id === id);
   if (!t || !p.ownedThemes.includes(id)) return;
-  if (t.kind === 'tile') p.tileTheme = id;
-  else p.feltTheme = id;
+  p[themeSlot(t.kind)] = id;
   saveProfile();
 }

@@ -50,11 +50,12 @@ import { haptic, sfx } from '../sfx';
 import { TILE_H, TILE_W, createTextures, tileKey } from '../textures';
 import { Button } from '../ui/Button';
 import { header, panel, star8, txt } from '../ui/text';
-import { creamTile } from '../ui/hud';
+import { avatar, creamTile } from '../ui/hud';
 import { SeatView, showBubble } from '../view/SeatView';
 import { Origin, Point, Target, TileKind, TileLayer } from '../view/TileLayer';
 import type { TableData } from './MenuScene';
 import { SpotCtx, TutorialRunner } from '../tutorial';
+import { TaskDef, checkBadges, contractStat, record } from '../progress';
 import {
   Badge,
   Gain,
@@ -159,6 +160,7 @@ export class TableScene extends Phaser.Scene {
     this.actor = -1;
     this.dealing = false;
     this.dragging = false;
+    this.islekThisGame = 0;
     this.groupDrag = null;
     this.wasMyTurn = false;
     this.spinning = false;
@@ -1521,13 +1523,8 @@ export class TableScene extends Phaser.Scene {
       rows.strokeRoundedRect(x0, y - 31, 820, 62, 18);
       // avatar
       const col = p.color ?? [0x3b8fe6, 0xd9534f, 0x8e5bd6, 0xe0962a][i % 4];
-      rows.fillStyle(0x06191b, 1);
-      rows.fillCircle(x0 + 36, y, 24);
-      rows.fillStyle(col, 1);
-      rows.fillCircle(x0 + 36, y, 21);
-      rows.fillStyle(0xffffff, 0.2);
-      rows.fillCircle(x0 + 36, y - 6, 13);
-      c.add(txt(this, x0 + 36, y + 1, p.avatar ?? p.name.slice(-1), 20, '#fff', 900).setOrigin(0.5));
+      // kendi avatarında seçili çerçeve (kozmetik)
+      c.add(avatar(this, rows, x0 + 36, y, 20, col, p.avatar ?? p.name.slice(-1), i === 0 ? profile().frame : 'frame-yok'));
       if (isWinner) {
         rows.fillStyle(0x06191b, 1);
         star8(rows, x0 + 54, y + 18, 12, 0.72);
@@ -1848,15 +1845,38 @@ export class TableScene extends Phaser.Scene {
     const p = profile();
     const st = p.stats;
     const badges: (Badge | null)[] = [];
+    const tasks: TaskDef[] = [];
+    const contract = this.ctrl.game.contract;
     if (e.type === 'roundEnd') {
       st.roundsPlayed++;
       const h = this.s.history[this.s.history.length - 1];
       const won = !!h && h.winner === 0;
       const okey = won && (h.finishType === 'okey' || h.finishType === 'ciftOkey');
+      const cs = contractStat(contract.name);
+      cs.played++;
+      tasks.push(...record('roundPlayed'));
       let g: Gain;
       if (won) {
         st.roundsWon++;
-        if (okey) st.okeyFinishes++;
+        cs.won++;
+        tasks.push(...record('roundWon'));
+        if (okey) {
+          st.okeyFinishes++;
+          tasks.push(...record('okeyFinish'));
+        }
+        if (h.finishType === 'ciftOkey') {
+          st.ciftOkeyFinishes++;
+          badges.push(award('ciftOkey'));
+        }
+        if (contract.mode === 'eldenBitme') {
+          st.eldenBitmeWins++;
+          badges.push(award('eldenBitme'));
+          tasks.push(...record('eldenBitmeWin'));
+        } else if (contract.mode === 'ciftEli') {
+          st.ciftEliWins++;
+          badges.push(award('ciftEli'));
+          tasks.push(...record('ciftEliWin'));
+        }
         g = grant(okey ? ROUND_WIN_OKEY_KP : ROUND_WIN_KP, 40);
         badges.push(award('roundWin'));
         if (okey) badges.push(award('okeyFinish'));
@@ -1864,32 +1884,56 @@ export class TableScene extends Phaser.Scene {
         g = grant(0, 10);
       }
       this.time.delayedCall(okey ? 3600 : 400, () => showGain(this, g, GAME_W / 2, 200));
+    } else if (e.type === 'open' && e.seat === 0) {
+      contractStat(contract.name).opened++;
+      tasks.push(...record('opened'));
+    } else if (e.type === 'lay' && e.seat === 0) {
+      tasks.push(...record('meldLaid'));
+    } else if (e.type === 'addToMeld' && e.seat === 0) {
+      tasks.push(...record('tileAdded'));
     } else if (e.type === 'swapJoker' && e.seat === 0 && e.target !== undefined && this.ctrl.game.isOpponent(0, e.target)) {
       st.jokersTaken++;
       badges.push(award('jokerThief'));
+      tasks.push(...record('jokerTaken'));
     } else if (e.type === 'islek' && e.seat === 0) {
       st.islekPenalties++;
+      this.islekThisGame++;
     } else if (e.type === 'gameEnd') {
       const s = this.s;
       const my = s.players[0].score;
       const place = s.mode === 'team' ? (my <= s.players[1].score ? 0 : 2) : s.players.filter((x) => x.seat !== 0 && x.score < my).length;
       st.gamesPlayed++;
+      tasks.push(...record('gameDone'));
       if (place === 0) {
         st.gamesWon++;
         badges.push(award('firstWin'));
+        tasks.push(...record('gameWon'));
+        if (s.mode === 'team') {
+          st.teamWins++;
+          badges.push(award('teamWin'));
+        }
+        if (s.length === 'short') badges.push(award('shortWin'));
       }
+      if (this.islekThisGame === 0) badges.push(award('cleanGame'));
       st.bestScore = st.bestScore === null ? my : Math.min(st.bestScore, my);
       if (this.ctrl.online) {
         st.onlineGames++;
         badges.push(award('online'));
       }
-      if (st.gamesPlayed >= 10) badges.push(award('games10'));
       grant(PLACE_KP[place], PLACE_XP[place]);
       this.finalGain = { kp: PLACE_KP[place], xp: PLACE_XP[place], doubled: false };
     }
+    badges.push(...checkBadges());
     saveProfile();
     badges.filter((b): b is Badge => !!b).forEach((b, i) => this.time.delayedCall(1500 + i * 2800, () => showBadge(this, b)));
+    // görev tamamlandı: kısa bildirim (ödül Profil → Görevler'den alınır)
+    tasks.forEach((t, i) =>
+      this.time.delayedCall(900 + i * 1600, () => showBubble(this, GAME_W / 2, 150, `✔ Görev tamamlandı: ${t.text} · ödülünü Görevler'den al`, UI.green, false)),
+    );
   }
+
+  /** Bu oyunda yediğim işlek cezası (Temiz Masa rozeti için). */
+  private islekThisGame = 0;
 
   /**
    * Oyun sonu: okey taşından kürsü. Basamaklar üzerinde dev 1-2-3 yazan taşlar (renkleri
