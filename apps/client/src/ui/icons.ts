@@ -26,7 +26,11 @@ export type IconName =
   | 'team'
   | 'star'
   | 'bolt'
-  | 'exit';
+  | 'exit'
+  | 'edit'
+  | 'check'
+  | 'lock'
+  | 'gift';
 
 export const icon = (n: IconName) => `ic-${n}`;
 
@@ -322,6 +326,56 @@ const ICONS: Record<IconName, Draw> = {
     c.lineTo(52, 40);
     c.closePath();
     c.fill();
+  },
+  edit: (c) => {
+    // kalem
+    c.save();
+    c.translate(48, 48);
+    c.rotate(Math.PI / 4);
+    rr(c, -10, -40, 20, 58, 5);
+    c.fill();
+    c.beginPath();
+    c.moveTo(-10, 22);
+    c.lineTo(10, 22);
+    c.lineTo(0, 40);
+    c.closePath();
+    c.fill();
+    c.restore();
+  },
+  check: (c) => {
+    c.lineWidth = 14;
+    c.lineCap = 'round';
+    c.lineJoin = 'round';
+    c.beginPath();
+    c.moveTo(18, 50);
+    c.lineTo(40, 72);
+    c.lineTo(80, 26);
+    c.stroke();
+  },
+  lock: (c) => {
+    c.lineWidth = 10;
+    c.beginPath();
+    c.arc(48, 40, 18, Math.PI, 0);
+    c.lineTo(66, 48);
+    c.moveTo(30, 48);
+    c.lineTo(30, 40);
+    c.stroke();
+    rr(c, 18, 44, 60, 42, 10);
+    c.fill();
+  },
+  gift: (c) => {
+    rr(c, 14, 40, 68, 44, 6);
+    c.fill();
+    rr(c, 10, 28, 76, 16, 5);
+    c.fill();
+    c.lineWidth = 7;
+    c.beginPath();
+    c.ellipse(36, 22, 12, 8, 0.4, 0, Math.PI * 2);
+    c.ellipse(60, 22, 12, 8, -0.4, 0, Math.PI * 2);
+    c.stroke();
+    c.globalCompositeOperation = 'destination-out';
+    c.fillRect(44, 28, 8, 56);
+    c.globalCompositeOperation = 'source-over';
   },
   exit: (c) => {
     c.lineWidth = 8;
