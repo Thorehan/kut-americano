@@ -47,7 +47,8 @@ import {
 import { haptic, sfx } from '../sfx';
 import { TILE_H, TILE_W, createTextures, tileKey } from '../textures';
 import { Button } from '../ui/Button';
-import { panel, star8, txt } from '../ui/text';
+import { header, panel, star8, txt } from '../ui/text';
+import { creamTile } from '../ui/hud';
 import { SeatView, showBubble } from '../view/SeatView';
 import { Origin, Point, Target, TileKind, TileLayer } from '../view/TileLayer';
 import type { TableData } from './MenuScene';
@@ -1452,73 +1453,104 @@ export class TableScene extends Phaser.Scene {
     const r = s.history[s.history.length - 1];
     if (!r) return;
     const cx = GAME_W / 2;
-    const cy = GAME_H / 2;
-    const c = this.openOverlay('round', 780, 580, true);
-    const title = r.winner === null ? 'El berabere bitti' : `${r.winner === 0 ? 'Sen' : s.players[r.winner].name} eli bitirdi!`;
-    c.add(txt(this, cx, cy - 266, title, 32, UI.goldHex, 900).setOrigin(0.5, 0));
-    const sub =
-      r.winner === null ? `${r.contractName} · Ortada taş kalmadı` : `${r.contractName} · ${FINISH_NAMES[r.finishType!]}`;
-    c.add(txt(this, cx, cy - 224, sub, 17, UI.cream, 700).setOrigin(0.5, 0));
+    const W = 880;
+    const H = 620;
+    const top = GAME_H / 2 - H / 2;
+    const c = this.openOverlay('round', W, H, true);
+    const roundNo = this.ctrl.game.roundNumber;
+    c.add(header(this, cx, top, `EL ${roundNo} · ${r.contractName.toLocaleUpperCase('tr')}`));
+    const title =
+      r.winner === null ? 'Ortada taş kalmadı' : r.winner === 0 ? 'Eli sen bitirdin!' : `${s.players[r.winner].name} eli bitirdi`;
+    c.add(
+      txt(this, cx, top + 54, title, 30, r.winner === 0 ? UI.goldHex : '#ffffff', 900)
+        .setOrigin(0.5)
+        .setStroke('#06191b', 6),
+    );
 
     // --- çarpan şeridi: nasıl bitildi × hangi el = toplam çarpan
     const m = r.multiplier;
     if (r.winner !== null && r.finishType) {
-      this.multiplierStrip(c, cx, cy - 172, r);
+      this.multiplierStrip(c, cx, top + 106, r);
       const team = s.mode === 'team';
       const fin = FINISH_BONUS * m;
       const expl =
         m > 1
-          ? `${team ? 'Bitiren takım' : 'Bitiren'}: ${FINISH_BONUS} × ${m} = ${fin}  ·  ${team ? 'Karşı takımın' : 'Diğerlerinin'} el cezası ×${m}`
-          : `${team ? 'Bitiren takım' : 'Bitiren'}: ${FINISH_BONUS}  ·  Elde kalan taşlar olduğu gibi yazılır`;
-      c.add(txt(this, cx, cy - 136, expl, 14, UI.muted, 800).setOrigin(0.5, 0));
+          ? `${team ? 'Bitiren takım' : 'Bitiren'}: ${FINISH_BONUS} × ${m} = ${fin}  ·  ${team ? 'karşı takımın' : 'diğerlerinin'} el cezası ×${m}`
+          : `${team ? 'Bitiren takım' : 'Bitiren'}: ${FINISH_BONUS}  ·  elde kalan taşlar olduğu gibi yazılır`;
+      c.add(txt(this, cx, top + 146, expl, 15, UI.muted, 800).setOrigin(0.5));
+    } else {
+      c.add(txt(this, cx, top + 106, `${r.contractName} · kimse bitiremedi, herkes elindekini yazar`, 17, UI.cream, 800).setOrigin(0.5));
     }
 
-    const x0 = cx - 360;
-    const head = [
-      ['Oyuncu', x0],
-      ['Elde kalan taşlar', x0 + 150],
-      ['Ceza', x0 + 486],
-      ['Bu el', x0 + 590],
-      ['Toplam', x0 + 662],
-    ] as const;
-    head.forEach(([h, x]) => c.add(txt(this, x, cy - 104, h, 13, UI.muted, 900)));
+    // --- sütun başlıkları + oyuncu satır kartları
+    const x0 = cx - 410;
+    const hy = top + 176;
+    c.add(txt(this, x0 + 250, hy, 'Elde kalan', 14, UI.muted, 900).setOrigin(0, 0.5));
+    c.add(txt(this, x0 + 652, hy, 'Bu el', 14, UI.muted, 900).setOrigin(0.5));
+    c.add(txt(this, x0 + 768, hy, 'Toplam', 14, UI.muted, 900).setOrigin(0.5));
+    const rows = this.add.graphics();
+    c.add(rows);
     s.players.forEach((p, i) => {
-      const y = cy - 70 + i * 52;
+      const y = top + 220 + i * 72;
       const win = r.winner !== null && (s.mode === 'solo' ? i === r.winner : teamOf(i) === teamOf(r.winner));
-      if (win) {
-        const hl = this.add.graphics();
-        hl.fillStyle(0x5fd38a, 0.12);
-        hl.fillRoundedRect(x0 - 10, y - 20, 740, 42, 10);
-        c.add(hl);
-      }
-      const team = s.mode === 'team' ? ` (${teamOf(i) === 0 ? 'A' : 'B'})` : '';
-      c.add(txt(this, x0, y, p.name + team, 18, win ? UI.greenHex : '#fff', 900).setOrigin(0, 0.5));
-      p.hand.slice(0, 15).forEach((t, k) => c.add(this.add.image(x0 + 160 + k * 21, y, tileKey(t)).setScale(0.2)));
-      const ex = r.extras?.[i] ?? 0;
       const isWinner = i === r.winner;
-      const base = isWinner ? `${FINISH_BONUS}` : `${r.penalties[i]}`;
-      const pen = `${base}${m > 1 && (isWinner || r.penalties[i]) ? ` ×${m}` : ''}${ex ? ` +${ex}` : ''}`;
-      c.add(txt(this, x0 + 486, y, pen, 16, ex ? UI.redHex : UI.cream, 800).setOrigin(0, 0.5));
+      rows.fillStyle(0x06191b, win ? 0.85 : 0.6);
+      rows.fillRoundedRect(x0, y - 31, 820, 62, 18);
+      rows.lineStyle(isWinner ? 3 : 2, isWinner ? UI.gold : win ? 0x21a957 : UI.stroke, isWinner ? 1 : win ? 0.8 : 0.25);
+      rows.strokeRoundedRect(x0, y - 31, 820, 62, 18);
+      // avatar
+      const col = p.color ?? [0x3b8fe6, 0xd9534f, 0x8e5bd6, 0xe0962a][i % 4];
+      rows.fillStyle(0x06191b, 1);
+      rows.fillCircle(x0 + 36, y, 24);
+      rows.fillStyle(col, 1);
+      rows.fillCircle(x0 + 36, y, 21);
+      rows.fillStyle(0xffffff, 0.2);
+      rows.fillCircle(x0 + 36, y - 6, 13);
+      c.add(txt(this, x0 + 36, y + 1, p.avatar ?? p.name.slice(-1), 20, '#fff', 900).setOrigin(0.5));
+      if (isWinner) {
+        rows.fillStyle(0x06191b, 1);
+        star8(rows, x0 + 54, y + 18, 12, 0.72);
+        rows.fillStyle(UI.gold, 1);
+        star8(rows, x0 + 54, y + 18, 10, 0.72);
+      }
+      const team = s.mode === 'team' ? `Takım ${teamOf(i) === 0 ? 'A' : 'B'}` : '';
+      c.add(txt(this, x0 + 70, y - 9, p.name, 20, isWinner ? UI.goldHex : '#ffffff', 900).setOrigin(0, 0.5));
+      const subline = isWinner ? 'BİTİRDİ' : p.hand.length ? `${p.hand.length} taş kaldı` : '';
+      c.add(txt(this, x0 + 70, y + 14, [team, subline].filter(Boolean).join(' · '), 13, isWinner ? UI.goldHex : UI.muted, 900).setOrigin(0, 0.5));
+      // elde kalan taşlar
+      p.hand.slice(0, 15).forEach((t, k) => c.add(this.add.image(x0 + 262 + k * 21, y, tileKey(t)).setScale(0.22)));
+      // bu el: renkli hap + altında hesap
       const d = r.deltas[i];
-      c.add(txt(this, x0 + 590, y, `${d > 0 ? '+' : ''}${d}`, 18, d < 0 ? UI.greenHex : UI.redHex, 900).setOrigin(0, 0.5));
-      c.add(txt(this, x0 + 662, y, `${p.score}`, 18, UI.goldHex, 900).setOrigin(0, 0.5));
+      const ex = r.extras?.[i] ?? 0;
+      const base = isWinner ? `${FINISH_BONUS}` : `${r.penalties[i]}`;
+      const calc = `${base}${m > 1 && (isWinner || r.penalties[i]) ? ` ×${m}` : ''}${ex ? ` +${ex}` : ''}`;
+      const pc = d < 0 ? 0x21a957 : d > 0 ? 0xe8483c : 0x3d5f63;
+      rows.fillStyle(0x06191b, 1);
+      rows.fillRoundedRect(x0 + 652 - 50, y - 26, 100, 36, 18);
+      rows.fillStyle(pc, 1);
+      rows.fillRoundedRect(x0 + 652 - 48, y - 24, 96, 32, 16);
+      c.add(txt(this, x0 + 652, y - 8, `${d > 0 ? '+' : ''}${d}`, 20, '#ffffff', 900).setOrigin(0.5));
+      c.add(txt(this, x0 + 652, y + 20, calc, 13, ex ? UI.redHex : UI.muted, 900).setOrigin(0.5));
+      c.add(txt(this, x0 + 768, y, `${p.score}`, 24, UI.goldHex, 900).setOrigin(0.5).setStroke('#06191b', 4));
     });
+
     const note =
-      (s.mode === 'team' ? 'Takım puanı: karşı takım iki elin toplamını yazar.' : 'Puanlar ceza puanıdır.') +
-      ' En düşük toplam kazanır. "+50": işlek / okey cezası (çarpılmaz).';
-    c.add(txt(this, cx, cy + 142, note, 13, UI.muted, 700).setOrigin(0.5, 0));
+      (s.mode === 'team' ? 'Takım puanı: karşı takım iki elin toplamını yazar. ' : 'Puanlar ceza puanıdır. ') +
+      'En düşük toplam kazanır · "+50": işlek / okey cezası (çarpılmaz)';
+    c.add(txt(this, cx, top + 518, note, 15, UI.muted, 800, { align: 'center', wordWrap: { width: 800 } }).setOrigin(0.5));
     const last = s.phase === 'gameOver';
+    const by = top + H - 46;
     if (this.mode.preview) {
       const pv = this.mode.preview;
-      c.add(new Button(this, cx - 135, cy + 218, 240, 58, 'Tekrar Dene', () => this.scene.restart({ mode: 'solo', preview: pv }), UI.slate, 21));
-      c.add(new Button(this, cx + 135, cy + 218, 240, 58, 'Önizlemeler', () => this.scene.start('preview'), UI.green, 21));
+      c.add(new Button(this, cx - 135, by, 240, 60, 'Tekrar Dene', () => this.scene.restart({ mode: 'solo', preview: pv }), UI.slate, 21));
+      c.add(new Button(this, cx + 135, by, 240, 60, 'Önizlemeler', () => this.scene.start('preview'), UI.green, 21));
       return;
     }
     c.add(
-      new Button(this, cx, cy + 218, 240, 58, last ? 'Sonuçlar' : 'Sonraki El', () => {
+      new Button(this, cx, by, 280, 64, last ? 'Sonuçlar' : 'Sonraki El', () => {
         if (last) this.showFinal();
         else this.humanAct({ type: 'nextRound' });
-      }, UI.green, 21),
+      }, UI.green, 24).setIcon(icon(last ? 'trophy' : 'play'), 30),
     );
   }
 
@@ -1526,38 +1558,48 @@ export class TableScene extends Phaser.Scene {
   private multiplierStrip(c: Phaser.GameObjects.Container, cx: number, y: number, r: RoundResult) {
     const ft = r.finishType!;
     const parts: { label: string; mult: number; jokers: number; color: number }[] = [
-      { label: FINISH_NAMES[ft], mult: FINISH_MULT[ft], jokers: ft === 'ciftOkey' ? 2 : ft === 'okey' ? 1 : 0, color: ft === 'normal' ? UI.stroke : 0xf5c451 },
+      { label: FINISH_NAMES[ft], mult: FINISH_MULT[ft], jokers: ft === 'ciftOkey' ? 2 : ft === 'okey' ? 1 : 0, color: ft === 'normal' ? UI.stroke : UI.gold },
     ];
-    if (r.ciftEli) parts.push({ label: 'Çift Eli', mult: 2, jokers: 0, color: 0xc28cf0 });
-    const chipH = 44;
-    const widths = parts.map((p) => 30 + p.jokers * 24 + p.label.length * 9.4 + 46);
+    if (r.ciftEli) parts.push({ label: 'Çift Eli', mult: 2, jokers: 0, color: 0xc39bff });
+    const chipH = 46;
+    const labels = parts.map((p) => txt(this, 0, y, p.label, 17, '#ffffff', 900).setOrigin(0, 0.5));
+    const widths = parts.map((p, i) => 20 + p.jokers * 26 + (p.jokers ? 8 : 0) + labels[i].width + 56);
     const opW = 34;
-    const totalW = 94;
+    const totalW = 100;
     const full = widths.reduce((a, b) => a + b, 0) + opW * parts.length + totalW;
     let x = cx - full / 2;
     const g = this.add.graphics();
     c.add(g);
     parts.forEach((p, i) => {
-      if (i > 0) {
-        c.add(txt(this, x + opW / 2 - opW, y, '·', 26, UI.muted, 900).setOrigin(0.5));
-      }
+      if (i > 0) c.add(txt(this, x - opW / 2, y, '·', 28, UI.muted, 900).setOrigin(0.5));
       const w = widths[i];
-      panel(g, x, y - chipH / 2, w, chipH, 12, UI.panelHi, 0.95, p.color, 1);
-      let tx = x + 14;
-      for (let k = 0; k < p.jokers; k++) {
-        c.add(this.add.image(tx + 10 + k * 24, y, 'tile-joker').setScale(0.3).setAngle(k ? 6 : -6));
-      }
-      tx += p.jokers * 24 + (p.jokers ? 10 : 2);
-      c.add(txt(this, tx, y, p.label, 16, UI.cream, 800).setOrigin(0, 0.5));
-      c.add(txt(this, x + w - 12, y, `×${p.mult}`, 20, p.mult > 1 ? UI.goldHex : UI.muted, 900).setOrigin(1, 0.5));
+      g.fillStyle(0x06191b, 1);
+      g.fillRoundedRect(x - 2, y - chipH / 2 - 2, w + 4, chipH + 4, 22);
+      g.fillStyle(0x184a50, 1);
+      g.fillRoundedRect(x, y - chipH / 2, w, chipH, 20);
+      g.lineStyle(2.5, p.color, 1);
+      g.strokeRoundedRect(x + 1, y - chipH / 2 + 1, w - 2, chipH - 2, 19);
+      let tx = x + 16;
+      for (let k = 0; k < p.jokers; k++) c.add(this.add.image(tx + 11 + k * 26, y, 'tile-joker').setScale(0.3).setAngle(k ? 6 : -6));
+      tx += p.jokers * 26 + (p.jokers ? 8 : 0);
+      labels[i].setX(tx);
+      c.add(labels[i]);
+      c.add(txt(this, x + w - 14, y, `×${p.mult}`, 21, p.mult > 1 ? UI.goldHex : UI.muted, 900).setOrigin(1, 0.5));
       x += w + opW;
     });
-    c.add(txt(this, x - opW / 2, y, '=', 24, UI.muted, 900).setOrigin(0.5));
+    c.add(txt(this, x - opW / 2, y, '=', 26, UI.muted, 900).setOrigin(0.5));
+    // toplam çarpan: safran rozet (×1'de sade)
     const m = r.multiplier;
-    panel(g, x, y - chipH / 2 - 4, totalW, chipH + 8, 14, m > 1 ? 0x5a3a08 : UI.panel, 1, m > 1 ? 0xffd56b : UI.stroke, 1);
-    const big = txt(this, x + totalW / 2, y, `×${m}`, 30, m > 1 ? '#ffd56b' : UI.cream, 900, { stroke: '#2a1700', strokeThickness: 5 }).setOrigin(0.5);
+    const tx = x + totalW / 2;
+    g.fillStyle(0x06191b, 1);
+    star8(g, tx, y + 2, 40, 0.8);
+    g.fillStyle(m > 1 ? 0xbd6d06 : 0x123c41, 1);
+    star8(g, tx, y + 2, 36, 0.8);
+    g.fillStyle(m > 1 ? UI.gold : 0x1c5158, 1);
+    star8(g, tx, y - 1, 36, 0.8);
+    const big = txt(this, tx, y, `×${m}`, 28, m > 1 ? '#5a3300' : UI.cream, 900).setOrigin(0.5);
     c.add(big);
-    if (m > 1) this.tweens.add({ targets: big, scale: { from: 1.6, to: 1 }, duration: 380, delay: 150, ease: 'Back.easeOut' });
+    if (m > 1) this.tweens.add({ targets: big, scale: { from: 1.7, to: 1 }, duration: 380, delay: 150, ease: 'Back.easeOut' });
   }
 
   // ================================================================ okeyle bitiş kutlaması
@@ -1828,82 +1870,200 @@ export class TableScene extends Phaser.Scene {
     badges.filter((b): b is Badge => !!b).forEach((b, i) => this.time.delayedCall(1500 + i * 2800, () => showBadge(this, b)));
   }
 
+  /**
+   * Oyun sonu: okey taşından kürsü. Basamaklar üzerinde dev 1-2-3 yazan taşlar (renkleri
+   * taşlardaki gibi: kırmızı 1, mavi 2, siyah 3); oyuncular avatarlarıyla basamakların üstünde.
+   */
   private showFinal() {
     const s = this.s;
     const cx = GAME_W / 2;
-    const cy = GAME_H / 2;
-    const c = this.openOverlay('final', 680, 500, true);
-    type Entry = { name: string; score: number; mine: boolean };
+    const W = 900;
+    const H = 640;
+    const top = GAME_H / 2 - H / 2;
+    const c = this.openOverlay('final', W, H, true);
+    type Entry = { name: string; sub: string; score: number; mine: boolean; avatar: string; color: number };
+    const seatColor = (i: number) => s.players[i].color ?? [0x3b8fe6, 0xd9534f, 0x8e5bd6, 0xe0962a][i % 4];
     const entries: Entry[] =
       s.mode === 'solo'
-        ? s.players.map((p) => ({ name: p.name, score: p.score, mine: p.seat === 0 }))
-        : [0, 1].map((t) => ({
-            name: `${t === 0 ? 'Takım A' : 'Takım B'} (${s.players.filter((p) => teamOf(p.seat) === t).map((p) => p.name).join(' + ')})`,
-            score: s.players.find((p) => teamOf(p.seat) === t)!.score,
-            mine: t === 0,
-          }));
+        ? s.players.map((p) => ({ name: p.name, sub: '', score: p.score, mine: p.seat === 0, avatar: p.avatar ?? p.name.slice(-1), color: seatColor(p.seat) }))
+        : [0, 1].map((t) => {
+            const ps = s.players.filter((p) => teamOf(p.seat) === t);
+            return {
+              name: t === 0 ? 'Takım A' : 'Takım B',
+              sub: ps.map((p) => p.name).join(' + '),
+              score: ps[0].score,
+              mine: t === 0,
+              avatar: t === 0 ? 'A' : 'B',
+              color: t === 0 ? UI.teamA : UI.teamB,
+            };
+          });
     entries.sort((a, b) => a.score - b.score);
     const won = entries[0].mine;
     if (won) sfx.win();
-    c.add(txt(this, cx, cy - 190, won ? 'Kazandın!' : 'Oyun bitti', 40, UI.goldHex, 900).setOrigin(0.5, 0));
-    entries.forEach((e, i) => {
-      const y = cy - 104 + i * 50;
-      c.add(txt(this, cx - 250, y, `${i + 1}.  ${e.name}`, 22, e.mine ? UI.goldHex : '#fff', 900));
-      c.add(txt(this, cx + 250, y, `${e.score}`, 22, '#fff', 900).setOrigin(1, 0));
+    c.add(header(this, cx, top, won ? 'KAZANDIN!' : 'OYUN BİTTİ', won ? UI.gold : UI.stroke));
+    const myPlace = entries.findIndex((e) => e.mine) + 1;
+    c.add(
+      txt(this, cx, top + 50, won ? 'En düşük puanla birinci oldun' : `${myPlace}. oldun · ${s.history.length} el oynandı`, 19, UI.cream, 800).setOrigin(0.5),
+    );
+
+    // kürsü
+    const baseY = top + 400;
+    const steps = entries.length >= 3 ? [1, 0, 2] : [1, 0]; // ekrandaki sıra: 2. · 1. · 3.
+    const stepX = entries.length >= 3 ? [-220, 0, 220] : [-130, 130];
+    const stepH = [150, 112, 82];
+    const numColor = ['#d23b3b', '#2f6fd6', '#262626'];
+    const g = this.add.graphics();
+    c.add(g);
+    if (won) {
+      // birincinin arkasında yavaş dönen safran ışık
+      const rays = this.add.graphics({ x: cx + stepX[steps.indexOf(0)], y: baseY - stepH[0] - 60 });
+      for (let i = 0; i < 12; i++) {
+        const a = (i / 12) * Math.PI * 2;
+        rays.fillStyle(UI.gold, i % 2 ? 0.16 : 0.08);
+        rays.slice(0, 0, 210, a - 0.13, a + 0.13, false);
+        rays.fillPath();
+      }
+      c.addAt(rays, 2); // karartma ve panelin üstünde, kürsünün altında
+      this.overlayTimers.push(this.tweens.add({ targets: rays, angle: 360, duration: 24000, repeat: -1 }));
+    }
+    steps.forEach((place, k) => {
+      const e = entries[place];
+      if (!e) return;
+      const x = cx + stepX[k];
+      const h = stepH[place];
+      const w = 176;
+      creamTile(g, x - w / 2, baseY - h, w, h, 20, 10);
+      c.add(txt(this, x, baseY - h / 2 - 6, String(place + 1), Math.round(h * 0.55), numColor[place], 900).setOrigin(0.5));
+      // oyuncu: avatar + isim + puan
+      const ay = baseY - h - 58;
+      g.fillStyle(0x06191b, 1);
+      g.fillCircle(x, ay, place === 0 ? 40 : 34);
+      g.fillStyle(e.color, 1);
+      g.fillCircle(x, ay, place === 0 ? 36 : 30);
+      g.fillStyle(0xffffff, 0.2);
+      g.fillCircle(x, ay - 9, place === 0 ? 22 : 18);
+      c.add(txt(this, x, ay + 1, e.avatar, place === 0 ? 36 : 30, '#fff', 900).setOrigin(0.5));
+      if (e.mine) {
+        g.fillStyle(0x06191b, 1);
+        g.fillRoundedRect(x - 30, ay - (place === 0 ? 62 : 56), 60, 22, 11);
+        g.fillStyle(UI.gold, 1);
+        g.fillRoundedRect(x - 28, ay - (place === 0 ? 60 : 54), 56, 18, 9);
+        c.add(txt(this, x, ay - (place === 0 ? 51 : 45), 'SEN', 12, '#5a3300', 900).setOrigin(0.5));
+      }
+      c.add(txt(this, x, ay + (place === 0 ? 50 : 44), e.name, 19, e.mine ? UI.goldHex : '#ffffff', 900).setOrigin(0.5).setStroke('#06191b', 4));
+      if (e.sub) c.add(txt(this, x, ay + (place === 0 ? 70 : 64), e.sub, 13, UI.muted, 800).setOrigin(0.5));
+      c.add(txt(this, x, baseY - 16, `${e.score} puan`, 15, '#4d6b68', 900).setOrigin(0.5));
     });
+    if (entries[3]) {
+      const e = entries[3];
+      c.add(
+        txt(this, cx, baseY + 26, `4.  ${e.name} · ${e.score} puan`, 18, e.mine ? UI.goldHex : UI.cream, 900)
+          .setOrigin(0.5)
+          .setStroke('#06191b', 4),
+      );
+    }
+
+    // ödül şeridi
     const fg = this.finalGain;
     if (fg) {
-      const rt = txt(this, cx - 250, cy + 100, `Ödülün: +${fmt(fg.kp)} ${KP}   +${fg.xp} XP`, 20, UI.goldHex, 900).setOrigin(0, 0.5);
+      const ry = top + H - 122;
+      const rg = this.add.graphics();
+      rg.fillStyle(0x06191b, 0.85);
+      rg.fillRoundedRect(cx - 330, ry - 30, 660, 60, 26);
+      rg.lineStyle(2, UI.gold, 0.6);
+      rg.strokeRoundedRect(cx - 330, ry - 30, 660, 60, 26);
+      c.add(rg);
+      c.add(this.add.image(cx - 298, ry, 'coin').setScale(0.6));
+      const rt = txt(this, cx - 270, ry, `+${fmt(fg.kp)} ${KP}   +${fg.xp} XP`, 22, '#ffffff', 900).setOrigin(0, 0.5).setStroke('#06191b', 4);
       c.add(rt);
-      const dbl = new Button(this, cx + 170, cy + 100, 230, 52, `2 Kat Al · +${fmt(fg.kp)} ${KP}`, async () => {
+      const dbl = new Button(this, cx + 200, ry, 230, 50, `2 Kat · +${fmt(fg.kp)}`, async () => {
         if (fg.doubled) return;
         const ok = await playRewardedVideo(this, `+${fmt(fg.kp)} ${KP}`);
         if (!ok) return;
         fg.doubled = true;
         showGain(this, grant(fg.kp));
-        rt.setText(`Ödülün: +${fmt(fg.kp * 2)} ${KP}   +${fg.xp} XP  (2 kat ✓)`);
+        rt.setText(`+${fmt(fg.kp * 2)} ${KP}   +${fg.xp} XP  · 2 kat ✓`);
         dbl.setEnabled(false).setPulse(false);
-      }, UI.green, 16);
+      }, UI.green, 18);
       dbl.setIcon(icon('video'), 24).setEnabled(!fg.doubled).setPulse(!fg.doubled);
       c.add(dbl);
     }
+
+    // butonlar: yeni oyun / lobi · puan tablosu · menü
+    const by = top + H - 48;
     if (this.ctrl.online) {
-      c.add(new Button(this, cx - 120, cy + 185, 210, 56, 'Lobiye Dön', () => this.scene.start('lobby', {}), UI.green, 20));
+      c.add(new Button(this, cx - 190, by, 250, 62, 'Lobiye Dön', () => this.scene.start('lobby', {}), UI.green, 21).setIcon(icon('globe'), 28));
     } else {
-      c.add(new Button(this, cx - 120, cy + 185, 210, 56, 'Yeni Oyun', () => this.scene.restart({ mode: this.mode.mode, ruleOrder: this.mode.ruleOrder }), UI.green, 20));
+      c.add(
+        new Button(this, cx - 190, by, 250, 62, 'Yeni Oyun', () => this.scene.restart({ mode: this.mode.mode, ruleOrder: this.mode.ruleOrder }), UI.green, 21).setIcon(
+          icon('play'),
+          28,
+        ),
+      );
     }
-    c.add(new Button(this, cx + 120, cy + 185, 210, 56, 'Menü', () => this.exitToMenu(), UI.slate, 20));
+    c.add(new Button(this, cx + 30, by, 160, 62, 'Tablo', () => this.showScores(() => this.showFinal()), UI.blue, 20).setIcon(icon('list'), 26));
+    c.add(new Button(this, cx + 210, by, 170, 62, 'Menü', () => this.exitToMenu(), UI.slate, 20).setIcon(icon('back'), 24));
   }
 
-  private showScores() {
-    if (this.overlayKind === 'round' || this.overlayKind === 'final' || this.overlayKind === 'claim') return;
-    if (this.overlayKind === 'scores') {
+  /** Puan tablosu: her el bir satır; o eli bitirenin hücresi safran. back verilirse "Geri" ona döner. */
+  private showScores(back?: () => void) {
+    if (!back && (this.overlayKind === 'round' || this.overlayKind === 'final' || this.overlayKind === 'claim')) return;
+    if (!back && this.overlayKind === 'scores') {
       this.closeOverlay();
       return;
     }
     const s = this.s;
     const cx = GAME_W / 2;
-    const cy = GAME_H / 2;
-    const c = this.openOverlay('scores', 820, 580, true);
-    c.add(txt(this, cx, cy - 262, 'Puan Tablosu', 28, UI.goldHex, 900).setOrigin(0.5, 0));
-    const heads = s.mode === 'solo' ? s.players.map((p) => p.name) : ['Takım A', 'Takım B'];
-    const seatsFor = s.mode === 'solo' ? [0, 1, 2, 3] : [0, 1];
-    const x0 = cx - 380;
-    const colX = (i: number) => cx - 40 + i * (s.mode === 'solo' ? 105 : 200);
-    c.add(txt(this, x0, cy - 214, 'El', 14, UI.muted, 900));
-    heads.forEach((h, i) => c.add(txt(this, colX(i), cy - 214, h, 14, UI.muted, 900)));
+    const W = 900;
+    const H = 650;
+    const top = GAME_H / 2 - H / 2;
+    const c = this.openOverlay('scores', W, H, true);
+    c.add(header(this, cx, top, 'PUAN TABLOSU'));
+    const team = s.mode === 'team';
+    const heads = team ? ['Takım A', 'Takım B'] : s.players.map((p) => p.name);
+    const seatsFor = team ? [0, 1] : [0, 1, 2, 3];
+    const x0 = cx - 410;
+    const colW = team ? 200 : 112;
+    const colX = (i: number) => cx - 40 + i * colW + colW / 2;
+    const hy = top + 52;
+    c.add(txt(this, x0 + 14, hy, 'El', 15, UI.muted, 900).setOrigin(0, 0.5));
+    heads.forEach((h, i) => c.add(txt(this, colX(i), hy, h, 15, i === 0 ? UI.goldHex : UI.muted, 900).setOrigin(0.5)));
+    const g = this.add.graphics();
+    c.add(g);
+    const rowH = 31;
+    const rows = Math.max(s.history.length, 1);
     s.history.forEach((r, ri) => {
-      const y = cy - 186 + ri * 31;
-      c.add(txt(this, x0, y, `${ri + 1}. ${r.contractName}`, 16, UI.cream, 700));
+      const y = top + 82 + ri * rowH;
+      g.fillStyle(0x06191b, ri % 2 ? 0.35 : 0.6);
+      g.fillRoundedRect(x0, y - rowH / 2 + 1, 820, rowH - 2, 10);
+      c.add(txt(this, x0 + 14, y, `${ri + 1}. ${r.contractName}`, 16, UI.cream, 800).setOrigin(0, 0.5));
+      if (r.finishType && r.multiplier > 1) c.add(txt(this, cx - 56, y, `×${r.multiplier}`, 14, UI.goldHex, 900).setOrigin(1, 0.5));
       seatsFor.forEach((seat, i) => {
         const d = r.deltas[seat];
-        c.add(txt(this, colX(i), y, `${d > 0 ? '+' : ''}${d}`, 16, d < 0 ? UI.greenHex : '#fff', 800));
+        const winner = r.winner !== null && (team ? teamOf(r.winner) === seat : r.winner === seat);
+        if (winner) {
+          g.fillStyle(UI.gold, 0.22);
+          g.fillRoundedRect(colX(i) - colW / 2 + 6, y - rowH / 2 + 3, colW - 12, rowH - 6, 8);
+        }
+        c.add(txt(this, colX(i), y, `${d > 0 ? '+' : ''}${d}`, 17, winner ? UI.goldHex : d < 0 ? UI.greenHex : '#ffffff', 900).setOrigin(0.5));
       });
     });
-    const ty = cy - 186 + Math.max(s.history.length, 1) * 31 + 10;
-    c.add(txt(this, x0, ty, 'Toplam', 17, UI.goldHex, 900));
-    seatsFor.forEach((seat, i) => c.add(txt(this, colX(i), ty, `${s.players[seat].score}`, 17, UI.goldHex, 900)));
-    c.add(new Button(this, cx, cy + 246, 180, 50, 'Kapat', () => this.closeOverlay(), UI.slate));
+    if (!s.history.length) c.add(txt(this, cx, top + 82, 'Henüz biten el yok', 17, UI.muted, 800).setOrigin(0.5));
+    // toplam
+    const ty = top + 82 + rows * rowH + 14;
+    g.fillStyle(0x06191b, 0.9);
+    g.fillRoundedRect(x0, ty - 20, 820, 40, 14);
+    g.lineStyle(2, UI.gold, 0.7);
+    g.strokeRoundedRect(x0, ty - 20, 820, 40, 14);
+    c.add(txt(this, x0 + 14, ty, 'Toplam', 18, UI.goldHex, 900).setOrigin(0, 0.5));
+    seatsFor.forEach((seat, i) => c.add(txt(this, colX(i), ty, `${s.players[seat].score}`, 20, UI.goldHex, 900).setOrigin(0.5)));
+    c.add(txt(this, x0 + 820, ty + 34, 'Düşük puan iyidir', 13, UI.muted, 800).setOrigin(1, 0.5));
+    c.add(
+      new Button(this, cx, top + H - 40, 200, 56, back ? 'Geri' : 'Kapat', () => (back ? back() : this.closeOverlay()), UI.slate, 20).setIcon(
+        icon(back ? 'back' : 'close'),
+        22,
+      ),
+    );
   }
 
   /** Online'da son 15 saniyede geri sayım (süre dolarsa sunucu otomatik oynar). */
