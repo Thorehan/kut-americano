@@ -86,3 +86,6 @@ export const MELD_ZONES: Zone[] = [
 ];
 
 export const STATUS = { x: 640, y: 503 };
+
+/** Sol üstteki kural kartı. */
+export const RULE_CARD = { x: 10, y: 6, w: 452, h: 82 };

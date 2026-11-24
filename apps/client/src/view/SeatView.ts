@@ -29,8 +29,8 @@ export class SeatView {
     y: number,
     private vertical: boolean,
   ) {
-    this.w = vertical ? 136 : 262;
-    this.h = vertical ? 132 : 58;
+    this.w = vertical ? 140 : 290;
+    this.h = vertical ? 146 : 62;
     const { w, h } = this;
     this.root = scene.add.container(x, y).setDepth(50);
     this.ring = scene.add.graphics();
@@ -45,30 +45,31 @@ export class SeatView {
     const ax = vertical ? 0 : -w / 2 + 30;
     const ay = vertical ? -h / 2 + 30 : 0;
     av.fillStyle(AVATAR_COLORS[seat % 4], 1);
-    av.fillCircle(ax, ay, 20);
-    av.lineStyle(2, 0xffffff, 0.6);
-    av.strokeCircle(ax, ay, 20);
+    av.fillStyle(0x06191b, 1);
+    av.fillCircle(ax, ay, 24);
+    av.fillStyle(AVATAR_COLORS[seat % 4], 1);
+    av.fillCircle(ax, ay, 21);
     const initial = txt(scene, ax, ay, '', 20, '#fff', 900).setOrigin(0.5);
     this.root.setData('initial', initial);
     this.root.setData('av', av);
     this.root.setData('avPos', { x: ax, y: ay });
 
     if (vertical) {
-      this.nameT = txt(scene, 0, -h / 2 + 56, '', 16, '#fff', 800).setOrigin(0.5, 0);
-      this.countT = txt(scene, 10, -h / 2 + 82, '', 14, UI.cream, 700).setOrigin(0, 0.5);
-      for (let i = 0; i < 3; i++) this.backs.push(scene.add.image(-22 + i * 5, -h / 2 + 82, 'tile-back').setScale(0.16));
+      this.nameT = txt(scene, 0, -h / 2 + 54, '', 18, '#fff', 900).setOrigin(0.5, 0);
+      this.countT = txt(scene, 8, -h / 2 + 86, '', 17, UI.cream, 900).setOrigin(0, 0.5);
+      for (let i = 0; i < 3; i++) this.backs.push(scene.add.image(-22 + i * 5, -h / 2 + 86, 'tile-back').setScale(0.18));
       this.badgeBg = scene.add.graphics();
-      this.badgeT = txt(scene, 0, -h / 2 + 104, '', 12, '#fff', 800).setOrigin(0.5);
-      this.scoreT = txt(scene, 0, h / 2 - 4, '', 12, UI.goldHex, 800).setOrigin(0.5, 1);
+      this.badgeT = txt(scene, 0, -h / 2 + 112, '', 13, '#fff', 900).setOrigin(0.5);
+      this.scoreT = txt(scene, 0, h / 2 - 5, '', 14, UI.goldHex, 900).setOrigin(0.5, 1);
     } else {
-      this.nameT = txt(scene, -w / 2 + 58, -h / 2 + 7, '', 16, '#fff', 800);
-      this.scoreT = txt(scene, -w / 2 + 58, -h / 2 + 30, '', 12, UI.goldHex, 800);
-      this.countT = txt(scene, w / 2 - 74, -6, '', 14, UI.cream, 700).setOrigin(0, 0.5);
-      for (let i = 0; i < 3; i++) this.backs.push(scene.add.image(w / 2 - 98 + i * 5, -6, 'tile-back').setScale(0.16));
+      this.nameT = txt(scene, -w / 2 + 60, -h / 2 + 6, '', 18, '#fff', 900);
+      this.scoreT = txt(scene, -w / 2 + 60, -h / 2 + 33, '', 14, UI.goldHex, 900);
+      this.countT = txt(scene, w / 2 - 76, -8, '', 17, UI.cream, 900).setOrigin(0, 0.5);
+      for (let i = 0; i < 3; i++) this.backs.push(scene.add.image(w / 2 - 100 + i * 5, -8, 'tile-back').setScale(0.18));
       this.badgeBg = scene.add.graphics();
-      this.badgeT = txt(scene, w / 2 - 52, 15, '', 11, '#fff', 800).setOrigin(0.5);
+      this.badgeT = txt(scene, w / 2 - 52, 17, '', 12, '#fff', 900).setOrigin(0.5);
     }
-    this.thinkT = txt(scene, 0, h / 2 + 8, '', 12, UI.muted, 700).setOrigin(0.5, 0);
+    this.thinkT = txt(scene, 0, h / 2 + 8, '', 14, UI.cream, 800).setOrigin(0.5, 0).setStroke('#06191b', 4);
     this.root.add([this.ring, this.bg, av, initial, this.nameT, this.countT, ...this.backs, this.badgeBg, this.badgeT, this.scoreT, this.thinkT]);
   }
 
@@ -76,10 +77,12 @@ export class SeatView {
     const av = this.root.getData('av') as Phaser.GameObjects.Graphics;
     const { x, y } = this.root.getData('avPos') as { x: number; y: number };
     av.clear();
+    av.fillStyle(0x06191b, 1);
+    av.fillCircle(x, y, 24);
     av.fillStyle(color, 1);
-    av.fillCircle(x, y, 20);
-    av.lineStyle(2, 0xffffff, 0.6);
-    av.strokeCircle(x, y, 20);
+    av.fillCircle(x, y, 21);
+    av.fillStyle(0xffffff, 0.18);
+    av.fillCircle(x, y - 6, 14);
   }
 
   get anchor() {
@@ -107,7 +110,9 @@ export class SeatView {
     const bx = this.badgeT.x - bw / 2;
     const by = this.badgeT.y - 10;
     this.badgeBg.clear();
-    this.badgeBg.fillStyle(opened ? UI.green : 0x000000, opened ? 1 : 0.3);
+    this.badgeBg.fillStyle(0x06191b, 1);
+    this.badgeBg.fillRoundedRect(bx - 1.5, by - 1.5, bw + 3, 23, 11.5);
+    this.badgeBg.fillStyle(opened ? 0x21a957 : 0x3d5f63, 1);
     this.badgeBg.fillRoundedRect(bx, by, bw, 20, 10);
 
     if (mode === 'team') {

@@ -233,24 +233,30 @@ export class MenuScene extends Phaser.Scene {
   // ------------------------------------------------------------ başlık
 
   private buildHero() {
-    const deco = ['tile-red-7', 'tile-yellow-7', 'tile-joker', 'tile-blue-7', 'tile-black-7'];
-    deco.forEach((k, i) => {
+    // Logo: K-Ü-T basılı üç büyük okey taşı; arkada yan yatmış bir okey. Sırayla masaya "küt" diye iner.
+    const cy = 148;
+    const joker = this.add.image(GAME_W / 2 + 142, cy - 4, 'tile-joker').setScale(0.5).setAngle(16).setAlpha(0);
+    this.tweens.add({ targets: joker, alpha: 1, angle: 20, duration: 500, delay: 760, ease: 'Back.easeOut' });
+    const shadow = this.add.graphics();
+    shadow.fillStyle(0x000000, 0.28);
+    shadow.fillEllipse(GAME_W / 2, cy + 64, 300, 26);
+    ['logo-K', 'logo-Ü', 'logo-T'].forEach((k, i) => {
       const img = this.add
-        .image(GAME_W / 2 - 124 + i * 62, -80, k)
-        .setScale(0.46)
-        .setAngle((i - 2) * 7);
-      this.tweens.add({ targets: img, y: 104 + Math.abs(i - 2) * 7, duration: 620, delay: 120 + i * 90, ease: 'Back.easeOut' });
-      this.tweens.add({ targets: img, y: '+=4', duration: 1600 + i * 120, delay: 900, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+        .image(GAME_W / 2 + (i - 1) * 84, -120, k)
+        .setScale(0.74)
+        .setAngle((i - 1) * 5);
+      this.tweens.add({
+        targets: img,
+        y: cy + Math.abs(i - 1) * 6,
+        duration: 420,
+        delay: 140 + i * 160,
+        ease: 'Bounce.easeOut',
+        onStart: () => this.time.delayedCall(260, () => sfx.tok()),
+      });
+      this.tweens.add({ targets: img, y: '+=3', duration: 1800 + i * 150, delay: 1200, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
     });
-    // KÜT: safran harfler, kalın gece turkuazı kontur, altta gölge
-    const title = txt(this, GAME_W / 2, 178, 'KÜT', 76, UI.goldHex, 900)
-      .setOrigin(0.5)
-      .setStroke('#06191b', 12)
-      .setShadow(0, 6, 'rgba(0,0,0,0.45)', 0, true, false);
-    title.setAlpha(0).setScale(0.8);
-    this.tweens.add({ targets: title, alpha: 1, scale: 1, duration: 500, delay: 550, ease: 'Back.easeOut' });
     // alt başlık: küçük turkuaz şerit
-    const sub = this.add.container(GAME_W / 2, 230);
+    const sub = this.add.container(GAME_W / 2, 236);
     const sg = this.add.graphics();
     sg.fillStyle(0x06191b, 0.9);
     sg.fillRoundedRect(-118, -17, 236, 34, 17);

@@ -20,7 +20,8 @@ export type TutorialStage = 'basic' | 'okey';
 const C: Record<string, Color> = { r: 'red', y: 'yellow', b: 'blue', k: 'black' };
 /** Öğretici kutusunun üst kenarı ve genişliği (kural panelinin altında, destenin üstünde). */
 const BOX_TOP = 84;
-const BOX_W = 900;
+/** Üst köşelerdeki atılan taş yığınları (x≈206 ve x≈1074) açıkta kalsın diye dar. */
+const BOX_W = 760;
 
 /** Öğretici eli: taşlar gerçek taş setinden seçilir (id'ler benzersiz kalsın). */
 export function setupTutorialGame(game: Game, stage: TutorialStage = 'basic') {
@@ -483,17 +484,17 @@ export class TutorialRunner {
       this.rendered = this.step;
       const button = !!st.info || !!st.offerExample;
       this.titleT.setText(st.title);
-      this.bodyT.setWordWrapWidth(button ? 680 : 840).setText(st.text);
-      this.whyT.setWordWrapWidth(button ? 616 : 776).setText(st.why);
+      this.bodyT.setWordWrapWidth(button ? BOX_W - 210 : BOX_W - 40).setText(st.text);
+      this.whyT.setWordWrapWidth(button ? BOX_W - 274 : BOX_W - 104).setText(st.why);
       this.countT.setText(`${this.stage === 'okey' ? 'Örnek' : 'Öğretici'} · ${this.step + 1}/${this.steps.length}`);
       const whyY = 38 + this.bodyT.height + 8;
       this.whyLabel.setY(whyY);
       this.whyT.setY(whyY);
       const h = whyY + this.whyT.height + 14;
       this.boxBg.clear();
-      panel(this.boxBg, -BOX_W / 2, 0, BOX_W, h, 18, 0x10372a, 0.97, UI.gold, 1);
+      panel(this.boxBg, -BOX_W / 2, 0, BOX_W, h, 18, 0x10372a, 0.84, UI.gold, 1);
       this.boxBg.fillStyle(0xffffff, 0.06);
-      this.boxBg.fillRoundedRect(-BOX_W / 2 + 10, whyY - 5, (button ? 710 : BOX_W - 20), this.whyT.height + 10, 10);
+      this.boxBg.fillRoundedRect(-BOX_W / 2 + 10, whyY - 5, button ? BOX_W - 180 : BOX_W - 20, this.whyT.height + 10, 10);
       this.next.setVisible(!!st.info).setY(h / 2 + 8);
       this.example.setVisible(!!st.offerExample).setY(h / 2 + 8);
     }
@@ -575,6 +576,14 @@ export class TutorialRunner {
 
   private drawSpots() {
     this.spot.draw(this.spots());
+    // Rakipler oynarken kutu soluklaşır: atılan taşlar ve hamleler rahat görünsün
+    if (!this.finished && this.scene.time.now > this.visibleAt + 300) {
+      const s = this.getState();
+      const st = this.steps[this.step];
+      const mine = st.info || ((s.phase === 'draw' || s.phase === 'action') && s.current === 0) || over(s);
+      const want = mine ? 1 : 0.4;
+      this.box.setAlpha(this.box.alpha + (want - this.box.alpha) * 0.12);
+    }
   }
 
   /** El bitti: tebrik ve çıkış seçenekleri. */

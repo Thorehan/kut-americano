@@ -219,6 +219,34 @@ export function createTextures(scene: Phaser.Scene) {
     }
   }
 
+  // Logo: K-Ü-T harfleri basılı üç okey taşı (sayının yerinde harf, damlanın yerinde çini yıldızı)
+  const LOGO: [string, Color][] = [
+    ['K', 'red'],
+    ['Ü', 'blue'],
+    ['T', 'black'],
+  ];
+  for (const [ch, col] of LOGO) {
+    canvas(scene, `logo-${ch}`, TILE_W, TILE_H, (ctx) => {
+      tileBody(ctx);
+      ctx.fillStyle = style.colors[col];
+      ctx.font = `900 ${ch === 'Ü' ? 70 : 76}px ${FONT}`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(ch, TILE_W / 2, ch === 'Ü' ? 66 : 62);
+      ctx.beginPath();
+      for (let i = 0; i < 16; i++) {
+        const a = (i * Math.PI) / 8 - Math.PI / 2;
+        const r = i % 2 === 0 ? 11 : 7;
+        const px = TILE_W / 2 + Math.cos(a) * r;
+        const py = 112 + Math.sin(a) * r;
+        if (i === 0) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+      }
+      ctx.closePath();
+      ctx.fill();
+    });
+  }
+
   // Okey = sahte okey simgeli taş
   canvas(scene, 'tile-joker', TILE_W, TILE_H, (ctx) => {
     tileBody(ctx);

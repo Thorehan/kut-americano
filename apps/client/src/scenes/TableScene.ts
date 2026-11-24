@@ -37,6 +37,7 @@ import {
   MELD_ZONES,
   RACK,
   RENDER_SCALE,
+  RULE_CARD,
   SEAT_ANCHOR,
   STATUS,
   TABLE,
@@ -46,7 +47,7 @@ import {
 import { haptic, sfx } from '../sfx';
 import { TILE_H, TILE_W, createTextures, tileKey } from '../textures';
 import { Button } from '../ui/Button';
-import { panel, txt } from '../ui/text';
+import { panel, star8, txt } from '../ui/text';
 import { SeatView, showBubble } from '../view/SeatView';
 import { Origin, Point, Target, TileKind, TileLayer } from '../view/TileLayer';
 import type { TableData } from './MenuScene';
@@ -312,7 +313,7 @@ export class TableScene extends Phaser.Scene {
       deck: () => DECK,
       discardSpot: () => DISCARD_POS[0],
       sideSpot: () => DISCARD_POS[3],
-      rulePanel: () => ({ x: 10, y: 8, w: 404, h: 72 }),
+      rulePanel: () => ({ ...RULE_CARD }),
       selected: () => this.selected,
       stagedCount: () => this.staged.length,
     };
@@ -334,17 +335,33 @@ export class TableScene extends Phaser.Scene {
   }
 
   private buildRulePanel() {
-    const c = this.add.container(10, 8).setDepth(60);
+    // Kural kartı: krem bir okey taşı yüzü gibi (alt kalınlıklı), solda safran çini yıldızında el no.
+    const { x, y, w, h } = RULE_CARD;
+    const c = this.add.container(x, y).setDepth(60);
     const g = this.add.graphics();
-    panel(g, 0, 0, 404, 72, 16, UI.panel, 0.94, UI.gold, 0.55);
-    const chipBg = this.add.graphics();
-    chipBg.fillStyle(UI.gold, 1);
-    chipBg.fillRoundedRect(10, 9, 70, 22, 11);
-    this.ruleChip = txt(this, 45, 20, '', 12, '#2a1d02', 900).setOrigin(0.5);
-    this.ruleName = txt(this, 88, 6, '', 20, '#fff', 900);
-    this.ruleDesc = txt(this, 12, 35, '', 12, UI.muted, 700, { wordWrap: { width: 340 }, lineSpacing: 1 });
-    this.ruleExtra = this.add.image(380, 34, 'tile-back').setScale(0.29);
-    c.add([g, chipBg, this.ruleChip, this.ruleName, this.ruleDesc, this.ruleExtra]);
+    g.fillStyle(0x000000, 0.3);
+    g.fillRoundedRect(2, 8, w, h, 18);
+    g.fillStyle(0x06191b, 1);
+    g.fillRoundedRect(-2, -2, w + 4, h + 4, 20);
+    g.fillStyle(0xcdb98e, 1);
+    g.fillRoundedRect(0, 0, w, h, 18);
+    g.fillStyle(0xfff8ea, 1);
+    g.fillRoundedRect(0, 0, w, h - 7, 18);
+    g.fillStyle(0xffffff, 0.75);
+    g.fillRoundedRect(8, 5, w - 16, 10, 5);
+    // el numarası: safran yıldız
+    g.fillStyle(0x06191b, 1);
+    star8(g, 40, h / 2 - 3, 32, 0.74);
+    g.fillStyle(0xbd6d06, 1);
+    star8(g, 40, h / 2 - 1, 29, 0.74);
+    g.fillStyle(UI.gold, 1);
+    star8(g, 40, h / 2 - 4, 29, 0.74);
+    this.ruleChip = txt(this, 40, h / 2 - 5, '', 17, '#5a3300', 900, { align: 'center', lineSpacing: -4 }).setOrigin(0.5);
+    this.ruleName = txt(this, 82, 9, '', 22, '#123c41', 900);
+    this.ruleDesc = txt(this, 82, 38, '', 14, '#4d6b68', 800, { wordWrap: { width: w - 150 }, lineSpacing: 1 });
+    this.ruleExtra = this.add.image(w - 34, h / 2 - 3, 'tile-back').setScale(0.36);
+    const extraT = txt(this, w - 34, h - 4, 'fazlalık', 10, '#7a8c88', 900).setOrigin(0.5, 1);
+    c.add([g, this.ruleChip, this.ruleName, this.ruleDesc, this.ruleExtra, extraT]);
   }
 
   private buildDeck() {
@@ -369,10 +386,10 @@ export class TableScene extends Phaser.Scene {
 
   private buildStatus() {
     this.statusBg = this.add.graphics();
-    this.statusT = txt(this, 0, 0, '', 15, '#fff', 800).setOrigin(0.5);
+    this.statusT = txt(this, 0, 0, '', 17, '#fff', 900).setOrigin(0.5);
     this.statusBox = this.add.container(STATUS.x, STATUS.y, [this.statusBg, this.statusT]).setDepth(70);
     this.meChipBg = this.add.graphics().setDepth(70);
-    this.meChipT = txt(this, 0, STATUS.y, '', 13, '#fff', 800).setOrigin(0, 0.5).setDepth(71);
+    this.meChipT = txt(this, 0, STATUS.y, '', 15, '#fff', 900).setOrigin(0, 0.5).setDepth(71);
   }
 
   private buildButtons() {
@@ -1145,7 +1162,8 @@ export class TableScene extends Phaser.Scene {
     const me = this.me;
 
     // kural paneli
-    this.ruleChip.setText(`${s.ruleOrder === 'random' ? '🎲 ' : 'EL '}${g.roundNumber}/${g.totalRounds}`);
+    this.ruleChip.setText(`${g.roundNumber}\n${s.ruleOrder === 'random' ? '?' : `/${g.totalRounds}`}`);
+    this.ruleChip.setFontSize(g.roundNumber >= 10 ? 15 : 17);
     this.ruleName.setText(this.spinning ? 'Kural seçiliyor…' : c.name);
     this.ruleDesc.setText(this.spinning ? 'Rastgele mod: çark dönüyor' : c.description);
     if (s.extraTile) this.ruleExtra.setTexture(tileKey(s.extraTile));

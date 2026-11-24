@@ -81,15 +81,14 @@ export function panel(g: Phaser.GameObjects.Graphics, x: number, y: number, w: n
   // gölge
   g.fillStyle(0x000000, 0.32);
   g.fillRoundedRect(x, y + 5, w, h, rr);
-  // koyu dış hat
-  g.fillStyle(0x06191b, Math.min(1, alpha + 0.05));
-  g.fillRoundedRect(x - 2, y - 2, w + 4, h + 4, rr + 2);
-  // renkli kenar
-  g.fillStyle(stroke, strokeAlpha);
-  g.fillRoundedRect(x, y, w, h, rr);
   // zemin
-  g.fillStyle(f, Math.max(alpha, 0.94));
-  g.fillRoundedRect(x + 2.5, y + 2.5, w - 5, h - 5, Math.max(2, rr - 2.5));
+  g.fillStyle(f, alpha);
+  g.fillRoundedRect(x, y, w, h, rr);
+  // koyu dış hat + renkli kenar (çizgi: saydam zeminde alttan renk sızmasın)
+  g.lineStyle(4, 0x06191b, Math.min(1, alpha + 0.1));
+  g.strokeRoundedRect(x - 1, y - 1, w + 2, h + 2, rr + 1);
+  g.lineStyle(2.5, stroke, strokeAlpha);
+  g.strokeRoundedRect(x + 1.25, y + 1.25, w - 2.5, h - 2.5, Math.max(2, rr - 1.25));
   // üstte ışık bandı
   g.fillStyle(0xffffff, 0.06);
   g.fillRoundedRect(x + 5, y + 5, w - 10, Math.max(4, Math.min(h * 0.38, 60)), { tl: Math.max(1, rr - 5), tr: Math.max(1, rr - 5), bl: 4, br: 4 });
