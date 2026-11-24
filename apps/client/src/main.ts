@@ -22,7 +22,7 @@ void loadFonts().then(() => {
     parent: 'app',
     width: GAME_W * RENDER_SCALE,
     height: GAME_H * RENDER_SCALE,
-    backgroundColor: '#071d15',
+    backgroundColor: '#0a2a2e',
     scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
     render: { antialias: true, roundPixels: false, powerPreference: 'high-performance' },
     input: { activePointers: 2 },

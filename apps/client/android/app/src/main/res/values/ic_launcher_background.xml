@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="ic_launcher_background">#FFFFFF</color>
+    <!-- Çini teması zemin rengi (ikon arka planı ve açılış ekranı) -->
+    <color name="ic_launcher_background">#0F3E43</color>
+    <color name="splash_background">#0A2A2E</color>
 </resources>

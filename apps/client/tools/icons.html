@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="tr">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Küt · ikon ve açılış ekranı üretici</title>
+    <style>
+      body { margin: 0; padding: 16px; background: #222; color: #eee; font: 14px/1.4 sans-serif; }
+      #out { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; }
+      figure { margin: 0; text-align: center; }
+      figure img { display: block; max-width: 320px; max-height: 240px; background: repeating-conic-gradient(#444 0 25%, #333 0 50%) 0 0 / 16px 16px; }
+      figcaption { font-size: 11px; opacity: 0.7; margin-top: 4px; }
+    </style>
+  </head>
+  <body>
+    <p id="status">Çiziliyor…</p>
+    <div id="out"></div>
+    <script type="module" src="./icons.ts"></script>
+  </body>
+</html>
