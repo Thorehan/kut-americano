@@ -36,6 +36,29 @@ export const CONTRACTS: readonly Contract[] = [
   { name: 'Çift Eli', mode: 'ciftEli', reqs: [], description: 'En az 7 çifti tek seferde açıp bit. Bu elde tüm puanlar ×2.' },
 ];
 
+// ------------------------------------------------------------ oyun uzunluğu
+
+/** short: 5 el (mobilde kısa oturum) · full: 15 el */
+export type GameLength = 'short' | 'full';
+
+/** Kısa oyunda el sayısı. */
+export const SHORT_ROUNDS = 5;
+
+const idx = (name: string) => {
+  const i = CONTRACTS.findIndex((c) => c.name === name);
+  if (i < 0) throw new Error('kural yok: ' + name);
+  return i;
+};
+
+/** Kısa + Sıralı: kolaydan zora 5 el, sonda Çift Eli (×2). */
+export const SHORT_ORDER: readonly number[] = [
+  idx("3'lü Küt"),
+  idx("3'lü Seri"),
+  idx("4'lü Küt + 3'lü Seri"),
+  idx("5'li Seri"),
+  idx('Çift Eli'),
+];
+
 // ------------------------------------------------------------ rastgele mod
 
 /** classic: 15 el sırayla · random: her elin kuralı aşağıdaki oranlarla rastgele seçilir */

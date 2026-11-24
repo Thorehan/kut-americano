@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { CONTRACTS, GameMode, RANDOM_MAX_REPEAT, RANDOM_WEIGHTS, RuleOrder, normalizeCode } from '@kut/core';
+import { CONTRACTS, GameLength, GameMode, GameState, RANDOM_MAX_REPEAT, RANDOM_WEIGHTS, RuleOrder, SHORT_ROUNDS, normalizeCode } from '@kut/core';
 import type { OnlineController } from '../controller';
 import { connection } from '../net/connection';
 import { createTextures } from '../textures';
@@ -12,6 +12,7 @@ import { KP, VIDEO_REWARD, grant, levelOf, onlineLockLeft, profile, videosLeft, 
 import { fmt, showDailyPopup, showGain } from '../ui/rewards';
 import { playRewardedVideo } from '../ui/videoAd';
 import { showBubble } from '../view/SeatView';
+import { clearSave, loadSave } from '../savegame';
 import type { PreviewSpec } from '../preview';
 
 export interface TableData {
@@ -23,6 +24,10 @@ export interface TableData {
   /** Bitiş ekranı önizlemesi (?onizleme). */
   preview?: PreviewSpec;
   ruleOrder?: RuleOrder;
+  /** Kısa (5 el) / tam (15 el). */
+  length?: GameLength;
+  /** Kayıttan devam edilecek yerel oyun. */
+  resume?: GameState;
   seed?: number;
   startRound?: number;
 }
@@ -84,6 +89,7 @@ export class MenuScene extends Phaser.Scene {
 
     this.ruleOrder = urlRuleOrder() ?? (load('kut-rule-order') === 'random' ? 'random' : 'classic');
     this.lastMode = load('kut-last-mode') === 'team' ? 'team' : 'solo';
+    this.lastLength = load('kut-last-length') === 'short' ? 'short' : 'full';
 
     this.buildTopBar();
     this.buildHero();
@@ -113,7 +119,12 @@ export class MenuScene extends Phaser.Scene {
       this.time.delayedCall(250, () => this.scene.start('lobby', {}));
       return;
     }
-    if (load('kut-seen-howto') !== '1') this.time.delayedCall(900, () => this.showHowTo());
+    const saved = loadSave();
+    if (saved && !this.registry.get('resumeOffered')) {
+      // uygulama açılışında bir kez: yarım kalan oyun → devam et / sonra (sonra günlük ödül)
+      this.registry.set('resumeOffered', true);
+      this.time.delayedCall(700, () => this.showResume(saved.state, saved.at, false, () => showDailyPopup(this, () => this.refreshVideo())));
+    } else if (load('kut-seen-howto') !== '1') this.time.delayedCall(900, () => this.showHowTo());
     else this.time.delayedCall(900, () => showDailyPopup(this, () => this.refreshVideo()));
   }
 
@@ -281,29 +292,48 @@ export class MenuScene extends Phaser.Scene {
   private segSolo!: Button;
   private segTeam!: Button;
 
+  private segShort!: Button;
+  private segFull!: Button;
+  private lastLength: GameLength = 'full';
+  private hintInfo!: Button;
+
   private buildPlayArea() {
     const y = 300;
-    // iki segmentli seçici: oyun modu ve kural sırası (koyu oluklar içinde)
+    // üç segmentli seçici (koyu oluklar içinde): mod · kural sırası · süre
+    const bw = 110;
+    const groupW = bw * 2 + 24;
+    const gap = 14;
+    const total = groupW * 3 + gap * 2;
     const g = this.add.graphics();
-    for (const cx of [GAME_W / 2 - 166, GAME_W / 2 + 166]) {
+    const centers = [0, 1, 2].map((i) => GAME_W / 2 - total / 2 + groupW / 2 + i * (groupW + gap));
+    for (const cx of centers) {
       g.fillStyle(0x06191b, 0.75);
-      g.fillRoundedRect(cx - 158, y - 34, 316, 68, 24);
+      g.fillRoundedRect(cx - groupW / 2, y - 34, groupW, 68, 24);
       g.lineStyle(2, UI.stroke, 0.35);
-      g.strokeRoundedRect(cx - 158, y - 34, 316, 68, 24);
+      g.strokeRoundedRect(cx - groupW / 2, y - 34, groupW, 68, 24);
     }
-    const seg = (x: number, label: string, ic: IconName, fn: () => void) =>
-      new Button(this, x, y, 150, 54, label, fn, UI.slate, 20).setIcon(icon(ic), 26);
-    this.segSolo = seg(GAME_W / 2 - 243, 'Tekli', 'user', () => this.setMode('solo'));
-    this.segTeam = seg(GAME_W / 2 - 89, 'Takım', 'team', () => this.setMode('team'));
-    this.segClassic = seg(GAME_W / 2 + 89, 'Sıralı', 'list', () => this.setOrder('classic'));
-    this.segRandom = seg(GAME_W / 2 + 243, 'Rastgele', 'dice', () => this.setOrder('random'));
+    const seg = (cx: number, side: -1 | 1, label: string, ic: IconName, fn: () => void) =>
+      new Button(this, cx + side * (bw / 2 + 2), y, bw, 54, label, fn, UI.slate, 18).setIcon(icon(ic), 22);
+    this.segSolo = seg(centers[0], -1, 'Tekli', 'user', () => this.setMode('solo'));
+    this.segTeam = seg(centers[0], 1, 'Takım', 'team', () => this.setMode('team'));
+    this.segClassic = seg(centers[1], -1, 'Sıralı', 'list', () => this.setOrder('classic'));
+    this.segRandom = seg(centers[1], 1, 'Rastgele', 'dice', () => this.setOrder('random'));
+    this.segShort = seg(centers[2], -1, 'Kısa', 'bolt', () => this.setLength('short'));
+    this.segFull = seg(centers[2], 1, 'Tam', 'star', () => this.setLength('full'));
 
-    const play = new Button(this, GAME_W / 2, 412, 360, 104, 'OYNA', () => this.start(this.lastMode), UI.green, 44).setIcon(icon('play'), 50);
+    const play = new Button(this, GAME_W / 2, 412, 360, 104, 'OYNA', () => this.play(), UI.green, 44).setIcon(icon('play'), 50);
     this.tweens.add({ targets: play, scale: 1.03, duration: 900, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
     this.quickSub = txt(this, GAME_W / 2, 474, '', 20, UI.cream, 900).setOrigin(0.5, 0);
-    this.segHint = txt(this, GAME_W / 2, 504, '', 17, UI.muted, 800, { align: 'center', wordWrap: { width: 620 } }).setOrigin(0.5, 0);
-    const info = new Button(this, GAME_W / 2 + 354, y, 44, 44, '?', () => this.showHowTo(this.ruleOrder === 'random' ? 3 : 1), UI.slate, 20);
-    void info;
+    this.segHint = txt(this, GAME_W / 2, 504, '', 17, UI.muted, 800, { align: 'center' }).setOrigin(0.5, 0);
+    // kuralların ayrıntısı: ipucunun hemen yanında
+    this.hintInfo = new Button(this, 0, 515, 40, 40, '', () => this.showHowTo(this.ruleOrder === 'random' ? 3 : 1), UI.slate).setIcon(icon('book'), 20);
+  }
+
+  private setLength(l: GameLength) {
+    if (this.lastLength === l) return;
+    this.lastLength = l;
+    save('kut-last-length', l);
+    this.renderOrder();
   }
 
   private setMode(m: GameMode) {
@@ -327,31 +357,114 @@ export class MenuScene extends Phaser.Scene {
     this.segTeam.setSelected(team, UI.slate);
     this.segClassic.setSelected(!random, UI.slate);
     this.segRandom.setSelected(random, UI.slate);
-    this.quickSub.setText(team ? "2'ye 2 takım · karşındaki ortağın" : '1 kişi + 3 bot');
+    const short = this.lastLength === 'short';
+    this.segShort.setSelected(short, UI.slate);
+    this.segFull.setSelected(!short, UI.slate);
+    const rounds = short ? SHORT_ROUNDS : CONTRACTS.length;
+    this.quickSub.setText(`${team ? "2'ye 2 takım" : '1 kişi + 3 bot'} · ${rounds} el · ~${short ? 15 : 50} dk`);
     this.segHint.setText(
       random
-        ? 'Rastgele: her elin kuralı oranlarla çekilir · ilk el bile 5\'li seri olabilir'
-        : `Sıralı: ${CONTRACTS.length} el · 3'lü küt → … → elden bitme → çift eli`,
+        ? 'Rastgele: her elin kuralı oranlarla çekilir'
+        : short
+          ? "Sıralı kısa: 3'lü küt → 3'lü seri → 4'lü küt + 3'lü seri → 5'li seri → çift eli"
+          : `Sıralı: 3'lü küt → … → elden bitme → çift eli`,
     );
+    this.hintInfo.setX(GAME_W / 2 + this.segHint.width / 2 + 30);
+  }
+
+  // ------------------------------------------------------------ oyna / kaldığın yerden devam
+
+  /** OYNA: yarım kalan oyun varsa önce sorulur. */
+  private play() {
+    const saved = loadSave();
+    if (saved) this.showResume(saved.state, saved.at, true);
+    else this.start(this.lastMode);
+  }
+
+  private resume(state: GameState) {
+    haptic(12);
+    this.cameras.main.fadeOut(220, 7, 29, 21);
+    this.cameras.main.once('camerafadeoutcomplete', () => this.scene.start('table', { mode: state.mode, resume: state } satisfies TableData));
+  }
+
+  /**
+   * "Yarım kalan oyun" penceresi. fromPlay: OYNA'ya basıldı → "Yeni Oyun" seçeneği (kayıt silinir);
+   * menü açılışında → "Sonra" (kayıt durur).
+   */
+  private showResume(state: GameState, at: number, fromPlay: boolean, after?: () => void) {
+    this.overlay?.destroy();
+    const c = this.add.container(0, 0).setDepth(1000);
+    this.overlay = c;
+    c.add(this.add.rectangle(0, 0, GAME_W, GAME_H, 0x000000, 0.6).setOrigin(0).setInteractive());
+    const W = 560;
+    const H = 360;
+    const x0 = GAME_W / 2 - W / 2;
+    const y0 = GAME_H / 2 - H / 2;
+    const g = this.add.graphics();
+    panel(g, x0, y0, W, H, 22, UI.panel, 0.98, UI.gold, 1);
+    c.add(g);
+    c.add(header(this, GAME_W / 2, y0, 'YARIM KALAN OYUN'));
+    const close = () => {
+      c.destroy();
+      this.overlay = null;
+    };
+    const round = state.roundIndex - state.firstRound + 1;
+    const total = state.lastRound - state.firstRound + 1;
+    const rule = CONTRACTS[state.contractOrder[state.roundIndex]]?.name ?? '';
+    const me = state.players[0];
+    const place = state.players.filter((p) => p.score < me.score).length + 1;
+    const mins = Math.max(1, Math.round((Date.now() - at) / 60000));
+    const ago = mins < 60 ? `${mins} dk önce` : mins < 1440 ? `${Math.round(mins / 60)} saat önce` : `${Math.round(mins / 1440)} gün önce`;
+    const lines = [
+      `${state.mode === 'team' ? 'Takım' : 'Tekli'} · ${state.ruleOrder === 'random' ? 'Rastgele' : 'Sıralı'} · ${total} el`,
+      `El ${round} / ${total} · ${rule}`,
+      `Puanın ${me.score} · ${state.mode === 'team' ? '' : `${place}. sıradasın · `}${ago}`,
+    ];
+    c.add(txt(this, GAME_W / 2, y0 + 66, lines[0], 19, UI.muted, 900).setOrigin(0.5));
+    c.add(txt(this, GAME_W / 2, y0 + 110, lines[1], 26, '#ffffff', 900).setOrigin(0.5).setStroke('#06191b', 5));
+    c.add(txt(this, GAME_W / 2, y0 + 152, lines[2], 18, UI.cream, 800).setOrigin(0.5));
+    c.add(
+      new Button(this, GAME_W / 2, y0 + 228, 320, 68, 'Devam Et', () => {
+        close();
+        this.resume(state);
+      }, UI.green, 26).setIcon(icon('play'), 30),
+    );
+    if (fromPlay) {
+      c.add(
+        new Button(this, GAME_W / 2, y0 + 306, 320, 52, 'Yeni oyun başlat', () => {
+          clearSave();
+          close();
+          this.start(this.lastMode);
+        }, UI.slate, 18),
+      );
+    } else {
+      c.add(
+        new Button(this, GAME_W / 2, y0 + 306, 320, 52, 'Sonra', () => {
+          close();
+          after?.();
+        }, UI.slate, 18),
+      );
+    }
+    popIn(this, c);
   }
 
   // ------------------------------------------------------------ yan kartlar (okey taşı biçiminde)
 
   private buildSideCards() {
     const online = connection.available;
-    this.tileCard(156, 400, 'Online', 'Arkadaşlarınla\noda kur', 'globe', 0x8a55ec, online ? undefined : 'YAKINDA', 0, () => {
+    this.tileCard(146, 400, 'Online', 'Arkadaşlarınla\noda kur', 'globe', 0x8a55ec, online ? undefined : 'YAKINDA', 0, () => {
       const left = onlineLockLeft();
       if (left > 0) {
         const m = Math.floor(left / 60_000);
         const s = Math.ceil((left % 60_000) / 1000);
-        showBubble(this, 156, 262, `Çıkış cezası: ${m > 0 ? `${m} dk ` : ''}${s} sn`, UI.red, false);
+        showBubble(this, 146, 262, `Çıkış cezası: ${m > 0 ? `${m} dk ` : ''}${s} sn`, UI.red, false);
         sfx.error();
         return;
       }
       this.scene.start('lobby', {});
     });
     const done = load('kut-tutorial-done') === '1';
-    this.tileCard(1124, 400, 'Öğretici', 'Adım adım\nöğren', 'cap', 0xffa928, undefined, 1, () => this.startTutorial(), done ? undefined : '2 DK');
+    this.tileCard(1134, 400, 'Öğretici', 'Adım adım\nöğren', 'cap', 0xffa928, undefined, 1, () => this.startTutorial(), done ? undefined : '2 DK');
   }
 
   /** Büyük okey taşı gibi görünen kart: krem yüz, alt kalınlık, renkli ikon yuvarlağı. */
@@ -456,7 +569,7 @@ export class MenuScene extends Phaser.Scene {
     haptic(12);
     this.cameras.main.fadeOut(220, 7, 29, 21);
     this.cameras.main.once('camerafadeoutcomplete', () =>
-      this.scene.start('table', { mode, ruleOrder: this.ruleOrder, ...urlOptions() } satisfies TableData),
+      this.scene.start('table', { mode, ruleOrder: this.ruleOrder, length: this.lastLength, ...urlOptions() } satisfies TableData),
     );
   }
 

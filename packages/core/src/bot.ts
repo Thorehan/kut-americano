@@ -12,6 +12,27 @@ import { Tile, tilePenalty } from './tiles';
  * Her botun temkin düzeyi biraz farklıdır (koltuğa göre), böylece hepsi aynı oynamaz.
  */
 
+/**
+ * İnsansı hatalar (düşük olasılık): bot bazen
+ *  - işlek taşı korumayı unutup atar (ceza yer),
+ *  - rakip bitmek üzereyken okeyi pere koyması gerekirken elde tutar (el biterse +50),
+ *  - saklaması gereken okeyi gereksiz yere pere koyar (alınabilir yerde kalabilir).
+ */
+export const BOT_SLIP = { islek: 0.05, holdOkey: 0.08, carelessOkey: 0.06 };
+
+/**
+ * Hata zarı: oyun durumundan türetilir (aynı durum → aynı sonuç), böylece testler ve
+ * tekrar oynatmalar tutarlı kalır; deste her sırada değiştiği için zar da değişir.
+ */
+export function slipRoll(game: Game, seat: number, salt: number): number {
+  const s = game.state;
+  let h = (s.seed ^ Math.imul(s.roundIndex + 1, 73856093) ^ Math.imul(s.deck.length + 1, 19349663) ^ Math.imul(seat + 1, 83492791) ^ Math.imul(salt, 2654435761)) >>> 0;
+  h = Math.imul(h ^ (h >>> 16), 2246822507);
+  h = Math.imul(h ^ (h >>> 13), 3266489909);
+  h ^= h >>> 16;
+  return (h >>> 0) / 4294967296;
+}
+
 /** Bu koltuğun "tehlike" eşiği: rakip bu kadar ya da daha az taşa inince okeyini döker. */
 function caution(seat: number): number {
   return [4, 3, 5, 4][seat % 4];
@@ -96,7 +117,14 @@ export function decideBotAction(game: Game, seat: number): Action {
       // Önce çift okey (iki okeyi sona sakla), sonra tek okey planı
       const reserve = allJokers.length >= 2 && canFinishThisTurn(game, seat, 2) ? 2 : allJokers.length >= 1 && canFinishThisTurn(game, seat, 1) ? 1 : 0;
       const okeyFinish = reserve > 0;
-      const useAll = !okeyFinish && (canFinishThisTurn(game, seat) || inDanger(game, seat));
+      const canFinish = !okeyFinish && canFinishThisTurn(game, seat);
+      let useAll = !okeyFinish && (canFinish || inDanger(game, seat));
+      if (allJokers.length) {
+        // hata: tehlikede okeyi dökmesi gerekirken elde tutar (bitebilecekken değil)
+        if (useAll && !canFinish && slipRoll(game, seat, 2) < BOT_SLIP.holdOkey) useAll = false;
+        // hata: saklaması gerekirken okeyi gereksiz yere pere koyar
+        else if (!useAll && !okeyFinish && slipRoll(game, seat, 3) < BOT_SLIP.carelessOkey) useAll = true;
+      }
       const reservedSet = new Set(allJokers.slice(0, reserve));
       const usable = p.hand.filter((t) => !reservedSet.has(t) && (useAll || okeyFinish || !t.joker));
       const extra = findGreedyMelds(usable, usable.filter((t) => t.joker).length);
@@ -129,10 +157,10 @@ function hasDuplicate(hand: Tile[], t: Tile): boolean {
 }
 
 /** Taşın eldeki faydası: yüksek = tut, düşük = at. */
-export function usefulness(game: Game, seat: number, hand: Tile[], t: Tile, inMeld: Set<number>): number {
+export function usefulness(game: Game, seat: number, hand: Tile[], t: Tile, inMeld: Set<number>, forgetIslek = false): number {
   if (t.joker) return 1000;
-  // İşlek taş atmak +50 ceza: elde tut.
-  if (game.isIslek(t)) return 500;
+  // İşlek taş atmak +50 ceza: elde tut (hata zarında bazen unutur).
+  if (!forgetIslek && game.isIslek(t)) return 500;
   const p = game.state.players[seat];
   const c = game.contract;
   if (c.mode === 'ciftEli') return (hasDuplicate(hand, t) ? 50 : 0) - tilePenalty(t) * 0.1;
@@ -169,10 +197,12 @@ export function usefulness(game: Game, seat: number, hand: Tile[], t: Tile, inMe
 export function chooseDiscard(game: Game, seat: number): Tile {
   const hand = game.state.players[seat].hand;
   const inMeld = new Set(findGreedyMelds(hand, 0).flat().map((t) => t.id));
+  // hata: bu sırada işlek taşı korumayı unutur (son taşta zaten ceza yok)
+  const forget = hand.length > 1 && slipRoll(game, seat, 1) < BOT_SLIP.islek;
   let worst = hand[0];
   let worstScore = Infinity;
   for (const t of hand) {
-    const sc = usefulness(game, seat, hand, t, inMeld);
+    const sc = usefulness(game, seat, hand, t, inMeld, forget);
     if (sc < worstScore) {
       worst = t;
       worstScore = sc;

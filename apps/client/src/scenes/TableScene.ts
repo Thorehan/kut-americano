@@ -27,6 +27,7 @@ import {
   teamOf,
 } from '@kut/core';
 import { GameController, LocalController } from '../controller';
+import { clearSave } from '../savegame';
 import { connection } from '../net/connection';
 import {
   BTN,
@@ -200,6 +201,8 @@ export class TableScene extends Phaser.Scene {
         ruleOrder: this.mode.ruleOrder,
         tutorial: this.mode.tutorial,
         preview: this.mode.preview,
+        length: this.mode.length,
+        restore: this.mode.resume,
       });
     if (this.mode.tutorial) {
       const stage = this.mode.tutorial === 'okey' ? 'okey' : 'basic';
@@ -2013,7 +2016,7 @@ export class TableScene extends Phaser.Scene {
       c.add(new Button(this, cx - 190, by, 250, 62, 'Lobiye Dön', () => this.scene.start('lobby', {}), UI.green, 21).setIcon(icon('globe'), 28));
     } else {
       c.add(
-        new Button(this, cx - 190, by, 250, 62, 'Yeni Oyun', () => this.scene.restart({ mode: this.mode.mode, ruleOrder: this.mode.ruleOrder }), UI.green, 21).setIcon(
+        new Button(this, cx - 190, by, 250, 62, 'Yeni Oyun', () => this.scene.restart({ mode: this.s.mode, ruleOrder: this.s.ruleOrder, length: this.s.length ?? 'full' } satisfies TableData), UI.green, 21).setIcon(
           icon('play'),
           28,
         ),
@@ -2152,6 +2155,8 @@ export class TableScene extends Phaser.Scene {
   }
 
   private leaveMatch() {
+    // botlu oyundan bilerek çıkış: yarım oyun kaydı silinir ("ilerlemen kaybolur")
+    if (!this.ctrl.online && !this.tutorial && !this.mode.preview) clearSave();
     if (this.leaveIsPenalized) {
       const pen = recordLeave();
       this.registry.set('leavePenalty', pen);

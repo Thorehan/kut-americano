@@ -25,7 +25,7 @@ describe('rastgele mod oranları', () => {
       expect(n).toBeGreaterThan(0);
       expect(Math.abs((n / N) * 100 - RANDOM_WEIGHTS[i])).toBeLessThan(1.5);
     });
-    expect(first[8]).toBeGreaterThan(0); // 5'li seri ilk el olabilir
+    expect(first[CONTRACTS.findIndex((c) => c.name === "5'li Seri")]).toBeGreaterThan(0); // 5'li seri ilk el olabilir
   });
 });
 

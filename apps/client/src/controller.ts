@@ -1,4 +1,5 @@
-import { Action, Game, GameEvent, GameMode, GameState, RuleOrder, ServerMsg, decideBotAction } from '@kut/core';
+import { Action, Game, GameEvent, GameLength, GameMode, GameState, RuleOrder, ServerMsg, decideBotAction } from '@kut/core';
+import { writeSave } from './savegame';
 import { Connection } from './net/connection';
 import { TutorialStage, setupTutorialGame, tutorialBotAction } from './tutorial';
 import { profile } from './profile';
@@ -33,6 +34,10 @@ export interface ControllerOptions {
   preview?: PreviewSpec;
   /** Bot hızı çarpanı (1 = normal). */
   speed?: number;
+  /** Kısa (5 el) / tam (15 el). */
+  length?: GameLength;
+  /** Kayıttan sürdürülecek oyun (kaldığın yerden devam). */
+  restore?: GameState;
 }
 
 /** Yerel oyun: insanın hamlelerini motora iletir, botları gecikmeli oynatır. */
@@ -56,7 +61,10 @@ export class LocalController implements GameController {
       opts.mode === 'team' ? { avatar: '🤝', color: me.color } : { avatar: '🎲', color: grey },
       { avatar: '👾', color: grey },
     ];
-    if (opts.tutorial) {
+    if (opts.restore) {
+      this.game = Game.restore(opts.restore);
+      this.autosave = true;
+    } else if (opts.tutorial) {
       this.game = new Game({ mode: 'solo', names, seed: 7, startRound: 0, endRound: 0, profiles });
       setupTutorialGame(this.game, opts.tutorial === 'okey' ? 'okey' : 'basic');
       this.tutorial = true;
@@ -65,10 +73,15 @@ export class LocalController implements GameController {
       this.game = new Game({ mode: 'solo', names, seed: 11, startRound: r, endRound: r, profiles });
       setupPreviewGame(this.game, opts.preview);
     } else {
-      this.game = new Game({ mode: opts.mode, names, seed: opts.seed, startRound: opts.startRound, ruleOrder: opts.ruleOrder, profiles });
+      this.game = new Game({ mode: opts.mode, names, seed: opts.seed, startRound: opts.startRound, ruleOrder: opts.ruleOrder, length: opts.length, profiles });
+      this.autosave = true;
+      writeSave(this.game.state); // yeni oyun eski yarım oyunun yerine geçer
     }
     this.speed = opts.speed ?? 1;
   }
+
+  /** Öğretici ve önizleme dışında her hamleden sonra kaydedilir. */
+  private autosave = false;
 
   onChange(fn: ChangeListener) {
     this.listeners.add(fn);
@@ -98,6 +111,7 @@ export class LocalController implements GameController {
   }
 
   private emit(events: GameEvent[]) {
+    if (this.autosave && !this.destroyed) writeSave(this.game.state);
     for (const l of this.listeners) l(events);
   }
 

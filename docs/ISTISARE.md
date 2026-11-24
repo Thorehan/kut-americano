@@ -290,3 +290,27 @@ Botlar sadece açık bilgiyle (kendi eli, masa, atılan taşlar, rakiplerin taş
 - **Apple 4.2 "asgari işlevsellik":** web sitesini uygulamaya saran kabuklar reddedilebiliyor. Bizim artımız gerçek bir oyun olması; yine de çevrimdışı oynanabilirlik, titreşim, bildirim gibi yerel özellikler eklenecek.
 - **12 test kullanıcısı / 14 gün:** kişisel Play hesabı için zorunlu; test kullanıcıları oyunu gerçekten açmalı.
 - **Hedef API:** Play, yeni uygulamaların güncel Android sürümünü hedeflemesini istiyor; Capacitor'ın güncel sürümüyle karşılanacak.
+
+## 14. Son sürüm istişaresi: içerik ve UI/UX (karar: 2026-11-24)
+
+Oynanış oturdu; mağaza sürümünden önce içerik ve kullanım deneyimi tamamlanacak.
+
+### Kararlar
+| Konu | Karar |
+|---|---|
+| **Oyun süresi** | **Kısa (5 el, ~15 dk)** ve **Tam (15 el)**. Kısa + Sıralı: 3'lü Küt → 3'lü Seri → 4'lü Küt + 3'lü Seri → 5'li Seri → Çift Eli. Kısa + Rastgele: 5 el oranlarla çekilir. |
+| **Botlar** | Tek bot çeşidi, ama **düşük olasılıkla insansı hatalar**: işlek taşı atmak, okeyi elde gereksiz tutmak, okeyi alınabilecek (kilitlenmemiş) bir yere koymak. |
+| **Görevler** | **Günlük görevler basit** (ör. 1 oyun oyna, 2 el bitir, 1 video izle); zor olanlar (ör. okeyle bit) **haftalık görev**. 7 günlük giriş takvimi ve günlük video ile KP kazanma sürer. |
+| **Rozetler** | 8 → ~20 rozet. |
+| **Kozmetik** | Taş arkası desenleri ve avatar çerçeveleri (mağazada KP ile). |
+| **İstatistik** | Profilde kural bazında istatistik (açma, bitirme). |
+| **Dil** | **Türkçe + İngilizce** (ayarlardan seçilir). Metinler içerik işinden sonra çevrilir. |
+
+### Denetimde bulunan UX eksikleri (karar gerektirmeden yapılacak)
+- **Kaldığın yerden devam:** uygulama kapanınca (arama, sistemin kapatması) yarım kalan yerel oyun kayboluyordu → her hamlede kaydedilir, menüde "Devam et" sorulur.
+- Eski görünümde kalan ekranlar: el başı şeridi, yan taş isteği penceresi, balon bildirimleri, açılıştaki boş ekran.
+
+### Uygulama sırası
+1. Kaldığın yerden devam · kısa oyun · bot hataları
+2. Günlük/haftalık görevler · rozetler · kozmetikler · kural istatistikleri · kalan eski ekranlar
+3. İngilizce

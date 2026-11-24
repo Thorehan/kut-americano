@@ -1,4 +1,4 @@
-import { CONTRACTS, Contract, Requirement, RuleOrder, randomContractOrder } from './contracts';
+import { CONTRACTS, Contract, GameLength, Requirement, RuleOrder, SHORT_ORDER, SHORT_ROUNDS, randomContractOrder } from './contracts';
 import { Meld, MeldShape, addPosition, asCift, asKut, asSeri, jokerSwapIndex, withJokerSwapped, withTile, MELD_NAMES } from './melds';
 import { mulberry32, shuffle } from './rng';
 import { Tile, createTileSet, tileName, tilePenalty } from './tiles';
@@ -75,6 +75,8 @@ export interface GameState {
   jokerCount: number;
   /** Kural sırası: klasik (1→15) ya da rastgele. */
   ruleOrder: RuleOrder;
+  /** Oyun uzunluğu (kısa 5 el / tam 15 el). Eski kayıtlarda yok → tam. */
+  length?: GameLength;
   /** Her elin kuralı (CONTRACTS indeksleri), roundIndex ile okunur. */
   contractOrder: number[];
   firstRound: number;
@@ -158,6 +160,8 @@ export interface GameOptions {
   endRound?: number;
   /** 'random': her elin kuralı oranlarla rastgele seçilir. */
   ruleOrder?: RuleOrder;
+  /** 'short': 5 el (mobilde kısa oturum) · 'full': 15 el. */
+  length?: GameLength;
 }
 
 export function teamOf(seat: number): number {
@@ -201,19 +205,34 @@ export class Game {
     return g;
   }
 
+  /**
+   * Kaydedilmiş bir yerel oyunu sürdürür (uygulama kapanıp açılınca). Süren el aynen devam eder
+   * (deste durumda kayıtlı); sonraki ellerin dağıtımı yeni bir tohumla yapılır.
+   */
+  static restore(state: GameState): Game {
+    const g = Object.create(Game.prototype) as Game;
+    g.state = state;
+    g.rand = mulberry32(Math.floor(Math.random() * 2 ** 31));
+    g.nextMeldId = state.melds.reduce((m, x) => Math.max(m, x.id), 0) + 1;
+    return g;
+  }
+
   constructor(opts: GameOptions = {}) {
     const seed = opts.seed ?? Math.floor(Math.random() * 2 ** 31);
     this.rand = mulberry32(seed);
     const names = opts.names ?? ['Sen', 'Bot 1', 'Bot 2', 'Bot 3'];
     const bots = opts.bots ?? [false, true, true, true];
-    const firstRound = Math.max(0, Math.min(opts.startRound ?? 0, CONTRACTS.length - 1));
-    const lastRound = Math.max(firstRound, Math.min(opts.endRound ?? CONTRACTS.length - 1, CONTRACTS.length - 1));
+    const short = opts.length === 'short';
+    const order = opts.ruleOrder === 'random' ? randomContractOrder(this.rand, short ? SHORT_ROUNDS : CONTRACTS.length) : short ? SHORT_ORDER.slice() : CONTRACTS.map((_, i) => i);
+    const firstRound = Math.max(0, Math.min(opts.startRound ?? 0, order.length - 1));
+    const lastRound = Math.max(firstRound, Math.min(opts.endRound ?? order.length - 1, order.length - 1));
     this.state = {
       mode: opts.mode ?? 'solo',
       seed,
       jokerCount: opts.jokerCount ?? 2,
       ruleOrder: opts.ruleOrder ?? 'classic',
-      contractOrder: opts.ruleOrder === 'random' ? randomContractOrder(this.rand) : CONTRACTS.map((_, i) => i),
+      length: short ? 'short' : 'full',
+      contractOrder: order,
       firstRound,
       lastRound,
       roundIndex: firstRound,
